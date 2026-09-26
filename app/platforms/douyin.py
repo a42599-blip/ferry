@@ -314,48 +314,42 @@ class DouyinResolver(YtDlpResolver):
 
         fmts: list[Format] = []
         seen: set[str] = set()
-        seen_h: set = set()
 
-        # ① bit_rate[]（多畫質）
+        # ① bit_rate[]（多畫質）→ 依高度分組，每個高度只留最高碼率那一個
+        buckets: dict[int, tuple[int, dict]] = {}
         for br in video.get("bit_rate") or []:
             addr = (br.get("play_addr") or {}).get("url_list") or []
             if not addr:
                 continue
-            u = addr[0]
-            if u in seen:
-                continue
-            seen.add(u)
-
             h = int(br.get("height") or 0)
             w = int(br.get("width") or 0)
             gear = br.get("gear_name") or ""
+            kbps = int(br.get("bit_rate") or 0) // 1000
             if not h:
                 # gear_name 例如 `normal_1080_0` / `adapt_lowest_1440_1` / `adapt_lowest_4_1`
-                # → 取「看起來像高度」的那個數字（240~4320），否則用寬度推
                 nums = [int(x) for x in re.findall(r"\d+", gear)]
                 cand = [n for n in nums if 240 <= n <= 4320]
-                h = cand[0] if cand else (round(w * 9 / 16 / 2) * 2 if w else 0)
-                if not h and nums:
-                    # 1501/1801 這類是 bitrate(kbps) 不是高度 → 用 bit_rate 推
-                    kbps = int(br.get("bit_rate") or 0) // 1000
+                if cand:
+                    h = cand[0]
+                elif w:
+                    h = round(w * 9 / 16 / 2) * 2
+                else:
                     h = 1080 if kbps >= 1600 else 720 if kbps >= 1000 else 480
-            key = f"{h or 0}-{gear}"
-            if key in seen_h:
-                continue
-            seen_h.add(key)
+            prev = buckets.get(h)
+            if prev is None or kbps > prev[0]:
+                buckets[h] = (kbps, br)
 
-            fmts.append(
-                Format(
-                    id=f"v{h}" if h else f"br{len(fmts)}",
-                    label=quality_label(h) if h else (gear or "原畫"),
-                    url=u,
-                    height=h or None,
-                    width=br.get("width") or None,
-                    size=br.get("data_size") or None,
-                    quality_score=h or (int(br.get("bit_rate") or 0) // 1000) or 50,
-                    mode="fetch",
-                )
-            )
+        for h in sorted(buckets, reverse=True):
+            kbps, br = buckets[h]
+            u = (br.get("play_addr") or {}).get("url_list", [""])[0]
+            if u in seen:
+                continue
+            seen.add(u)
+            fmts.append(Format(
+                id=f"v{h}", label=quality_label(h), url=u,
+                height=h, width=br.get("width") or None,
+                size=br.get("data_size") or None, quality_score=h, mode="fetch",
+            ))
 
         # ② play_addr（原畫）
         for key in ("play_addr", "download_addr"):
