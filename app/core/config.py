@@ -66,5 +66,19 @@ class Settings:
     # （抖音要走真瀏覽器，約 10～25 秒，所以給到 60）
     resolve_timeout: int = field(default_factory=lambda: _env_int("RESOLVE_TIMEOUT", 60))
 
+    # 資料（SQLite）。Railway 正式站請掛 Volume 並指向它（例：/data）
+    data_dir: str = field(default_factory=lambda: os.getenv("DATA_DIR", ""))
+
+    # 後台
+    admin_user: str = field(default_factory=lambda: os.getenv("ADMIN_USER", "admin"))
+    admin_password: str = field(
+        default_factory=lambda: os.getenv("ADMIN_PASSWORD", "ferry-admin")
+    )
+    admin_token_ttl: int = field(default_factory=lambda: _env_int("ADMIN_TOKEN_TTL", 43200))
+    # 通知收件人（逗號分隔；可在後台改）
+    notify_emails: str = field(
+        default_factory=lambda: os.getenv("NOTIFY_EMAILS", "a42599@gmail.com")
+    )
+
 
 settings = Settings()

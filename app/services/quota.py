@@ -10,16 +10,15 @@
 """
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta, timezone
 
 from ..core.config import settings
 from ..core.errors import QuotaExceeded
+from ..core import db
 
 # kind: "download" | "transfer"
 _KINDS = ("download", "transfer")
-
-# key: (kind, subject, date_key) -> count     subject＝裝置ID 或 會員ID 或 IP
-_counts: dict[tuple[str, str, str], int] = {}
 
 
 def _date_key(tz_name: str = "Asia/Taipei", now: datetime | None = None) -> str:
@@ -43,7 +42,14 @@ def daily_limit(kind: str) -> int:
 
 
 def used(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> int:
-    return _counts.get((kind, subject, _date_key(tz_name)), 0)
+    try:
+        return int(db.scalar(
+            "SELECT count FROM quotas WHERE kind=? AND subject=? AND date_key=?",
+            (kind, subject, _date_key(tz_name)),
+            default=0,
+        ))
+    except Exception:  # noqa: BLE001 — DB 壞掉時不能讓使用者不能用
+        return 0
 
 
 def remaining(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> int:
@@ -58,11 +64,20 @@ def consume(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
         raise ValueError(f"unknown quota kind: {kind}")
 
     dk = _date_key(tz_name)
-    if settings.free_limit_enabled:
-        cur = _counts.get((kind, subject, dk), 0)
+    if settings.free_limit_enabled and not _is_paid(subject):
+        cur = used(kind, subject, tz_name=tz_name)
         if cur >= daily_limit(kind):
             raise QuotaExceeded("今天的免費次數用完了，明天 00:00 重新開始")
-        _counts[(kind, subject, dk)] = cur + 1
+        try:
+            db.execute(
+                "INSERT INTO quotas(kind, subject, date_key, count, tz, updated_at)"
+                " VALUES(?,?,?,1,?,?)"
+                " ON CONFLICT(kind, subject, date_key)"
+                " DO UPDATE SET count=count+1, updated_at=excluded.updated_at",
+                (kind, subject, dk, tz_name, time.time()),
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
     return {
         "kind": kind,
@@ -75,8 +90,18 @@ def consume(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
 
 
 def _is_paid(subject: str) -> bool:
-    """是否為付費會員（預留接口）。現在一律 False，等 billing 模組接上。"""
-    return False
+    """是否為付費會員（預留接口，接上 billing 後就生效）。"""
+    try:
+        from . import billing
+
+        return billing.is_unlimited(subject)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def reset_all() -> None:
+    """後台用：清空所有次數計數。"""
+    db.execute("DELETE FROM quotas")
 
 
 def status(subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
