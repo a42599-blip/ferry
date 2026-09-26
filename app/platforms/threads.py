@@ -16,6 +16,7 @@ import re
 from ..core.errors import PlatformChanged, PlatformError
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
+from ._ssr import render_html
 from .base import Resolver
 
 _URL_RE = re.compile(r"https?://(?:www\.)?(?:threads\.net|threads\.com)/", re.I)
@@ -34,14 +35,31 @@ class ThreadsResolver(Resolver):
         return bool(_URL_RE.search(url))
 
     async def resolve(self, url: str) -> VideoInfo:
-        headers = {
-            "User-Agent": _UA,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
-        }
-        async with HttpClient(ua=_UA, timeout=25) as http:
-            resp = await http.get(url, headers=headers)
-            page = resp.text
+        # ① 先用真瀏覽器渲染（Threads 的資料只在渲染後才有）
+        page = ""
+        try:
+            page = await render_html(
+                url,
+                context_key="threads",
+                wait_for=["video_versions", "og:video"],
+                tries=25,
+                user_agent=_UA,
+            )
+        except Exception:  # noqa: BLE001 — 退回純 HTTP
+            page = ""
+
+        # ② 退回純 HTTP（部分公開貼文其實直接抓就有）
+        if not page or "video_versions" not in page:
+            headers = {
+                "User-Agent": _UA,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+            }
+            async with HttpClient(ua=_UA, timeout=25) as http:
+                resp = await http.get(url, headers=headers)
+                plain = resp.text
+            if "video_versions" in plain or not page:
+                page = plain
 
         title = _meta(page, "og:title") or _meta(page, "twitter:title") or "Threads 貼文"
         cover = _meta(page, "og:image") or _meta(page, "twitter:image") or ""

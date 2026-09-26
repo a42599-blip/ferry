@@ -13,6 +13,7 @@ import re
 from ..core.errors import PlatformChanged, PlatformError
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
+from ._ssr import render_html
 from ._ytdlp import YtDlpResolver
 
 _URL_RE = re.compile(r"https?://(?:www\.|m\.)?xiaohongshu\.com/|https?://xhslink\.com/", re.I)
@@ -39,9 +40,26 @@ class XiaohongshuResolver(YtDlpResolver):
             return await self._resolve_html(url)
 
     async def _resolve_html(self, url: str) -> VideoInfo:
-        headers = {"User-Agent": _XHS_UA, "Referer": "https://www.xiaohongshu.com/"}
-        async with HttpClient(ua=_XHS_UA) as http:
-            html = await http.get_text(url, headers=headers)
+        # 先用真瀏覽器渲染（小紅書的筆記資料在渲染後才有；純 HTTP 多為空殼）
+        html = ""
+        try:
+            html = await render_html(
+                url,
+                context_key="xiaohongshu",
+                wait_for=["__INITIAL_STATE__", "masterUrl", "originVideoKey"],
+                tries=25,
+                user_agent=_XHS_UA,
+            )
+        except Exception:  # noqa: BLE001
+            html = ""
+
+        if "masterUrl" not in html and "originVideoKey" not in html:
+            headers = {"User-Agent": _XHS_UA, "Referer": "https://www.xiaohongshu.com/"}
+            async with HttpClient(ua=_XHS_UA) as http:
+                try:
+                    html = await http.get_text(url, headers=headers)
+                except Exception:  # noqa: BLE001
+                    pass
 
         # 頁面內嵌 JSON：window.__INITIAL_STATE__
         m = re.search(r"window\.__INITIAL_STATE__\s*=\s*(\{.*?\})\s*</script>", html, re.S)
