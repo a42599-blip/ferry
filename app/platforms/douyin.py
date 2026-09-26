@@ -85,13 +85,16 @@ class DouyinResolver(YtDlpResolver):
             except Exception:  # noqa: BLE001 — 沒載完也可能已有資料
                 pass
             html = ""
+            # ⚠️ 要等到「指定的那一支」出現，不能只等 bitRateList
+            #    （抖音對載不出來的 ID 會直接顯示推薦影片，那是錯的資料）
+            marker = f'"awemeId":"{aweme_id}"' if aweme_id else "bitRateList"
             for _ in range(50):                      # 最多等 20 秒
                 await asyncio.sleep(0.4)
                 try:
                     html = await page.content()
                 except Exception:  # noqa: BLE001 — 頁面正在換頁
                     continue
-                if "bitRateList" in html or "playAddr" in html:
+                if marker in html:
                     break
         finally:
             try:
@@ -102,14 +105,10 @@ class DouyinResolver(YtDlpResolver):
         if not html or ("bitRateList" not in html and "playAddr" not in html):
             return None
 
-        # ⚠️ 關鍵：確認頁面資料真的屬於「我們要的那一支」。
+        # ⚠️ 再確認一次：頁面資料真的屬於「我們要的那一支」。
         #    抖音對無效 ID 會直接顯示推薦影片（會拿到錯的影片），必須擋掉。
-        if aweme_id:
-            ids = set(re.findall(r'"awemeId":"(\d{15,25})"', html))
-            if ids and aweme_id not in ids:
-                return None
-            if not ids:
-                return None
+        if aweme_id and f'"awemeId":"{aweme_id}"' not in html:
+            return None
 
         return self._parse_ssr(url, html)
 
