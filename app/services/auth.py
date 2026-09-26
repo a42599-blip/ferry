@@ -73,9 +73,3 @@ def _device_id(request=None) -> str:
             return f"ip:{client.host}"
     return "dev:anonymous"
 
-
-def is_member(request=None) -> bool:
-    """是否為登入會員（預留：給 quota 的「無限次」判斷用）。"""
-    if not enabled():
-        return False
-    return current_subject(request).startswith("user:")

@@ -18,10 +18,9 @@ import os
 import smtplib
 import time
 from email.message import EmailMessage
-from typing import Any, Optional
+from typing import Any
 
 from ..core import db
-from ..core.config import settings
 
 # ── 事件定義（key -> 標題 / 嚴重度 / 可否關閉）──────────
 EVENTS: dict[str, dict[str, Any]] = {

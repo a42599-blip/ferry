@@ -78,14 +78,3 @@ class HttpClient:
         resp.raise_for_status()
         return resp.json()
 
-
-def default_headers(extra: Optional[dict[str, str]] = None) -> dict[str, str]:
-    """常用的請求標頭（平台模組可再增補）。"""
-    h = {
-        "User-Agent": settings.user_agent,
-        "Accept": "*/*",
-        "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
-    }
-    if extra:
-        h.update(extra)
-    return h

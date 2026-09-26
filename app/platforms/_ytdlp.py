@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import asyncio
-import re
 from typing import Any, Optional
 
 import yt_dlp

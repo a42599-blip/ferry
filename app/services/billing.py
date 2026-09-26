@@ -21,7 +21,7 @@ import json
 import os
 import secrets
 import time
-from typing import Any, Optional
+from typing import Any
 
 from ..core import db
 from ..core.errors import AppError, BadRequest

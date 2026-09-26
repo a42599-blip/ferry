@@ -9,7 +9,7 @@ from __future__ import annotations
 import html as html_mod
 import re
 
-from ..core.errors import PlatformChanged, PlatformError
+from ..core.errors import PlatformChanged
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
 from .base import Resolver

@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=4">
+<link rel="stylesheet" href="/style.css?v=5">
 </head>
 <body>
 
@@ -30,7 +30,7 @@
   <span class="ctx" id="ctx"></span>
   <div class="right">
     <span class="hide-sm" data-i18n="topline">不上傳　不儲存　免安裝</span>
-    <button class="dim" data-tab="member" data-i18n="nav_member" id="member-link">會員</button>
+    <button class="dim" data-tab="member" data-i18n="nav_member">會員</button>
     <span class="lang" id="lang">
       <button data-lang="zh-Hant" class="on">繁</button>
       <button data-lang="zh-Hans">簡</button>
@@ -225,13 +225,24 @@
   <button data-tab="member" data-i18n="nav_member">會員</button>
 </footer>
 
-<script src="/sha256.js?v=4"></script>
-<script src="/app.js?v=4"></script>
-<script src="/transfer.js?v=4"></script>
+<script src="/sha256.js?v=5"></script>
+<script src="/app.js?v=5"></script>
+<script src="/transfer.js?v=5"></script>
 <script>
-if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
-}
+// 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）
+(function () {
+  if (!('serviceWorker' in navigator) || location.protocol !== 'https:') return;
+  navigator.serviceWorker.register('/sw.js').then(function (reg) {
+    reg.update().catch(function () {});
+    if (reg.waiting) reg.waiting.postMessage({ type: 'skip' });
+  }).catch(function () {});
+  var reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (reloaded) return;
+    reloaded = true;
+    location.reload();
+  });
+})();
 </script>
 </body>
 </html>

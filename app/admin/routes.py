@@ -267,8 +267,6 @@ async def quota_reset(_: dict = Depends(require_admin)) -> dict:
 # ── 健康檢查（每平台實測一輪）─────────────────────────
 @router.post("/health/run")
 async def health_run(_: dict = Depends(require_admin)) -> dict:
-    from ..services import resolve_service
-
     out: list[dict[str, Any]] = []
     for r in registry.all_platforms():
         sample = None

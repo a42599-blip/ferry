@@ -62,8 +62,3 @@ def sign(params: dict[str, Any], img_key: str, sub_key: str,
     signed["w_rid"] = _md5(query + mixin)
     return signed
 
-
-def sign_query(params: dict[str, Any], img_key: str, sub_key: str,
-               *, wts: int | None = None) -> str:
-    signed = sign(params, img_key, sub_key, wts=wts)
-    return urllib.parse.urlencode(sorted(signed.items()))

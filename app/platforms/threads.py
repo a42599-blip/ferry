@@ -13,7 +13,7 @@ import html as html_mod
 import json
 import re
 
-from ..core.errors import PlatformChanged, PlatformError
+from ..core.errors import PlatformChanged
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
 from ._ssr import render_html

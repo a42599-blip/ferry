@@ -18,7 +18,6 @@ import time
 from typing import Any, Optional
 
 from ..core import db
-from ..core.config import settings
 from . import events, notify
 
 CHECK_INTERVAL = 300          # 5 分鐘檢查一次

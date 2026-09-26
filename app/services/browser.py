@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Optional
+from typing import Any
 
 _lock = asyncio.Lock()
 _ctx_lock = asyncio.Lock()
@@ -104,9 +104,3 @@ async def close() -> None:
             pass
         _playwright = None
 
-
-def is_running() -> bool:
-    try:
-        return _browser is not None and _browser.is_connected()
-    except Exception:  # noqa: BLE001
-        return False

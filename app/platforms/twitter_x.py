@@ -13,7 +13,7 @@ import re
 from ..core.errors import PlatformError
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
-from ._ytdlp import YtDlpResolver, quality_label
+from ._ytdlp import YtDlpResolver
 
 _SYNDICATION = "https://cdn.syndication.twimg.com/tweet-result"
 _URL_RE = re.compile(

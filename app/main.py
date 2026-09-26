@@ -21,7 +21,7 @@ from .core import db
 from .core.errors import AppError
 from .core.http import HttpClient
 from .core import timezone as tz_util
-from .services import auth, downloader, events, flags, monitor, notify, quota, resolve_service
+from .services import auth, downloader, events, flags, monitor, quota, resolve_service
 from .services.transfer import router as transfer_router
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -256,3 +256,21 @@ app.include_router(member_router)
 # ── 前端（靜態檔）────────────────────────────────────
 if os.path.isdir(STATIC_DIR):
     app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+
+
+# ── 防快取：程式碼與頁面一律「重新驗證」，避免使用者卡在舊版 ──
+_NO_CACHE_EXT = (".html", ".js", ".css", ".json", ".webmanifest")
+
+
+@app.middleware("http")
+async def _cache_control(request: Request, call_next):
+    response = await call_next(request)
+    try:
+        path = request.url.path
+        if path in ("/", "/admin", "/admin/") or path.endswith(_NO_CACHE_EXT):
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        elif path.startswith(("/logos/", "/favicon", "/icon")):
+            response.headers["Cache-Control"] = "public, max-age=604800"
+    except Exception:  # noqa: BLE001
+        pass
+    return response

@@ -47,12 +47,12 @@ def register(email: str, password: str, *, device_id: str | None = None,
              tz: str | None = None) -> dict:
     email = (email or "").strip().lower()
     if "@" not in email or len(email) < 6:
-        raise BadRequest("Email 格式不正確")
+        raise BadRequest("Email 格式不正確", code="BAD_EMAIL")
     if len(password or "") < 6:
-        raise BadRequest("密碼至少 6 個字")
+        raise BadRequest("密碼至少 6 個字", code="WEAK_PASSWORD")
 
     if db.one("SELECT id FROM members WHERE email = ?", (email,)):
-        raise BadRequest("這個 Email 已經註冊過了")
+        raise BadRequest("這個 Email 已經註冊過了", code="EMAIL_TAKEN")
 
     mid = "u_" + secrets.token_hex(8)
     db.execute(
@@ -71,7 +71,7 @@ def login(email: str, password: str, *, device_id: str | None = None) -> dict:
     email = (email or "").strip().lower()
     row = db.one("SELECT * FROM members WHERE email = ?", (email,))
     if row is None or not _verify(password or "", row["password"] or ""):
-        raise BadRequest("Email 或密碼錯誤")
+        raise BadRequest("Email 或密碼錯誤", code="BAD_CREDENTIALS")
     if device_id:
         db.execute("UPDATE members SET device_id=? WHERE id=?", (device_id, row["id"]))
     from . import events

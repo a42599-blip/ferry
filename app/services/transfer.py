@@ -66,7 +66,7 @@ def _check_fails(src: str) -> None:
     hist = [t for t in _fails.get(src, []) if now - t < FAIL_WINDOW]
     _fails[src] = hist
     if len(hist) >= MAX_JOIN_FAILS:
-        raise BadRequest("配對碼錯誤次數過多，請稍後再試")
+        raise BadRequest("配對碼錯誤次數過多，請稍後再試", code="PAIRING_RATE")
 
 
 def _mark_fail(src: str) -> None:
@@ -132,10 +132,10 @@ async def join(body: JoinIn):
         room = _rooms.get(body.code)
         if room is None:
             _mark_fail(body.peer_id)
-            raise BadRequest("配對碼不存在或已過期")
+            raise BadRequest("配對碼不存在或已過期", code="PAIRING_NOT_FOUND")
         # 房間滿了（第 3 台）
         if len(room.peers) >= 2 and body.peer_id not in room.peers:
-            raise BadRequest("這個配對碼已經有兩台裝置了")
+            raise BadRequest("這個配對碼已經有兩台裝置了", code="PAIRING_FULL")
     else:
         room = Room(code=_new_code(), created_at=time.time())
         _rooms[room.code] = room
@@ -165,10 +165,10 @@ async def pair(body: PairIn):
     _cleanup()
     target = _presence.get(body.target)
     if target is None:
-        raise BadRequest("對方的裝置目前不在線上，請改用 6 位碼")
+        raise BadRequest("對方的裝置目前不在線上，請改用 6 位碼", code="PAIRING_NOT_FOUND")
     room = _rooms.get(target["code"])
     if room is None:
-        raise BadRequest("配對已過期，請重新產生配對碼")
+        raise BadRequest("配對已過期，請重新產生配對碼", code="PAIRING_NOT_FOUND")
     room.peers.setdefault(body.peer_id, [])
     _presence[body.peer_id] = {"code": room.code, "at": time.time()}
     _remember_pair(body.peer_id, body.target)
@@ -182,7 +182,7 @@ async def pair(body: PairIn):
 async def send(body: SignalIn):
     room = _rooms.get(body.code)
     if room is None:
-        raise BadRequest("配對碼不存在或已過期")
+        raise BadRequest("配對碼不存在或已過期", code="PAIRING_NOT_FOUND")
     _presence[body.from_peer] = {
         "code": body.code, "at": time.time(),
         "name": _presence.get(body.from_peer, {}).get("name", ""),
@@ -196,7 +196,7 @@ async def send(body: SignalIn):
 async def poll(code: str, peer_id: str):
     room = _rooms.get(code)
     if room is None:
-        raise BadRequest("配對碼不存在或已過期")
+        raise BadRequest("配對碼不存在或已過期", code="PAIRING_NOT_FOUND")
     _presence[peer_id] = {
         "code": code, "at": time.time(),
         "name": _presence.get(peer_id, {}).get("name", ""),

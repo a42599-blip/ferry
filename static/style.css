@@ -33,7 +33,7 @@ button,input,select{font-family:var(--font);font-size:inherit;color:inherit}
 button{background:none;border:0;cursor:pointer}
 a{color:inherit;text-decoration:none}
 .br{font-family:var(--brnd);font-weight:500}
-.fra,.num{font-family:var(--num);font-variant-numeric:tabular-nums}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums}
 .lbl{font-size:10.5px;letter-spacing:.18em;color:var(--lab)}
 .dim{color:var(--dim)}
 .acc{color:var(--acc)}
@@ -181,7 +181,6 @@ ol.steps{margin:10px 0 0 18px;font-size:12.5px;line-height:1.95;color:#CFD3D8}
   font-size:12.5px;line-height:1.7}
 .msg.err{border-left-color:var(--err);color:#F0D6CF}
 .msg.ok{border-left-color:var(--ok)}
-.err-only{color:var(--err)}
 
 /* ── 電腦版（≥900px）：三欄 ───────────────────── */
 @media (min-width:900px){
@@ -222,3 +221,18 @@ ol.steps{margin:10px 0 0 18px;font-size:12.5px;line-height:1.95;color:#CFD3D8}
   .pv{flex:1 1 auto;min-height:170px}
   #p-download .o-plats{padding-top:16px}
 }
+
+/* ── 無障礙與品質底線 ─────────────────────────── */
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+input:focus{outline:none;border-color:var(--acc)}
+::selection{background:rgba(217,192,140,.28)}
+/* 尊重系統的「減少動態效果」設定 */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;scroll-behavior:auto !important}
+}
+/* 觸控目標 >= 44px（規格書 5-3） */
+button.mini{min-height:32px}
+.pick button,.inbar .go{min-height:48px}
+.q{min-height:46px}

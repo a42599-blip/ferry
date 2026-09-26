@@ -12,10 +12,13 @@ class AppError(Exception):
     code = "APP_ERROR"
     http_status = 400
 
-    def __init__(self, message: str = "", *, detail: str | None = None):
+    def __init__(self, message: str = "", *, detail: str | None = None,
+                 code: str | None = None):
         super().__init__(message or self.__class__.__name__)
         self.message = message or self.__class__.__name__
         self.detail = detail
+        if code:                       # 允許個別錯誤給更精確的碼（前端才能翻譯）
+            self.code = code
 
     def to_dict(self) -> dict:
         return {"code": self.code, "message": self.message, "detail": self.detail}
@@ -62,8 +65,9 @@ class PlatformError(AppError):
     code = "PLATFORM_ERROR"
     http_status = 502
 
-    def __init__(self, message: str = "", *, detail: str | None = None, platform: str = ""):
-        super().__init__(message, detail=detail)
+    def __init__(self, message: str = "", *, detail: str | None = None, platform: str = "",
+                 code: str | None = None):
+        super().__init__(message, detail=detail, code=code)
         self.platform = platform
 
     def to_dict(self) -> dict:

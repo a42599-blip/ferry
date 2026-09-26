@@ -180,7 +180,7 @@ async function renderFlags() {
   $('#feature-list').innerHTML = Object.entries(d.features).map(([k, v]) => `
     <label class="switch">
       <span>${FEATURE_LABELS[k] || k}<small>${k}</small></span>
-      <label class="toggle"><input type="checkbox" data-feature="${k}" ${v ? 'checked' : ''}><span></span></label>
+      <button type="button" class="toggle${v ? ' on' : ''}" data-feature="${k}" aria-pressed="${v ? 'true' : 'false'}"><span></span></button>
     </label>`).join('');
 
   $('#platform-list').innerHTML = table([
@@ -189,22 +189,31 @@ async function renderFlags() {
     { t: '近 7 天解析', v: 'today_total', num: true },
     { t: '成功率', v: (r) => rateBadge(r.success_rate), html: true },
     { t: '平均耗時', v: (r) => r.avg_ms ? (r.avg_ms / 1000).toFixed(1) + 's' : '–', num: true },
-    { t: '開關', v: (r) => `<label class="toggle"><input type="checkbox" data-platform="${esc(r.id)}" ${r.enabled ? 'checked' : ''}><span></span></label>`, html: true },
+    { t: '開關', v: (r) => `<button type="button" class="toggle${r.enabled ? ' on' : ''}" data-platform="${esc(r.id)}" aria-pressed="${r.enabled ? 'true' : 'false'}"><span></span></button>`, html: true },
   ], d.platforms);
   $('#auto-off').checked = !!d.auto_off;
 
-  $$('#feature-list input[data-feature]').forEach((el) => el.addEventListener('change', saveFeatures));
-  $$('#platform-list input[data-platform]').forEach((el) => el.addEventListener('change', savePlatforms));
+  $$('#feature-list button[data-feature]').forEach((el) => el.addEventListener('click', async () => {
+    if (el.disabled) return;
+    el.classList.toggle('on');
+    el.setAttribute('aria-pressed', el.classList.contains('on') ? 'true' : 'false');
+    await saveFeatures();
+  }));
+  $$('#platform-list button[data-platform]').forEach((el) => el.addEventListener('click', async () => {
+    el.classList.toggle('on');
+    el.setAttribute('aria-pressed', el.classList.contains('on') ? 'true' : 'false');
+    await savePlatforms();
+  }));
 }
 
 async function saveFeatures() {
   const features = {};
-  $$('#feature-list input[data-feature]').forEach((el) => { features[el.dataset.feature] = el.checked; });
+  $$('#feature-list button[data-feature]').forEach((el) => { features[el.dataset.feature] = el.classList.contains('on'); });
   await api('/flags', { method: 'PUT', body: JSON.stringify({ features }) });
 }
 async function savePlatforms() {
   const platforms = {};
-  $$('#platform-list input[data-platform]').forEach((el) => { platforms[el.dataset.platform] = el.checked; });
+  $$('#platform-list button[data-platform]').forEach((el) => { platforms[el.dataset.platform] = el.classList.contains('on'); });
   await api('/flags', { method: 'PUT', body: JSON.stringify({ platforms, auto_off: $('#auto-off').checked }) });
 }
 $('#auto-off').addEventListener('change', savePlatforms);
@@ -389,12 +398,15 @@ async function renderNotify() {
     const left = d.cooldown[key];
     return `<label class="switch">
       <span>${meta.title}<small>${SEV[meta.severity]} · ${key}${left ? ' · 冷卻 ' + left + 's' : ''}</small></span>
-      <label class="toggle"><input type="checkbox" data-notify="${key}" ${on ? 'checked' : ''} ${locked ? 'disabled' : ''}><span></span></label>
+      <button type="button" class="toggle${on ? ' on' : ''}" data-notify="${key}" ${locked ? 'disabled title="嚴重事件不可關閉"' : ''} aria-pressed="${on ? 'true' : 'false'}"><span></span></button>
     </label>`;
   }).join('');
-  $$('#n-events input[data-notify]').forEach((el) => el.addEventListener('change', async () => {
+  $$('#n-events button[data-notify]').forEach((el) => el.addEventListener('click', async () => {
+    if (el.disabled) return;
+    el.classList.toggle('on');
+    el.setAttribute('aria-pressed', el.classList.contains('on') ? 'true' : 'false');
     const toggles = {};
-    $$('#n-events input[data-notify]').forEach((x) => { toggles[x.dataset.notify] = x.checked; });
+    $$('#n-events button[data-notify]').forEach((x) => { toggles[x.dataset.notify] = x.classList.contains('on'); });
     await api('/notify/toggles', { method: 'PUT', body: JSON.stringify({ toggles }) });
   }));
 

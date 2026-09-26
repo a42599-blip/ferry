@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, HTTPException, Request
 
-from .core.errors import AppError
 from .services import auth, billing, members, notify
 
 router = APIRouter(tags=["member"])
@@ -31,21 +30,15 @@ async def get_plans() -> dict:
 # ── 會員 ─────────────────────────────────────────────
 @router.post("/api/member/register")
 async def register(request: Request, body: dict = Body(...)) -> dict:
-    try:
-        m = members.register(body.get("email", ""), body.get("password", ""),
-                             device_id=_device(request), tz=body.get("tz"))
-    except AppError as exc:
-        raise HTTPException(status_code=exc.http_status, detail=exc.message) from exc
+    m = members.register(body.get("email", ""), body.get("password", ""),
+                         device_id=_device(request), tz=body.get("tz"))
     return {"ok": True, "member": m, "token": members.issue_token(m["id"])}
 
 
 @router.post("/api/member/login")
 async def login(request: Request, body: dict = Body(...)) -> dict:
-    try:
-        m = members.login(body.get("email", ""), body.get("password", ""),
-                          device_id=_device(request))
-    except AppError as exc:
-        raise HTTPException(status_code=exc.http_status, detail=exc.message) from exc
+    m = members.login(body.get("email", ""), body.get("password", ""),
+                      device_id=_device(request))
     return {"ok": True, "member": {"id": m["id"], "email": m["email"], "plan": m["plan"]},
             "token": m["token"]}
 
@@ -69,27 +62,15 @@ async def checkout(request: Request, body: dict = Body(...)) -> dict:
     plan = body.get("plan", "")
     provider = body.get("provider", "ecpay")
     base = str(request.base_url).rstrip("/")
-    try:
-        return {"ok": True, **billing.create_checkout(subject, plan, provider, base_url=base)}
-    except AppError as exc:
-        raise HTTPException(status_code=exc.http_status, detail=exc.message) from exc
+    return {"ok": True, **billing.create_checkout(subject, plan, provider, base_url=base)}
 
 
 @router.post("/api/pay/webhook/{provider}")
 async def webhook(provider: str, request: Request) -> dict:
     raw = await request.body()
     headers = {k.lower(): v for k, v in request.headers.items()}
-    try:
-        return {"ok": True, **billing.handle_webhook(provider, raw, headers)}
-    except AppError as exc:
-        raise HTTPException(status_code=exc.http_status, detail=exc.message) from exc
+    return {"ok": True, **billing.handle_webhook(provider, raw, headers)}
 
-
-@router.get("/api/pay/orders")
-async def my_orders(request: Request) -> dict:
-    subject = auth.current_subject(request)
-    rows = [o for o in billing.list_orders(200) if o.get("member_id") == subject]
-    return {"ok": True, "orders": rows}
 
 
 # ── 使用者回報問題（規格書通知清單第 13 項）───────────

@@ -14,14 +14,30 @@ const state = {
 // ── i18n（全域共用，transfer.js 也會用）───────────────
 function t(key, fallback) {
   const v = state.L[key];
-  return (v === undefined || v === null || v === '') ? (fallback !== undefined ? fallback : key) : v;
+  if (v === undefined || v === null) return fallback !== undefined ? fallback : key;
+  return v;                    // 空字串是「該語言不需要這個字」，不是缺翻譯
 }
 window.FY = { t: (k, d) => t(k, d), lang: () => state.lang };
 
 function applyLang() {
-  $$('[data-i18n]').forEach((el) => { const v = t(el.dataset.i18n, el.textContent); if (v) el.textContent = v; });
-  $$('[data-i18n-ph]').forEach((el) => { const v = t(el.dataset.i18nPh); if (v) el.placeholder = v; });
+  // ⚠️ 不能用 if(v)：空的翻譯（例：英文的「次」不需要）也必須套用，否則會殘留中文
+  $$('[data-i18n]').forEach((el) => {
+    const key = el.dataset.i18n;
+    const v = t(key, el.dataset.zh || el.textContent);
+    if (v !== undefined && v !== null) el.textContent = v;
+  });
+  $$('[data-i18n-ph]').forEach((el) => {
+    const v = t(el.dataset.i18nPh);
+    if (v !== undefined && v !== null) el.placeholder = v;
+  });
   $$('#lang button').forEach((b) => b.classList.toggle('on', b.dataset.lang === state.lang));
+  $$('#lang button').forEach((b) => {
+    const name = state.lang === 'en'
+      ? { 'zh-Hant': 'CHT', 'zh-Hans': 'CHS', en: 'EN' }[b.dataset.lang]
+      : { 'zh-Hant': '繁', 'zh-Hans': '简', en: 'EN' }[b.dataset.lang];
+    b.textContent = name;
+    b.title = { 'zh-Hant': '繁體中文', 'zh-Hans': '简体中文', en: 'English' }[b.dataset.lang];
+  });
   document.documentElement.lang = state.lang;
   document.title = t('brand', '轉運站') + ' · ' + t('dl_title');
   buildTeach();
@@ -197,9 +213,19 @@ const api = async (url, opt = {}) => {
     },
   });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok || j.ok === false) throw new Error(j.detail || j.message || `HTTP ${r.status}`);
+  if (!r.ok || j.ok === false) throw apiError(j, r.status);
   return j;
 };
+
+// 後端錯誤 → 依錯誤碼翻成使用者語言（後端訊息一律當後備）
+function apiError(j, status) {
+  const code = j.code || (j.detail && j.detail.code) || '';
+  const local = code ? state.L['err_' + code] : '';
+  const message = local || j.detail?.message || j.detail || j.message || ('HTTP ' + status);
+  const e = new Error(typeof message === 'string' ? message : ('HTTP ' + status));
+  e.code = code;
+  return e;
+}
 
 // ── 設定 / 次數 ───────────────────────────────────
 async function loadConfig() {

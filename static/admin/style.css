@@ -71,13 +71,15 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .switch{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;
   background:var(--card2);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;font-size:13px}
 .switch small{display:block;color:var(--muted);font-size:11px}
-.toggle{position:relative;width:44px;height:24px;flex:0 0 auto;cursor:pointer;display:inline-block}
-.toggle input{opacity:0;width:0;height:0}
-.toggle span{position:absolute;inset:0;background:#2b3138;border:1px solid var(--line);border-radius:999px;transition:.15s}
+.toggle{position:relative;width:44px;height:24px;flex:0 0 auto;cursor:pointer;display:inline-block;
+  padding:0;border:0;background:none}
+.toggle span{position:absolute;inset:0;background:#2b3138;border:1px solid var(--line);
+  border-radius:999px;transition:.15s;display:block}
 .toggle span::after{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;
   background:#8B9199;border-radius:50%;transition:.15s}
-.toggle input:checked + span{background:rgba(217,192,140,.22);border-color:rgba(217,192,140,.5)}
-.toggle input:checked + span::after{transform:translateX(20px);background:var(--brand)}
+.toggle.on span{background:rgba(217,192,140,.22);border-color:rgba(217,192,140,.5)}
+.toggle.on span::after{transform:translateX(20px);background:var(--brand)}
+.toggle:disabled{opacity:.45;cursor:not-allowed}
 
 /* 長條圖 */
 .chart{display:flex;align-items:flex-end;gap:3px;height:120px;padding-top:8px}
@@ -91,3 +93,11 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   h1{font-size:16px}
   .wrap{padding:10px}
 }
+
+/* ── 無障礙與品質底線 ─────────────────────────── */
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+::selection{background:rgba(217,192,140,.28)}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition-duration:.001ms !important}
+}
+button,a{min-height:0}
