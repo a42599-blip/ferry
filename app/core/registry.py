@@ -1,6 +1,8 @@
 """平台註冊表（新增平台只改這裡一行）。
 
 （規格書第 21-2 章／第 22-2 章）
+
+⚠️ 順序＝detect 的優先順序，較特殊的網域要排前面。
 """
 from __future__ import annotations
 
@@ -10,6 +12,16 @@ from ..platforms.base import Resolver
 from ..platforms.douyin import DouyinResolver
 from ..platforms.tiktok import TiktokResolver
 from ..platforms.bilibili import BilibiliResolver
+from ..platforms.xiaohongshu import XiaohongshuResolver
+from ..platforms.instagram import InstagramResolver
+from ..platforms.facebook import FacebookResolver
+from ..platforms.xigua import XiguaResolver
+from ..platforms.toutiao import ToutiaoResolver
+from ..platforms.shopee import ShopeeResolver
+from ..platforms.weibo import WeiboResolver
+from ..platforms.twitter_x import TwitterXResolver
+from ..platforms.youtube import YoutubeResolver
+from ..platforms.threads import ThreadsResolver
 
 REGISTRY: dict[str, Resolver] = {}
 
@@ -19,9 +31,21 @@ def register(resolver: Resolver) -> None:
 
 
 for _cls in (
+    # 中國大陸
     DouyinResolver,
-    TiktokResolver,
+    XiguaResolver,       # ← 必須在 Toutiao 前面（不同網域但同集團）
     BilibiliResolver,
+    XiaohongshuResolver,
+    WeiboResolver,
+    ToutiaoResolver,
+    # 海外
+    TiktokResolver,
+    InstagramResolver,
+    FacebookResolver,
+    TwitterXResolver,
+    YoutubeResolver,
+    ThreadsResolver,
+    ShopeeResolver,
 ):
     register(_cls())
 

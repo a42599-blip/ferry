@@ -1,0 +1,25 @@
+"""YouTube 解析（yt-dlp）。
+
+⚠️ YouTube 是 **IP 敏感** 平台（規格書第 7 章）：
+  - CDN 擋 Origin → 一律走伺服器代理（mode="proxy"，串流不落地）
+  - 高畫質是「分離軌」→ 需伺服器端 ffmpeg 合併（Dockerfile 已裝 ffmpeg）
+"""
+from __future__ import annotations
+
+import re
+
+from ._ytdlp import YtDlpResolver
+
+_URL_RE = re.compile(
+    r"https?://(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be|youtube-nocookie\.com)/", re.I
+)
+
+
+class YoutubeResolver(YtDlpResolver):
+    name = "youtube"
+    label = "YouTube"
+    hosts = ("youtube.com", "youtu.be", "youtube-nocookie.com")
+    default_mode = "proxy"
+
+    async def match(self, url: str) -> bool:
+        return bool(_URL_RE.search(url))

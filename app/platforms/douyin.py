@@ -1,9 +1,9 @@
 """抖音解析。
 
 策略（規格書第 7 章）：
-  1) tikwm 第三方 API（最快、最穩，支援無水印）
-  2) 🔧 TODO：官方 API（a_bogus 簽章）作為備援
-  3) 🔧 TODO：yt-dlp 作為最後備援
+  1) **tikwm 第三方 API**（最快、最穩、支援無水印）
+  2) **yt-dlp** 備援（有 cookies 時最準，能拿 bit_rate 多畫質）
+  （a_bogus 官方簽章：留待 P3 補，見 tools/）
 
 抖音的 `bit_rate[]` 陣列會帶多種畫質（gear_name）→ 全部列給使用者選。
 """
@@ -14,7 +14,7 @@ import re
 from ..core.errors import PlatformChanged, PlatformError, PlatformTimeout
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
-from .base import Resolver
+from ._ytdlp import YtDlpResolver
 
 _API = "https://www.tikwm.com/api/"
 _URL_RE = re.compile(
@@ -22,28 +22,50 @@ _URL_RE = re.compile(
 )
 
 
-class DouyinResolver(Resolver):
+class DouyinResolver(YtDlpResolver):
     name = "douyin"
     label = "抖音"
     hosts = ("douyin.com", "iesdouyin.com")
+    default_mode = "fetch"          # 字節系 CDN 開 CORS（規格書第 8 章）
 
     async def match(self, url: str) -> bool:
         return bool(_URL_RE.search(url))
 
+    # ── 主流程：先 tikwm，失敗才 yt-dlp ──────────────
     async def resolve(self, url: str) -> VideoInfo:
+        try:
+            info = await self._via_tikwm(url)
+            if info is not None:
+                return info
+        except PlatformError:
+            raise
+        except Exception:  # noqa: BLE001 — 換下一條路
+            pass
+
+        try:
+            return await YtDlpResolver.resolve(self, url)
+        except PlatformError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            raise PlatformTimeout(f"抖音解析失敗：{exc}", platform=self.name) from exc
+
+    # ── 路線①：tikwm ────────────────────────────────
+    async def _via_tikwm(self, url: str) -> VideoInfo | None:
+        data = await self._tikwm(url)
+        if data is None:
+            return None
+        d = data.get("data") or {}
+        return self._build(url, d)
+
+    async def _tikwm(self, url: str) -> dict | None:
         try:
             async with HttpClient() as http:
                 data = await http.get_json(_API, params={"url": url, "hd": 1})
-        except Exception as exc:  # noqa: BLE001
-            raise PlatformTimeout(f"抖音解析逾時：{exc}", platform=self.name) from exc
-
+        except Exception:  # noqa: BLE001
+            return None
         if not isinstance(data, dict) or data.get("code") != 0:
-            raise PlatformChanged(
-                f"抖音回傳異常（可能改版）：{str(data)[:120]}", platform=self.name
-            )
-
-        d = data.get("data") or {}
-        return self._build(url, d)
+            return None
+        return data
 
     def _build(self, url: str, d: dict) -> VideoInfo:
         title = (d.get("title") or "").strip() or "抖音影片"
@@ -56,11 +78,9 @@ class DouyinResolver(Resolver):
         play = d.get("play")
         images = d.get("images")  # 圖集
 
-        # 圖集（多張圖）
-        if images and isinstance(images, list):
-            for i, img in enumerate(images, 1):
-                fmts.append(Format(id=f"img{i}", label=f"圖 {i}", url=img, ext="jpg",
-                                   quality_score=100 - i, mode="direct"))
+        for i, img in enumerate(images or [], 1):
+            fmts.append(Format(id=f"img{i}", label=f"圖 {i}", url=img, ext="jpg",
+                               quality_score=100 - i, mode="direct"))
 
         if hd:
             fmts.append(Format(id="hd", label="高清", url=_abs(hd),

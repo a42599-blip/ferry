@@ -53,5 +53,14 @@ class Settings:
         default_factory=lambda: os.getenv("ENABLED_PLATFORMS", "")  # 空＝全部啟用（依 registry）
     )
 
+    # 平台 cookies（IG／FB／X／微博／頭條／西瓜… 需要）
+    # 目錄內放 `<平台識別碼>.txt`（Netscape 格式），該平台就會自動帶上。
+    cookies_dir: str = field(default_factory=lambda: os.getenv("COOKIES_DIR", ""))
+
+    # 伺服器代理下載的逾時（秒）
+    proxy_download_timeout: int = field(
+        default_factory=lambda: _env_int("PROXY_DOWNLOAD_TIMEOUT", 300)
+    )
+
 
 settings = Settings()

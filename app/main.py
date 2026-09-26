@@ -6,15 +6,16 @@ from __future__ import annotations
 
 import os
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
 
 from .core.errors import AppError
 from .core import timezone as tz_util
-from .services import auth, flags, quota, resolve_service
+from .services import auth, downloader, flags, quota, resolve_service
 from .services.transfer import router as transfer_router
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -73,6 +74,40 @@ async def get_quota(request: Request):
     subject = auth.current_subject(request)
     tz = tz_util.from_request(request)
     return {"ok": True, "timezone": tz, "quota": quota.status(subject, tz_name=tz)}
+
+
+# ── 伺服器代理下載（CDN 擋 Origin 的平台，例如 YouTube）──
+# 原則：串流不落地（下載到暫存 → 送出 → 立刻刪除，不保存任何檔案）
+# 安全：只接受「已註冊平台認得的網址」，避免變成開放代理。
+@app.get("/api/download")
+async def proxied_download(
+    src: str = Query(..., description="原始影片網址"),
+    h: int | None = Query(None, description="畫質高度，例如 1080"),
+    audio: bool = Query(False, description="只要音訊"),
+    name: str | None = Query(None, description="建議檔名"),
+):
+    path, suggested = await downloader.fetch_to_temp(src, height=h, audio=audio)
+    filename = _safe_name(name or suggested)
+    media_type = "audio/mp4" if audio else "video/mp4"
+    if filename.lower().endswith(".mp3"):
+        media_type = "audio/mpeg"
+    elif filename.lower().endswith(".jpg"):
+        media_type = "image/jpeg"
+    return FileResponse(
+        path,
+        media_type=media_type,
+        filename=filename,
+        background=BackgroundTask(downloader.cleanup, path),
+    )
+
+
+def _safe_name(name: str) -> str:
+    """擋掉路徑穿越與非法字元。"""
+    bad = '\\/:*?"<>|\r\n\t'
+    for ch in bad:
+        name = name.replace(ch, "_")
+    name = name.strip().strip(".")
+    return (name or "video.mp4")[:120]
 
 
 # ── 無損傳輸（signaling 名片交換，極小）─────────────

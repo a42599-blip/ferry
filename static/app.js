@@ -81,7 +81,12 @@ async function loadConfig() {
 }
 function renderPlatforms(plats) {
   const box = $('#plats'); box.innerHTML = '';
-  const labels = { douyin: '抖音', tiktok: 'TikTok', bilibili: 'B站' };
+  const labels = {
+    douyin: '抖音', tiktok: 'TikTok', bilibili: 'B站',
+    xiaohongshu: '小紅書', instagram: 'Instagram', facebook: 'Facebook',
+    xigua: '西瓜視頻', shopee: '蝦皮', weibo: '微博',
+    toutiao: '今日頭條', x: 'X', youtube: 'YouTube', threads: '脆 Threads',
+  };
   Object.entries(plats || {}).forEach(([id, v]) => {
     const el = document.createElement('span');
     el.className = 'plat' + (v.enabled ? '' : ' off');
@@ -159,6 +164,20 @@ $('#download').addEventListener('click', async () => {
       a.href = f.url; a.download = ''; a.rel = 'noreferrer';
       document.body.appendChild(a); a.click(); a.remove();
       pct.textContent = '已開始下載';
+    } else if (f.mode === 'proxy') {
+      // CDN 擋 Origin（YouTube…）→ 伺服器代理，串流不落地
+      const ext = f.audio ? (f.ext || 'm4a') : (f.ext || 'mp4');
+      const q = new URLSearchParams({
+        src: state.info.source_url,
+        name: `${state.info.title.slice(0, 60)}.${ext}`,
+      });
+      if (f.audio) q.set('audio', 'true');
+      else if (f.height) q.set('h', String(f.height));
+      const a = document.createElement('a');
+      a.href = `/api/download?${q.toString()}`;
+      a.rel = 'noreferrer';
+      document.body.appendChild(a); a.click(); a.remove();
+      pct.textContent = '已開始下載（伺服器代理）';
     } else {
       // fetch → blob（零流量、有進度、可自訂檔名）
       const resp = await fetch(f.url, { headers: f.headers || {} });
