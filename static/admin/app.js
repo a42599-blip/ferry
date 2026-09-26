@@ -230,12 +230,45 @@ async function pgFlags() {
     await api('/flags', { method: 'PUT', body: JSON.stringify({ platforms, auto_off: $('#auto-off').checked }) });
     queue('已儲存平台開關（前台圖示會跟著消失／出現）');
   }));
+  await renderCookies();
   $$('[data-all]').forEach((b) => b.addEventListener('click', async () => {
     await api('/flags/all?on=' + b.dataset.all, { method: 'POST' });
     pgFlags();
   }));
   queue(`功能 ${Object.keys(d.features).length} 項　平台 ${d.platforms.length} 個　自動關閉：${d.auto_off ? '開' : '關'}`);
 }
+
+// ── Cookies ──────────────────────────────────────
+async function renderCookies() {
+  const d = await api('/cookies');
+  const sel = $('#ck-plat');
+  sel.innerHTML = d.platforms.map((p) =>
+    `<option value="${esc(p.platform)}">${esc(p.platform)}${p.present ? ' ✅' : ''}</option>`).join('');
+  $('#ck-list').innerHTML = table([
+    { t: '平台', v: 'platform' },
+    { t: '狀態', v: (r) => r.present ? '<span class="badge ok">已設定</span>' : '<span class="badge">未設定</span>', html: true },
+    { t: '筆數', v: (r) => r.cookies ?? '–', num: true },
+    { t: '更新時間', v: (r) => r.updated_at || '–' },
+  ], d.platforms);
+  $('#ck-text').placeholder = `貼上 cookie 內容…（目錄：${d.dir}）`;
+}
+$('#ck-save').addEventListener('click', async () => {
+  const platform = $('#ck-plat').value, content = $('#ck-text').value;
+  if (!content.trim()) return alert('請先貼上 cookie 內容');
+  try {
+    await api('/cookies/' + encodeURIComponent(platform), { method: 'POST', body: JSON.stringify({ content }) });
+    $('#ck-text').value = '';
+    await renderCookies();
+    queue(`已儲存 ${platform} 的 cookies`);
+  } catch (e) { alert('儲存失敗：' + e.message); }
+});
+$('#ck-del').addEventListener('click', async () => {
+  const platform = $('#ck-plat').value;
+  if (!confirm(`刪除 ${platform} 的 cookies？（會丟資源回收筒）`)) return;
+  await api('/cookies/' + encodeURIComponent(platform), { method: 'DELETE' });
+  await renderCookies();
+  queue(`已刪除 ${platform} 的 cookies`);
+});
 
 // ── 會員與裝置 ───────────────────────────────────
 async function pgDevices() {

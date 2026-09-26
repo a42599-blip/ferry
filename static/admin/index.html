@@ -95,6 +95,18 @@
           <p class="note">關掉的功能／分頁會<b>立即從前台消失</b>；平台關掉，前台圖示也跟著消失。不需重新部署（不會換出口 IP）。</p>
         </div>
         <div class="pnl">
+          <div class="lbl">平台 Cookies（IG／Facebook／西瓜／今日頭條 需要）</div>
+          <p class="note">貼上瀏覽器外掛匯出的 <b>Netscape 格式</b>，或直接貼 <code>name=value; name2=value2</code>。
+          存檔後該平台會自動帶著 cookies 解析（存在 Railway Volume，重啟不會消失）。</p>
+          <div class="inrow">
+            <select id="ck-plat"></select>
+            <button class="big sm" id="ck-save">儲存</button>
+            <button class="big sm gh" id="ck-del">刪除</button>
+          </div>
+          <textarea id="ck-text" rows="5" placeholder="貼上 cookie 內容…"></textarea>
+          <div id="ck-list" style="margin-top:12px"></div>
+        </div>
+        <div class="pnl">
           <div class="rowbetween">
             <div class="lbl">13 個平台開關</div>
             <label class="chk"><input type="checkbox" id="auto-off"> 成功率低於門檻自動關閉</label>

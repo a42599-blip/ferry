@@ -103,6 +103,10 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .toggle.on span{background:var(--acc-dim);border-color:var(--acc-line)}
 .toggle.on span::after{transform:translateX(19px);background:var(--acc)}
 .toggle:disabled{opacity:.45;cursor:not-allowed}
+textarea{width:100%;margin-top:10px;padding:11px;border:1px solid rgba(255,255,255,.16);
+  background:transparent;color:var(--text);font-family:ui-monospace,Menlo,Consolas,monospace;
+  font-size:12px;line-height:1.6;outline:0;resize:vertical}
+textarea:focus{border-color:var(--acc)}
 .chk{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--dim)}
 .inrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
 .inrow input{flex:1;min-width:180px;padding:11px;border:1px solid rgba(255,255,255,.16);background:transparent;outline:0}
