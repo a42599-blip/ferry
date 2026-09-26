@@ -327,12 +327,19 @@ class DouyinResolver(YtDlpResolver):
             seen.add(u)
 
             h = int(br.get("height") or 0)
+            w = int(br.get("width") or 0)
             gear = br.get("gear_name") or ""
             if not h:
-                # 抖音的 gear_name 例如 `normal_1080_0` / `adapt_lowest_1440_1`
-                m = re.search(r"(\d{3,4})", gear)
-                h = int(m.group(1)) if m else 0
-            key = h or gear
+                # gear_name 例如 `normal_1080_0` / `adapt_lowest_1440_1` / `adapt_lowest_4_1`
+                # → 取「看起來像高度」的那個數字（240~4320），否則用寬度推
+                nums = [int(x) for x in re.findall(r"\d+", gear)]
+                cand = [n for n in nums if 240 <= n <= 4320]
+                h = cand[0] if cand else (round(w * 9 / 16 / 2) * 2 if w else 0)
+                if not h and nums:
+                    # 1501/1801 這類是 bitrate(kbps) 不是高度 → 用 bit_rate 推
+                    kbps = int(br.get("bit_rate") or 0) // 1000
+                    h = 1080 if kbps >= 1600 else 720 if kbps >= 1000 else 480
+            key = f"{h or 0}-{gear}"
             if key in seen_h:
                 continue
             seen_h.add(key)
