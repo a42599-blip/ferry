@@ -1,0 +1,7 @@
+{
+ "download_hint": "Downloaded files are saved on this device, same as before.",
+ "transfer_hint": "Works on the same WiFi only. Files never touch our server, no compression, no transcoding.",
+ "history_hint": "Only records videos you downloaded (stored on your device).",
+ "supported": "Supported platforms",
+ "footer_note": "Files bypass our server — zero storage, zero traffic."
+}

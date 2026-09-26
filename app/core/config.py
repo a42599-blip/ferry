@@ -1,0 +1,57 @@
+"""設定集中管理（唯一讀環境變數的地方）。
+
+（規格書第 12 章／第 21-4 章：不准魔術字串散落各處）
+"""
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+
+
+def _env_bool(key: str, default: bool) -> bool:
+    v = os.getenv(key)
+    if v is None:
+        return default
+    return v.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _env_int(key: str, default: int) -> int:
+    try:
+        return int(os.getenv(key, "").strip())
+    except (TypeError, ValueError):
+        return default
+
+
+@dataclass(frozen=True)
+class Settings:
+    # 基本
+    app_name: str = "ferry"
+    debug: bool = field(default_factory=lambda: _env_bool("DEBUG", True))
+
+    # 出口 / 網路
+    http_timeout: int = field(default_factory=lambda: _env_int("HTTP_TIMEOUT", 20))
+    http_retries: int = field(default_factory=lambda: _env_int("HTTP_RETRIES", 2))
+    user_agent: str = field(
+        default_factory=lambda: os.getenv(
+            "USER_AGENT",
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+        )
+    )
+
+    # 功能開關的預設值（真正的值由後台設定決定，見 services/flags.py）
+    free_limit_enabled: bool = field(default_factory=lambda: _env_bool("FREE_LIMIT_ENABLED", False))
+    # 🆕 2026-09-26 小羅定案：免費次數改為每日 5 次（原 3 次）
+    free_download_per_day: int = field(default_factory=lambda: _env_int("FREE_DOWNLOAD_PER_DAY", 5))
+    free_transfer_per_day: int = field(default_factory=lambda: _env_int("FREE_TRANSFER_PER_DAY", 5))
+
+    # 歷史記錄（存使用者瀏覽器，我們零儲存）
+    history_limit: int = field(default_factory=lambda: _env_int("HISTORY_LIMIT", 50))
+
+    # 平台
+    enabled_platforms: str = field(
+        default_factory=lambda: os.getenv("ENABLED_PLATFORMS", "")  # 空＝全部啟用（依 registry）
+    )
+
+
+settings = Settings()

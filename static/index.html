@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>轉運站 · 無水印下載 與 無損傳輸</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main class="page">
+
+  <!-- ── 頁首 ── -->
+  <header class="head">
+    <h1 class="logo">轉運站</h1>
+    <div class="quota" id="quota">今日剩 <b id="q-dl">–</b> 次 · <span id="q-reset"></span></div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="download">無水印下載</button>
+      <button class="tab" data-tab="transfer">無損傳輸</button>
+      <button class="tab" data-tab="history">歷史記錄</button>
+      <select id="lang" class="lang">
+        <option value="zh-Hant">繁中</option>
+        <option value="zh-Hans">简中</option>
+        <option value="en">EN</option>
+      </select>
+    </nav>
+  </header>
+
+  <!-- ── 無水印下載 ── -->
+  <section class="panel active" id="panel-download">
+    <div class="input-row">
+      <input id="url" type="url" inputmode="url" autocomplete="off"
+             placeholder="貼上影片連結（抖音／TikTok／B站…）">
+      <button id="go" class="primary">解析</button>
+    </div>
+    <p class="hint" data-i18n="download_hint">下載的檔案會存在這台裝置，跟現在的用法一樣。</p>
+
+    <div id="status" class="status" hidden></div>
+
+    <div id="result" class="result" hidden>
+      <div class="card">
+        <img id="cover" class="cover" alt="">
+        <div class="meta">
+          <div id="title" class="title"></div>
+          <div class="sub"><span id="platform"></span> · <span id="duration"></span></div>
+        </div>
+      </div>
+      <div id="formats" class="formats"></div>
+      <div class="download-bar">
+        <button id="download" class="primary" disabled>選擇畫質後下載</button>
+        <div id="prog" class="prog" hidden><div class="bar"></div><span class="pct">0%</span></div>
+      </div>
+    </div>
+
+    <div class="platforms">
+      <div class="platforms-title" data-i18n="supported">支援平台</div>
+      <div id="plats" class="plats"></div>
+    </div>
+  </section>
+
+  <!-- ── 無損傳輸 ── -->
+  <section class="panel" id="panel-transfer">
+    <div class="input-row">
+      <input type="file" id="files" multiple>
+    </div>
+    <div class="transfer-box">
+      <div class="code-row">
+        <input id="code" inputmode="numeric" maxlength="6" placeholder="6 位配對碼">
+        <button id="join" class="primary">配對</button>
+        <button id="create" class="secondary">產生配對碼</button>
+      </div>
+      <div id="t-status" class="status" hidden></div>
+      <ul id="t-list" class="t-list"></ul>
+      <button id="send" class="primary" disabled>開始傳送</button>
+      <p class="hint" data-i18n="transfer_hint">同一個 WiFi 才能傳。檔案不經過伺服器、不壓縮、不轉檔。</p>
+    </div>
+  </section>
+
+  <!-- ── 歷史記錄 ── -->
+  <section class="panel" id="panel-history">
+    <p class="hint" data-i18n="history_hint">這裡只記錄你曾下載過的影片（存在你的裝置）。</p>
+    <ul id="h-list" class="h-list"></ul>
+    <button id="h-clear" class="secondary">清空歷史</button>
+  </section>
+
+  <footer class="foot">
+    <span data-i18n="footer_note">檔案不經伺服器，零儲存、零流量。</span>
+  </footer>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>
