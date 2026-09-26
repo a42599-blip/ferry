@@ -70,3 +70,59 @@ button.secondary{background:var(--card2);color:var(--text);border-color:var(--li
 .h-list .h-sub{color:var(--muted);font-size:12px;margin-top:4px}
 .foot{margin-top:auto;padding-top:var(--pad);color:var(--muted);font-size:12px;text-align:center}
 @media(min-width:700px){ .page{max-width:920px} }
+
+/* ── 傳輸：拖曳區／清單／進度 ───────────────────── */
+.tr-steps{display:flex;gap:8px;margin-bottom:var(--gap);flex-wrap:wrap}
+.step{flex:1;min-width:120px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:10px 12px;font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}
+.step b{background:var(--brand);color:#fff;width:20px;height:20px;border-radius:50%;
+  display:grid;place-items:center;font-size:12px;flex:0 0 auto}
+
+.drop{border:2px dashed var(--line);border-radius:var(--r);padding:22px 16px;text-align:center;
+  background:var(--card);transition:.15s}
+.drop.over{border-color:var(--brand);background:var(--card2)}
+.drop-ico{font-size:34px}
+.drop p{margin:8px 0 12px;font-size:14px}
+.input-row.center{justify-content:center}
+
+.t-list{list-style:none;margin:var(--gap) 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.t-list li{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;font-size:13px}
+.t-list li .fname{word-break:break-all}
+.t-list li .fsize{color:var(--muted);white-space:nowrap;margin-left:8px}
+.t-list .row-between{display:flex;justify-content:space-between;gap:8px;align-items:center}
+button.mini{background:var(--card2);border:1px solid var(--line);color:var(--muted);
+  padding:2px 8px;font-size:12px;border-radius:6px}
+button.mini.known{margin:2px 4px 0 0;color:var(--text)}
+
+.pbar{height:6px;background:var(--card2);border-radius:999px;overflow:hidden;margin-top:8px}
+.pbar i{display:block;height:100%;width:0;background:var(--brand);transition:width .15s}
+.pmeta{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px}
+.pstate.ok{color:var(--ok)} .pstate.err{color:var(--err)}
+
+.transfer-box{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:var(--pad);margin-top:var(--gap);display:flex;flex-direction:column;gap:10px}
+.transfer-box h3{margin:0;font-size:14px}
+.code-row{display:flex;gap:8px;flex-wrap:wrap}
+.code-row #tr-code,.code-row #code{flex:1;min-width:130px}
+.mycode{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px}
+.mycode b{font-size:22px;letter-spacing:4px;color:var(--brand)}
+.known{font-size:12px;color:var(--muted)}
+
+/* ── 教學 ─────────────────────────────────────── */
+.card h3{font-size:15px;margin:0 0 10px}
+.steps{margin:0;padding-left:20px;font-size:14px;line-height:1.9}
+.card+.card{margin-top:var(--gap)}
+.faq{margin:0;font-size:14px}
+.faq dt{font-weight:600;margin-top:10px}
+.faq dd{margin:4px 0 0;color:var(--muted);font-size:13px;line-height:1.7}
+
+/* ── 方案 ─────────────────────────────────────── */
+.plans{display:grid;gap:var(--gap);grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.plan{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:var(--pad);display:flex;flex-direction:column;gap:10px}
+.plan.hot{border-color:var(--brand)}
+.plan h3{margin:0;font-size:16px}
+.plan .price{font-size:26px;font-weight:700;color:var(--brand)}
+.plan .price span{font-size:12px;color:var(--muted);font-weight:400;margin-left:6px}
+.plan ul{margin:0;padding-left:18px;font-size:13px;color:var(--muted);line-height:1.9}
+.plan button{margin-top:auto}

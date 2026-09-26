@@ -4,7 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>轉運站 · 無水印下載 與 無損傳輸</title>
+<meta name="description" content="13 平台無水印下載，同 WiFi 無損傳輸。檔案不經伺服器，零儲存、零流量。">
 <link rel="icon" href="/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0f1115">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -15,9 +18,12 @@
     <h1 class="logo">轉運站</h1>
     <div class="quota" id="quota">今日剩 <b id="q-dl">–</b> 次 · <span id="q-reset"></span></div>
     <nav class="tabs">
-      <button class="tab active" data-tab="download">無水印下載</button>
-      <button class="tab" data-tab="transfer">無損傳輸</button>
-      <button class="tab" data-tab="history">歷史記錄</button>
+      <button class="tab active" data-tab="download" data-i18n="tab_download">無水印下載</button>
+      <button class="tab" data-tab="transfer" data-i18n="tab_transfer">無損傳輸</button>
+      <button class="tab" data-tab="history" data-i18n="tab_history">歷史記錄</button>
+      <button class="tab" data-tab="teach" data-i18n="tab_teach">教學</button>
+      <button class="tab" data-tab="plans" data-i18n="tab_plans">方案</button>
+      <button class="tab" data-tab="member" data-i18n="tab_member">會員</button>
       <select id="lang" class="lang">
         <option value="zh-Hant">繁中</option>
         <option value="zh-Hans">简中</option>
@@ -30,7 +36,7 @@
   <section class="panel active" id="panel-download">
     <div class="input-row">
       <input id="url" type="url" inputmode="url" autocomplete="off"
-             placeholder="貼上影片連結（抖音／TikTok／B站…）">
+             placeholder="貼上影片連結（抖音／TikTok／B站／小紅書…）">
       <button id="go" class="primary">解析</button>
     </div>
     <p class="hint" data-i18n="download_hint">下載的檔案會存在這台裝置，跟現在的用法一樣。</p>
@@ -60,19 +66,49 @@
 
   <!-- ── 無損傳輸 ── -->
   <section class="panel" id="panel-transfer">
-    <div class="input-row">
-      <input type="file" id="files" multiple>
+    <div class="tr-steps">
+      <div class="step"><b>1</b> 選檔案</div>
+      <div class="step"><b>2</b> 產生／輸入配對碼</div>
+      <div class="step"><b>3</b> 傳送</div>
     </div>
+
+    <div id="tr-drop" class="drop">
+      <div class="drop-ico">📂</div>
+      <p><b>拖曳檔案到這裡</b>（電腦可拖整個資料夾）</p>
+      <div class="input-row center">
+        <button id="tr-pick-photo" class="secondary">從相簿選</button>
+        <button id="tr-pick-files" class="secondary">從檔案選</button>
+        <button id="tr-pick-folder" class="secondary">選資料夾</button>
+      </div>
+      <input type="file" id="tr-input-files" multiple hidden>
+      <input type="file" id="tr-input-photo" accept="image/*,video/*" multiple hidden>
+      <input type="file" id="tr-input-folder" webkitdirectory directory multiple hidden>
+    </div>
+
+    <div id="tr-total" class="hint"></div>
+    <ul id="tr-list" class="t-list"></ul>
+
     <div class="transfer-box">
       <div class="code-row">
-        <input id="code" inputmode="numeric" maxlength="6" placeholder="6 位配對碼">
-        <button id="join" class="primary">配對</button>
-        <button id="create" class="secondary">產生配對碼</button>
+        <input id="tr-code" inputmode="numeric" maxlength="6" placeholder="輸入對方的 6 位配對碼">
+        <button id="tr-join" class="primary">配對</button>
+        <button id="tr-gen" class="secondary">產生我的配對碼</button>
       </div>
-      <div id="t-status" class="status" hidden></div>
-      <ul id="t-list" class="t-list"></ul>
-      <button id="send" class="primary" disabled>開始傳送</button>
-      <p class="hint" data-i18n="transfer_hint">同一個 WiFi 才能傳。檔案不經過伺服器、不壓縮、不轉檔。</p>
+      <div id="tr-known" class="known"></div>
+      <div id="tr-code-box" class="mycode" hidden>
+        我的配對碼：<b id="tr-mycode">------</b>
+        <span class="muted">（2 分鐘內有效）</span>
+      </div>
+      <div id="tr-status" class="status" hidden></div>
+      <button id="tr-send" class="primary" disabled>開始傳送</button>
+      <p class="hint" data-i18n="transfer_hint">同一個 WiFi 才能傳。檔案不經過伺服器、不壓縮、不轉檔，並用 SHA-256 校驗完整性。</p>
+    </div>
+
+    <div id="tr-progress" class="transfer-box" hidden>
+      <h3>傳送進度 <span class="muted" id="tr-speed"></span></h3>
+      <ul id="tr-send-list" class="t-list"></ul>
+      <h3>接收</h3>
+      <ul id="tr-recv-list" class="t-list"></ul>
     </div>
   </section>
 
@@ -83,10 +119,119 @@
     <button id="h-clear" class="secondary">清空歷史</button>
   </section>
 
+  <!-- ── 教學 ── -->
+  <section class="panel" id="panel-teach">
+    <div class="card">
+      <h3>📥 無水印下載 · 3 步</h3>
+      <ol class="steps">
+        <li>在 App 按「分享 → 複製連結」（抖音、TikTok、IG、小紅書…）</li>
+        <li>回到本站，把連結貼到最上面的框，按「解析」</li>
+        <li>選你要的畫質 → 按下載</li>
+      </ol>
+      <p class="hint">解析不另外計次；一次下載＝用掉一次免費額度。</p>
+    </div>
+    <div class="card">
+      <h3>📡 無損傳輸 · 4 步</h3>
+      <ol class="steps">
+        <li>兩台裝置連上<b>同一個 WiFi</b></li>
+        <li>一台按「產生我的配對碼」，另一台輸入那 6 位數字按「配對」</li>
+        <li>等狀態變成「已連線 ✅」</li>
+        <li>選檔案 → 開始傳送（兩台可互傳）</li>
+      </ol>
+      <p class="hint">傳輸是兩台裝置直接連線，檔案不經我們的伺服器、也不暫存；連過一次之後會記住對方，下次可直接重連。</p>
+    </div>
+    <div class="card">
+      <h3>📱 支援的系統</h3>
+      <p>iOS／Android／HarmonyOS／Windows／macOS／Linux —— 只要有瀏覽器就能用。</p>
+      <p class="hint">App 內建瀏覽器（微信／QQ／LINE）可能不支援傳輸，建議用 Safari／Chrome 開啟。</p>
+    </div>
+    <div class="card">
+      <h3>❓ 常見問題</h3>
+      <dl class="faq">
+        <dt>iPhone 大檔傳到一半斷掉？</dt>
+        <dd>瀏覽器記憶體限制，建議 >1GB 的檔案用電腦端，或分批傳。</dd>
+        <dt>公司／學校 WiFi 不能傳？</dt>
+        <dd>那是 AP 隔離（裝置互相看不到）。請改用手機開熱點，兩台都連它。</dd>
+        <dt>iCloud 照片傳不過去？</dt>
+        <dd>先在手機把照片下載到本機（相簿顯示為已下載）再選。</dd>
+        <dt>下載的畫質怎麼選？</dt>
+        <dd>平台有幾種我們就列幾種（最高可到 8K）；平台只有一種時就固定那一種。</dd>
+        <dt>你們會儲存我的檔案嗎？</dt>
+        <dd><b>不會。</b>下載是直接跟平台 CDN 拿檔；傳輸是兩台裝置直連。我們完全不碰檔案。</dd>
+      </dl>
+    </div>
+    <div class="card">
+      <h3>支援平台（13）</h3>
+      <div id="teach-plats" class="plats"></div>
+    </div>
+  </section>
+
+  <!-- ── 方案 ── -->
+  <section class="panel" id="panel-plans">
+    <div class="plans">
+      <div class="plan">
+        <h3>免費</h3>
+        <div class="price">US$ 0</div>
+        <ul>
+          <li>13 個平台</li>
+          <li>全部畫質選項</li>
+          <li>下載 <b>5 次／日</b></li>
+          <li>傳輸 <b>5 次／日</b></li>
+        </ul>
+        <button class="secondary" disabled>目前使用中</button>
+      </div>
+      <div class="plan hot">
+        <h3>月會員</h3>
+        <div class="price">US$ 2.99<span>/月</span></div>
+        <ul>
+          <li>下載 <b>不限次數</b></li>
+          <li>傳輸 <b>不限次數</b></li>
+          <li>新功能優先</li>
+        </ul>
+        <button class="primary" data-plan="monthly">即將開放</button>
+      </div>
+      <div class="plan">
+        <h3>終身會員</h3>
+        <div class="price">US$ 59<span>早鳥・限 200 名</span></div>
+        <ul>
+          <li>同月會員全部功能</li>
+          <li>一次付清，不用再付</li>
+          <li>效期＝本服務存續期間</li>
+        </ul>
+        <button class="primary" data-plan="lifetime">即將開放</button>
+      </div>
+    </div>
+    <p class="hint">未登入也能用；免費額度以<b>你所在時區的每日 00:00</b>重新計算，兩台裝置互不影響。</p>
+  </section>
+
+  <!-- ── 會員（預留） ── -->
+  <section class="panel" id="panel-member">
+    <div class="card">
+      <h3>會員功能開發中</h3>
+      <p>會員登入與付費將在下一階段開放。屆時登入後：</p>
+      <ul>
+        <li>免費次數由帳號計算（換裝置也保留）</li>
+        <li>付費後下載與傳輸不限次數</li>
+        <li>可查自己的歷史與訂單</li>
+      </ul>
+      <div class="input-row">
+        <input type="email" id="m-email" placeholder="你的 Email（開放時通知你）" disabled>
+        <button class="secondary" disabled>即將開放</button>
+      </div>
+    </div>
+  </section>
+
   <footer class="foot">
     <span data-i18n="footer_note">檔案不經伺服器，零儲存、零流量。</span>
   </footer>
 </main>
+<script src="/sha256.js"></script>
 <script src="/app.js"></script>
+<script src="/transfer.js"></script>
+<script>
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
 </body>
 </html>

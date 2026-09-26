@@ -98,6 +98,15 @@ CREATE TABLE IF NOT EXISTS quotas (
     updated_at REAL NOT NULL,
     PRIMARY KEY (kind, subject, date_key)
 );
+
+-- 配對過的裝置（規格書：配對過永久記住）
+CREATE TABLE IF NOT EXISTS pairings (
+    device_a   TEXT NOT NULL,
+    device_b   TEXT NOT NULL,
+    last_at    REAL NOT NULL,
+    times      INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (device_a, device_b)
+);
 """
 
 

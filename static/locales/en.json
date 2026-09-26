@@ -1,7 +1,16 @@
 {
- "download_hint": "Downloaded files are saved on this device, same as before.",
- "transfer_hint": "Works on the same WiFi only. Files never touch our server, no compression, no transcoding.",
- "history_hint": "Only records videos you downloaded (stored on your device).",
- "supported": "Supported platforms",
- "footer_note": "Files bypass our server — zero storage, zero traffic."
+  "tab_download": "Download",
+  "tab_transfer": "Transfer",
+  "tab_history": "History",
+  "tab_teach": "How to",
+  "tab_plans": "Pricing",
+  "tab_member": "Account",
+  "download_hint": "Files are saved to this device.",
+  "transfer_hint": "Same Wi-Fi only. Files never touch our server, no compression, no re-encoding, verified with SHA-256.",
+  "history_hint": "Only the videos you downloaded are listed here (stored on your device).",
+  "supported": "Supported platforms",
+  "footer_note": "Files never pass through our server — zero storage, zero bandwidth.",
+  "quota_reset": "Resets daily at 00:00",
+  "parse": "Parse",
+  "download": "Download"
 }

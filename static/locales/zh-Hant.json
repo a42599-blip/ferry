@@ -1,7 +1,13 @@
 {
- "download_hint": "下載的檔案會存在這台裝置，跟現在的用法一樣。",
- "transfer_hint": "同一個 WiFi 才能傳。檔案不經過伺服器、不壓縮、不轉檔。",
- "history_hint": "這裡只記錄你曾下載過的影片（存在你的裝置）。",
- "supported": "支援平台",
- "footer_note": "檔案不經伺服器，零儲存、零流量。"
+  "tab_download": "無水印下載",
+  "tab_transfer": "無損傳輸",
+  "tab_history": "歷史記錄",
+  "tab_teach": "教學",
+  "tab_plans": "方案",
+  "tab_member": "會員",
+  "download_hint": "下載的檔案會存在這台裝置，跟現在的用法一樣。",
+  "transfer_hint": "同一個 WiFi 才能傳。檔案不經過伺服器、不壓縮、不轉檔，並用 SHA-256 校驗完整性。",
+  "history_hint": "這裡只記錄你曾下載過的影片（存在你的裝置）。",
+  "supported": "支援平台",
+  "footer_note": "檔案不經伺服器，零儲存、零流量。"
 }

@@ -1,7 +1,13 @@
 {
- "download_hint": "下载的文件会存在这台设备，和现在的用法一样。",
- "transfer_hint": "必须在同一个 WiFi。文件不经过服务器、不压缩、不转码。",
- "history_hint": "这里只记录你下载过的视频（存在你的设备）。",
- "supported": "支持平台",
- "footer_note": "文件不经服务器，零存储、零流量。"
+  "tab_download": "无水印下载",
+  "tab_transfer": "无损传输",
+  "tab_history": "历史记录",
+  "tab_teach": "教学",
+  "tab_plans": "方案",
+  "tab_member": "会员",
+  "download_hint": "下载的文件会存在这台设备，跟现在的用法一样。",
+  "transfer_hint": "同一个 WiFi 才能传。文件不经过服务器、不压缩、不转档，并用 SHA-256 校验完整性。",
+  "history_hint": "这里只记录你曾下载过的视频（存在你的设备）。",
+  "supported": "支持平台",
+  "footer_note": "文件不经服务器，零存储、零流量。"
 }

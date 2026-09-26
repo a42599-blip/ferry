@@ -1,0 +1,19 @@
+{
+  "name": "轉運站 — 無水印下載 與 無損傳輸",
+  "short_name": "轉運站",
+  "description": "13 平台無水印下載，同 WiFi 無損傳輸。檔案不經伺服器，零儲存、零流量。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
+  "lang": "zh-Hant",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

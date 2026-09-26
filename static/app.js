@@ -80,20 +80,25 @@ async function loadConfig() {
   renderQuotaFromCfg(cfg.quota);
 }
 function renderPlatforms(plats) {
-  const box = $('#plats'); box.innerHTML = '';
   const labels = {
     douyin: '抖音', tiktok: 'TikTok', bilibili: 'B站',
     xiaohongshu: '小紅書', instagram: 'Instagram', facebook: 'Facebook',
     xigua: '西瓜視頻', shopee: '蝦皮', weibo: '微博',
     toutiao: '今日頭條', x: 'X', youtube: 'YouTube', threads: '脆 Threads',
   };
-  Object.entries(plats || {}).forEach(([id, v]) => {
-    const el = document.createElement('span');
-    el.className = 'plat' + (v.enabled ? '' : ' off');
-    el.textContent = labels[id] || id;
-    el.dataset.id = id;
-    box.appendChild(el);
-  });
+  const draw = (box) => {
+    if (!box) return;
+    box.innerHTML = '';
+    Object.entries(plats || {}).forEach(([id, v]) => {
+      const el = document.createElement('span');
+      el.className = 'plat' + (v.enabled ? '' : ' off');
+      el.textContent = labels[id] || id;
+      el.dataset.id = id;
+      box.appendChild(el);
+    });
+  };
+  draw($('#plats'));
+  draw($('#teach-plats'));
 }
 function renderQuotaFromCfg(q) {
   if (!q) return;
@@ -240,106 +245,6 @@ function renderHistory() {
 }
 $('#h-clear').addEventListener('click', () => {
   if (confirm('確定清空歷史記錄？')) { localStorage.removeItem(HKEY); renderHistory(); }
-});
-
-// ── 無損傳輸（WebRTC，檔案走區域網）────────────────
-let pc = null, chan = null, peer = crypto.randomUUID(), curCode = '';
-
-$('#create').addEventListener('click', async () => {
-  const r = await api('/api/signal/join', { method: 'POST', body: JSON.stringify({ peer_id: peer }) });
-  curCode = r.code; $('#code').value = r.code;
-  showStatus($('#t-status'), `配對碼 ${r.code}（2 分鐘內有效）。請在另一台裝置輸入這個碼。`, 'ok');
-  pollLoop();
-});
-$('#join').addEventListener('click', async () => {
-  const code = $('#code').value.trim();
-  if (code.length !== 6) return;
-  curCode = code;
-  await api('/api/signal/join', { method: 'POST', body: JSON.stringify({ code, peer_id: peer }) });
-  showStatus($('#t-status'), '已加入，等對方…', 'ok');
-  pollLoop();
-});
-
-async function pollLoop() {
-  for (;;) {
-    await new Promise((r) => setTimeout(r, 1500));
-    let r;
-    try { r = await api(`/api/signal/poll?code=${curCode}&peer_id=${peer}`); } catch { continue; }
-    for (const m of r.messages || []) await handleSignal(m);
-    if (r.peers && r.peers.length >= 2 && !pc) startPeer(r.peers.find((p) => p !== peer));
-    if (chan && chan.readyState === 'open') break;
-  }
-}
-
-async function startPeer(other) {
-  pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-  chan = pc.createDataChannel('file');
-  bindChannel();
-  pc.onicecandidate = (e) => e.candidate && sendSignal(other, { type: 'ice', c: e.candidate });
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  sendSignal(other, { type: 'sdp', s: pc.localDescription });
-}
-
-function bindChannel() {
-  chan.binaryType = 'arraybuffer';
-  chan.onopen = () => {
-    showStatus($('#t-status'), '已連線（檔案直接走區域網）', 'ok');
-    $('#send').disabled = false;
-  };
-  let got = 0, meta = null, chunks = [];
-  chan.onmessage = (e) => {
-    if (typeof e.data === 'string') {
-      const m = JSON.parse(e.data);
-      if (m.type === 'meta') { meta = m; got = 0; chunks = []; showStatus($('#t-status'), `接收中：${m.name}`); }
-      if (m.type === 'done') {
-        const blob = new Blob(chunks);
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob); a.download = meta.name; a.click();
-        showStatus($('#t-status'), `已收到 ${meta.name}（${fmtSize(blob.size)}）`, 'ok');
-      }
-    } else {
-      chunks.push(e.data); got += e.data.byteLength;
-    }
-  };
-}
-
-async function sendSignal(to, payload) {
-  await api('/api/signal/send', { method: 'POST', body: JSON.stringify({ code: curCode, from_peer: peer, to_peer: to, payload }) });
-}
-async function handleSignal(m) {
-  const p = m.payload;
-  if (p.type === 'sdp') {
-    if (!pc) {
-      pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-      pc.ondatachannel = (e) => { chan = e.channel; bindChannel(); };
-      pc.onicecandidate = (e) => e.candidate && sendSignal(m.from, { type: 'ice', c: e.candidate });
-    }
-    await pc.setRemoteDescription(p.s);
-    if (p.s.type === 'offer') {
-      const ans = await pc.createAnswer();
-      await pc.setLocalDescription(ans);
-      sendSignal(m.from, { type: 'sdp', s: pc.localDescription });
-    }
-  } else if (p.type === 'ice' && pc) {
-    try { await pc.addIceCandidate(p.c); } catch {}
-  }
-}
-
-$('#send').addEventListener('click', async () => {
-  const fs = $('#files').files;
-  if (!chan || chan.readyState !== 'open') return showStatus($('#t-status'), '尚未連線', 'err');
-  for (const f of fs) {
-    chan.send(JSON.stringify({ type: 'meta', name: f.name, size: f.size }));
-    const buf = await f.arrayBuffer();
-    const CH = 64 * 1024;
-    for (let i = 0; i < buf.byteLength; i += CH) {
-      chan.send(buf.slice(i, i + CH));
-      await new Promise((r) => setTimeout(r, 0));  // 讓出主執行緒
-    }
-    chan.send(JSON.stringify({ type: 'done', name: f.name }));
-    showStatus($('#t-status'), `已送出 ${f.name}（${fmtSize(f.size)}）`, 'ok');
-  }
 });
 
 // ── 啟動 ─────────────────────────────────────────
