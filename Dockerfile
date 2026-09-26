@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 WORKDIR /app
 
 # ffmpeg（B站 DASH 需要合流；純下載可不需要）
