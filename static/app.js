@@ -252,3 +252,134 @@ $('#h-clear').addEventListener('click', () => {
   await loadLangs();
   try { await loadConfig(); } catch (e) { console.warn(e); }
 })();
+
+// ── 會員（P5）─────────────────────────────────────
+const MKEY = 'fy_member_token';
+const memberToken = () => localStorage.getItem(MKEY) || '';
+const mApi = async (path, opt = {}) => {
+  const r = await fetch(path, {
+    ...opt,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Device-Id': deviceId(),
+      'X-Timezone': state.tz,
+      ...(memberToken() ? { 'X-Member-Token': memberToken() } : {}),
+      ...(opt.headers || {}),
+    },
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.ok === false) throw new Error(j.detail || j.message || `HTTP ${r.status}`);
+  return j;
+};
+const mMsg = (el, text, kind = '') => {
+  const box = $(el); box.hidden = false; box.className = 'status ' + kind; box.textContent = text;
+};
+
+async function refreshMember() {
+  try {
+    const me = await mApi('/api/member/me');
+    if (me.logged_in) {
+      $('#m-guest').hidden = true; $('#m-info').hidden = false;
+      const m = me.member || {};
+      $('#m-detail').innerHTML = `<table><tbody>
+        <tr><td>Email</td><td>${m.email || '–'}</td></tr>
+        <tr><td>方案</td><td>${me.plan === 'free' ? '免費' : (me.plan === 'monthly' ? '月會員' : '終身會員')}</td></tr>
+        <tr><td>次數</td><td>${me.unlimited ? '不限次數' : '每日 5 次'}</td></tr>
+        <tr><td>到期</td><td>${m.expires_at ? new Date(m.expires_at * 1000).toLocaleDateString() : '—'}</td></tr>
+      </tbody></table>`;
+      return true;
+    }
+  } catch (e) { /* 未登入 */ }
+  $('#m-guest').hidden = false; $('#m-info').hidden = true;
+  return false;
+}
+
+$('#m-login').addEventListener('click', async () => {
+  try {
+    const j = await mApi('/api/member/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: $('#m-email').value, password: $('#m-pass').value, tz: state.tz }),
+    });
+    localStorage.setItem(MKEY, j.token);
+    mMsg('#m-msg', '登入成功', 'ok');
+    await refreshMember(); await loadQuota();
+  } catch (e) { mMsg('#m-msg', e.message, 'err'); }
+});
+$('#m-register').addEventListener('click', async () => {
+  try {
+    const j = await mApi('/api/member/register', {
+      method: 'POST',
+      body: JSON.stringify({ email: $('#m-email').value, password: $('#m-pass').value, tz: state.tz }),
+    });
+    localStorage.setItem(MKEY, j.token);
+    mMsg('#m-msg', '註冊成功，已自動登入', 'ok');
+    await refreshMember(); await loadQuota();
+  } catch (e) { mMsg('#m-msg', e.message, 'err'); }
+});
+$('#m-logout').addEventListener('click', async () => {
+  localStorage.removeItem(MKEY);
+  await refreshMember(); await loadQuota();
+});
+$('#rp-send').addEventListener('click', async () => {
+  try {
+    const j = await mApi('/api/report', {
+      method: 'POST',
+      body: JSON.stringify({ message: $('#rp-msg').value, contact: $('#rp-contact').value }),
+    });
+    mMsg('#rp-status', j.message || '已送出', 'ok');
+    $('#rp-msg').value = '';
+  } catch (e) { mMsg('#rp-status', e.message, 'err'); }
+});
+
+// ── 方案（P6 介面）────────────────────────────────
+async function loadPlans() {
+  try {
+    const j = await mApi('/api/pay/plans');
+    Object.entries(j.plans || {}).forEach(([id, p]) => {
+      const el = document.querySelector(`.pv[data-plan="${id}"]`);
+      if (el) el.textContent = p.price;
+    });
+    const ready = Object.values(j.providers || {}).filter((p) => p.ready).length;
+    const msg = $('#pay-status');
+    msg.hidden = false;
+    msg.className = 'status';
+    msg.textContent = ready
+      ? '金流已設定完成，可開始收款。'
+      : '收費功能準備中：程式與訂單流程都已完成，等金流商金鑰設定後即可收款。';
+  } catch (e) { /* 忽略 */ }
+}
+
+$$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
+  const plan = b.dataset.buy;
+  try {
+    const j = await mApi('/api/pay/checkout', { method: 'POST', body: JSON.stringify({ plan, provider: 'ecpay' }) });
+    if (j.checkout_url) window.location.href = j.checkout_url;
+  } catch (e) {
+    $('#pay-status').hidden = false;
+    $('#pay-status').className = 'status err';
+    $('#pay-status').textContent = e.message;
+  }
+}));
+
+async function loadQuota() {
+  try {
+    const r = await fetch('/api/quota', {
+      headers: { 'X-Device-Id': deviceId(), 'X-Timezone': state.tz,
+                 ...(memberToken() ? { 'X-Member-Token': memberToken() } : {}) },
+    });
+    const j = await r.json();
+    const q = j.quota || {};
+    const unlimited = q.unlimited || q.download?.remaining >= 9999;
+    $('#q-dl').textContent = unlimited ? '∞' : (q.download?.remaining ?? '–');
+    $('#q-reset').textContent = unlimited ? '（不限次數）' : '每日 00:00 重置';
+    $('#pl-dl').textContent = q.download?.limit ?? 5;
+    $('#pl-tr').textContent = q.transfer?.limit ?? 5;
+  } catch (e) { /* 忽略 */ }
+}
+
+// 分頁切到會員/方案時載入
+$$('.tab').forEach((t) => t.addEventListener('click', () => {
+  const tab = t.dataset.tab;
+  if (tab === 'member') refreshMember();
+  if (tab === 'plans') loadPlans();
+}));

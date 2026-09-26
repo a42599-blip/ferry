@@ -39,8 +39,27 @@ def current_subject(request=None) -> str:
     """
     if not enabled():
         return _device_id(request)
-    # 🔧 TODO(P5)：從 session/JWT 取會員ID；取不到就退回裝置ID
+
+    # 已登入：Authorization: Bearer <member token> 或 x-member-token
+    member_id = _member_from_request(request)
+    if member_id:
+        return f"user:{member_id}"
     return _device_id(request)
+
+
+def _member_from_request(request=None) -> str | None:
+    if request is None:
+        return None
+    hdr = getattr(request, "headers", {}) or {}
+    token = hdr.get("x-member-token") or ""
+    auth = hdr.get("authorization") or ""
+    if auth.lower().startswith("bearer "):
+        token = auth[7:].strip()
+    if not token:
+        return None
+    from . import members
+
+    return members.verify_token(token)
 
 
 def _device_id(request=None) -> str:

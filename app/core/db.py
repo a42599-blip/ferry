@@ -67,7 +67,8 @@ CREATE TABLE IF NOT EXISTS devices (
 
 CREATE TABLE IF NOT EXISTS members (
     id          TEXT PRIMARY KEY,
-    email       TEXT,
+    email       TEXT UNIQUE,
+    password    TEXT,
     plan        TEXT NOT NULL DEFAULT 'free',
     device_id   TEXT,
     tz          TEXT,
@@ -120,6 +121,51 @@ def path() -> str:
     return _path
 
 
+def _migrate(c: sqlite3.Connection) -> None:
+    """輕量遷移：舊資料庫缺少的欄位就補上（不會動到已有的資料）。"""
+
+    def cols(table: str) -> set[str]:
+        try:
+            return {r[1] for r in c.execute(f"PRAGMA table_info({table})")}
+        except sqlite3.Error:
+            return set()
+
+    wanted = {
+        "members": {
+            "password": "TEXT",
+            "email": "TEXT",
+            "tz": "TEXT",
+            "expires_at": "REAL",
+        },
+        "events": {
+            "is_new": "INTEGER",
+            "meta": "TEXT",
+            "country": "TEXT",
+        },
+        "orders": {
+            "fee": "REAL DEFAULT 0",
+            "paid_at": "REAL",
+            "note": "TEXT",
+        },
+    }
+    for table, fields in wanted.items():
+        have = cols(table)
+        if not have:
+            continue
+        for name, decl in fields.items():
+            if name not in have:
+                try:
+                    c.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+                except sqlite3.Error:
+                    pass
+    # 已經有 email 的會員，把 email 設唯一（重複不影響）
+    try:
+        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_members_email ON members(email)")
+    except sqlite3.Error:
+        pass
+    c.commit()
+
+
 def connect() -> sqlite3.Connection:
     """取得（必要時建立）連線。單一連線 + 執行緒鎖（SQLite 夠用且簡單）。"""
     global _conn, _path
@@ -132,6 +178,7 @@ def connect() -> sqlite3.Connection:
         _conn.execute("PRAGMA journal_mode=WAL")
         _conn.execute("PRAGMA synchronous=NORMAL")
         _conn.executescript(SCHEMA)
+        _migrate(_conn)
         _conn.commit()
         return _conn
 

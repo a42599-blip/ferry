@@ -1,0 +1,157 @@
+"""背景監控（規格書 10-4-1 的通知來源）。
+
+每 N 分鐘檢查一次，出事就發通知：
+  - 網站／服務是否活著
+  - 解析 5xx／失敗率
+  - 記憶體用量（v8i8 就是被 OOM 下架）
+  - 出口 IP 有沒有變（換 IP 會影響平台解析）
+  - 資料庫用量
+並在每天早上寄一封「每日摘要」。
+
+⚠️ 全部包在 try/except：監控本身壞掉絕不能影響網站。
+"""
+from __future__ import annotations
+
+import asyncio
+import os
+import time
+from typing import Any, Optional
+
+from ..core import db
+from ..core.config import settings
+from . import events, notify
+
+CHECK_INTERVAL = 300          # 5 分鐘檢查一次
+DIGEST_HOUR = 9               # 每天 09:00（台北時間）寄摘要
+_last_digest_date = ""
+_started_at = time.time()
+
+
+def memory_mb() -> Optional[float]:
+    """本行程記憶體用量（MB）。"""
+    try:
+        with open("/proc/self/status", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return round(int(line.split()[1]) / 1024, 1)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        import resource
+
+        return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+async def egress_ip() -> Optional[str]:
+    from ..core.http import HttpClient
+
+    try:
+        async with HttpClient(timeout=8) as http:
+            return (await http.get_json("https://api.ipify.org?format=json")).get("ip")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+async def check_once(*, notify_on_start: bool = False) -> dict:
+    """跑一輪檢查，回傳狀態（後台系統頁也會顯示）。"""
+    out: dict[str, Any] = {"at": time.time()}
+
+    # ① 記憶體
+    mem = memory_mb()
+    out["memory_mb"] = mem
+    if mem and mem > 400:
+        await notify.notify("memory_high", "記憶體用量偏高",
+                            f"目前 RSS = {mem} MB。若持續成長可能被平台 OOM 下架。")
+
+    # ② 出口 IP
+    ip = await egress_ip()
+    out["egress_ip"] = ip
+    if ip:
+        last = db.get_setting("last_egress_ip")
+        if last and last != ip and not notify_on_start:
+            await notify.notify("egress_ip_change", "出口 IP 改變",
+                                f"原本：{last}\n現在：{ip}\n平台解析可能受影響。")
+        db.set_setting("last_egress_ip", ip)
+
+    # ③ 解析失敗率（近 30 分）
+    since = time.time() - 1800
+    total = int(db.scalar("SELECT COUNT(*) FROM events WHERE kind='resolve' AND ts>=?", (since,)))
+    fails = int(db.scalar(
+        "SELECT COUNT(*) FROM events WHERE kind='resolve' AND result='fail' AND ts>=?", (since,)))
+    out["resolve_30m"] = {"total": total, "fail": fails}
+    if total >= 10:
+        rate = fails / total * 100
+        out["resolve_fail_rate"] = round(rate, 1)
+        if rate > 50:
+            await notify.notify("platform_fail", "解析失敗率過高",
+                                f"近 30 分：{fails}/{total}（{rate:.0f}%）失敗。"
+                                f"可在後台「功能與平台」關閉問題平台。")
+
+    # ④ 各平台失敗率（近 1 小時）
+    bad = []
+    for p in events.by_platform(days=1):
+        if p["total"] >= 10 and p["success_rate"] is not None and p["success_rate"] < 60:
+            bad.append(p)
+    out["weak_platforms"] = [b["platform"] for b in bad]
+    if bad:
+        detail = "\n".join(f"  {b['platform']}: {b['success_rate']}%（{b['ok']}/{b['total']}）" for b in bad)
+        await notify.notify("platform_fail", "部分平台成功率偏低",
+                            f"以下平台近 24 小時成功率 < 60%：\n{detail}")
+
+    # ⑤ 資料庫用量
+    size_mb = db.db_size_bytes() / 1024 / 1024
+    out["db_mb"] = round(size_mb, 1)
+    if size_mb > 400:
+        await notify.notify("db_usage_high", "資料庫用量偏高",
+                            f"目前 {size_mb:.0f} MB。可在後台「資料管理」刪除舊事件。")
+
+    db.set_setting("monitor_last", out)
+    return out
+
+
+def last_state() -> dict:
+    return db.get_setting("monitor_last") or {}
+
+
+def _local_hour() -> int:
+    """台北時間的小時。"""
+    return int(time.strftime("%H", time.localtime(time.time() + 8 * 3600)))
+
+
+async def loop() -> None:
+    """背景迴圈（FastAPI startup 時啟動）。"""
+    await asyncio.sleep(20)                 # 等服務穩定再開始
+    while True:
+        try:
+            await check_once(notify_on_start=False)
+        except Exception:  # noqa: BLE001
+            pass
+
+        # 每日摘要
+        try:
+            global _last_digest_date
+            today = time.strftime("%Y-%m-%d", time.localtime(time.time() + 8 * 3600))
+            if _local_hour() >= DIGEST_HOUR and _last_digest_date != today:
+                _last_digest_date = today
+                db.set_setting("last_digest_date", today)
+                await notify.send_digest(days=1)
+        except Exception:  # noqa: BLE001
+            pass
+
+        await asyncio.sleep(CHECK_INTERVAL)
+
+
+def uptime_seconds() -> int:
+    return int(time.time() - _started_at)
+
+
+def process_info() -> dict:
+    return {
+        "uptime_seconds": uptime_seconds(),
+        "memory_mb": memory_mb(),
+        "pid": os.getpid(),
+        "check_interval": CHECK_INTERVAL,
+        "digest_hour": DIGEST_HOUR,
+    }

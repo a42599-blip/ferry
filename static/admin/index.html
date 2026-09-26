@@ -31,6 +31,7 @@
       <button class="tab" data-tab="devices">會員與裝置</button>
       <button class="tab" data-tab="revenue">收益</button>
       <button class="tab" data-tab="errors">錯誤與告警</button>
+      <button class="tab" data-tab="notify">通知與監控</button>
       <button class="tab" data-tab="system">系統</button>
     </nav>
     <div class="topbar-right">
@@ -102,6 +103,38 @@
       <div class="card"><h2>失敗原因排行</h2><div id="err-top" class="tbl-host"></div></div>
       <div class="card"><h2>平台健康</h2><div id="err-plat" class="tbl-host"></div></div>
       <div class="card"><h2>傳輸失敗分析</h2><div id="err-transfer" class="tbl-host"></div></div>
+    </section>
+
+    <!-- 通知與監控 -->
+    <section class="panel" id="panel-notify">
+      <div class="card">
+        <div class="row-between">
+          <h2>寄送管道</h2>
+          <div class="input-row">
+            <button class="ghost" id="n-test">寄測試信</button>
+            <button class="ghost" id="n-digest">寄每日摘要（現在）</button>
+            <button class="ghost" id="n-run">立刻跑一次監控</button>
+          </div>
+        </div>
+        <div id="n-transport" class="tbl-host"></div>
+        <p class="muted">支援 Resend（`RESEND_API_KEY`）／SMTP（`SMTP_*`）／Webhook（`NOTIFY_WEBHOOK`）。
+        都還沒設定時，通知會記錄在這裡不會遺失。</p>
+      </div>
+
+      <div class="card">
+        <h2>事件開關（嚴重事件不可關）</h2>
+        <div id="n-events" class="switch-list"></div>
+      </div>
+
+      <div class="card">
+        <h2>系統監控</h2>
+        <div id="n-monitor" class="tbl-host"></div>
+      </div>
+
+      <div class="card">
+        <h2>最近通知紀錄</h2>
+        <div id="n-recent" class="tbl-host"></div>
+      </div>
     </section>
 
     <!-- 系統 -->

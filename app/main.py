@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 
@@ -15,11 +16,12 @@ from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
 from .admin.routes import router as admin_router
+from .api_member import router as member_router
 from .core import db
 from .core.errors import AppError
 from .core.http import HttpClient
 from .core import timezone as tz_util
-from .services import auth, downloader, events, flags, quota, resolve_service
+from .services import auth, downloader, events, flags, monitor, notify, quota, resolve_service
 from .services.transfer import router as transfer_router
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -39,6 +41,11 @@ app.add_middleware(
 @app.on_event("startup")
 async def _startup() -> None:
     db.connect()                  # 建表（第一次啟動）
+    # 背景監控（健康檢查、每日摘要）
+    try:
+        asyncio.create_task(monitor.loop())
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # ── 例外處理（統一格式）─────────────────────────────
@@ -232,6 +239,9 @@ app.include_router(transfer_router, prefix="/api/signal", tags=["transfer"])
 
 # ── 後台 ────────────────────────────────────────────
 app.include_router(admin_router)
+
+# ── 會員與付款 ──────────────────────────────────────
+app.include_router(member_router)
 
 
 # ── 前端（靜態檔）────────────────────────────────────

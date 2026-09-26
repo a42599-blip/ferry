@@ -42,6 +42,7 @@ async def login(body: dict = Body(...)) -> dict:
     code = (body.get("code") or "").strip()
 
     if not security.check_password(user, password):
+        await _alert_login_fail(user)
         time.sleep(0.6)                       # 簡單防暴力
         raise HTTPException(status_code=401, detail="帳號或密碼錯誤")
 
@@ -49,9 +50,21 @@ async def login(body: dict = Body(...)) -> dict:
         if not code:
             return {"ok": False, "need_code": True, "message": "請輸入兩步驟驗證碼"}
         if not security.totp_verify(code):
+            await _alert_login_fail(user)
             raise HTTPException(status_code=401, detail="驗證碼錯誤")
 
     return {"ok": True, "token": security.issue_token(user), "user": user}
+
+
+async def _alert_login_fail(user: str) -> None:
+    """後台登入失敗 → 通知（規格書通知清單 #9）。"""
+    try:
+        from ..services import notify
+
+        await notify.notify("admin_login_fail", "後台登入失敗",
+                            f"有人嘗試登入後台但失敗（帳號：{user}）。若不是你，請盡快改密碼。")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 @router.get("/session")
@@ -269,3 +282,83 @@ async def health_run(_: dict = Depends(require_admin)) -> dict:
             item.update({"ok": False, "note": str(exc)[:120]})
         out.append(item)
     return {"ok": True, "results": out}
+
+
+# ── 通知與監控（規格書 10-4-1）────────────────────────
+@router.get("/notify")
+async def get_notify(_: dict = Depends(require_admin)) -> dict:
+    from ..services import monitor, notify as nt
+
+    return {
+        "ok": True,
+        "events": nt.EVENTS,
+        "toggles": nt._toggles(),
+        "transport": nt.transport(),
+        "recipients": nt._recipients(),
+        "recent": nt.recent(40),
+        "cooldown": {k: nt.cooldown_left(k) for k in nt.EVENTS},
+        "monitor": monitor.last_state(),
+        "process": monitor.process_info(),
+    }
+
+
+@router.put("/notify/toggles")
+async def put_notify(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
+    from ..services import notify as nt
+
+    for k, v in (body.get("toggles") or {}).items():
+        nt.set_toggle(k, bool(v))
+    return {"ok": True, "toggles": nt._toggles()}
+
+
+@router.post("/notify/test")
+async def notify_test(body: dict = Body(default={}), _: dict = Depends(require_admin)) -> dict:
+    from ..services import notify as nt
+
+    subject = body.get("subject") or "【轉運站】測試通知"
+    text = body.get("text") or "這是一封測試信，代表通知管道設定正確。"
+    return {"ok": True, **await nt.send_now(subject, text)}
+
+
+@router.post("/notify/digest")
+async def notify_digest(days: int = Query(1, ge=1, le=30), _: dict = Depends(require_admin)) -> dict:
+    from ..services import notify as nt
+
+    return {"ok": True, **await nt.send_digest(days)}
+
+
+@router.post("/monitor/run")
+async def monitor_run(_: dict = Depends(require_admin)) -> dict:
+    from ..services import monitor
+
+    return {"ok": True, "state": await monitor.check_once(notify_on_start=True)}
+
+
+# ── 方案價格 ─────────────────────────────────────────
+@router.get("/plans")
+async def get_plans(_: dict = Depends(require_admin)) -> dict:
+    from ..services import billing
+
+    return {"ok": True, "plans": billing.plans(),
+            "providers": billing.available_providers(),
+            "enabled": billing.enabled()}
+
+
+@router.put("/plans")
+async def put_plans(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
+    from ..services import billing
+
+    for plan, price in (body.get("prices") or {}).items():
+        try:
+            billing.set_price(plan, float(price))
+        except (TypeError, ValueError):
+            continue
+    return {"ok": True, "plans": billing.plans()}
+
+
+# ── 會員 ─────────────────────────────────────────────
+@router.get("/members")
+async def get_members(_: dict = Depends(require_admin)) -> dict:
+    from ..services import members
+
+    return {"ok": True, "members": members.list_members()}

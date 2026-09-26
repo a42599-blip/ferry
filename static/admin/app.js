@@ -118,6 +118,7 @@ async function render(tab) {
     if (tab === 'devices') return await renderDevices();
     if (tab === 'revenue') return await renderRevenue();
     if (tab === 'errors') return await renderErrors();
+    if (tab === 'notify') return await renderNotify();
     if (tab === 'system') return await renderSystem();
   } catch (err) {
     console.error(err);
@@ -337,3 +338,68 @@ $('#quota-reset').addEventListener('click', async () => {
   if (!localStorage.getItem(TKEY)) return showLogin();
   try { await api('/session'); startApp(); } catch { showLogin(); }
 })();
+
+// ── 通知與監控 ────────────────────────────────────
+const SEV = { critical: '🔴 嚴重', warn: '🟠 警告', info: '🔵 一般' };
+
+async function renderNotify() {
+  const d = await api('/notify');
+  const p = d.process || {};
+  const m = d.monitor || {};
+  $('#n-transport').innerHTML = `<table><tbody>${
+    [['寄送方式', d.transport === 'none' ? '未設定（通知只會記錄在後台）' : d.transport],
+     ['收件人', (d.recipients || []).join(', ') || '（未設定）'],
+     ['記憶體', p.memory_mb ? p.memory_mb + ' MB' : '–'],
+     ['開機時間', p.uptime_seconds ? Math.round(p.uptime_seconds / 60) + ' 分鐘' : '–'],
+     ['檢查間隔', (p.check_interval || 300) / 60 + ' 分鐘'],
+     ['上次出口 IP', m.egress_ip || '–'],
+     ['近 30 分解析', m.resolve_30m ? `${m.resolve_30m.fail}/${m.resolve_30m.total} 失敗` : '–'],
+     ['資料庫', (m.db_mb ?? '–') + ' MB']]
+      .map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</tbody></table>`;
+
+  $('#n-events').innerHTML = Object.entries(d.events).map(([key, meta]) => {
+    const on = d.toggles[key];
+    const locked = !meta.can_disable;
+    const left = d.cooldown[key];
+    return `<label class="switch">
+      <span>${meta.title}<small>${SEV[meta.severity]} · ${key}${left ? ' · 冷卻 ' + left + 's' : ''}</small></span>
+      <span class="toggle"><input type="checkbox" data-notify="${key}" ${on ? 'checked' : ''} ${locked ? 'disabled' : ''}><span></span></span>
+    </label>`;
+  }).join('');
+  $$('#n-events input[data-notify]').forEach((el) => el.addEventListener('change', async () => {
+    const toggles = {};
+    $$('#n-events input[data-notify]').forEach((x) => { toggles[x.dataset.notify] = x.checked; });
+    await api('/notify/toggles', { method: 'PUT', body: JSON.stringify({ toggles }) });
+  }));
+
+  $('#n-monitor').innerHTML = `<table><tbody>${
+    [['上次檢查', m.at ? new Date(m.at * 1000).toLocaleString('zh-TW', { hour12: false }) : '尚未執行'],
+     ['出口 IP', m.egress_ip || '–'],
+     ['記憶體', m.memory_mb ? m.memory_mb + ' MB' : '–'],
+     ['弱平台', (m.weak_platforms || []).join(', ') || '（無）']]
+      .map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</tbody></table>`;
+
+  $('#n-recent').innerHTML = table([
+    { t: '時間', v: (r) => fmtTime(r.ts) },
+    { t: '事件', v: 'event' },
+    { t: '主旨', v: 'subject' },
+    { t: '結果', v: (r) => r.ok ? '<span class="badge ok">已寄出</span>' : `<span class="badge err">${esc(r.error || '失敗')}</span>`, html: true },
+    { t: '管道', v: 'transport' },
+  ], d.recent);
+}
+
+$('#n-test').addEventListener('click', async () => {
+  const d = await api('/notify/test', { method: 'POST', body: JSON.stringify({}) });
+  alert(d.ok ? `已寄出（${d.transport}）→ ${d.to.join(', ')}` : `未寄出：${d.note}`);
+  renderNotify();
+});
+$('#n-digest').addEventListener('click', async () => {
+  const d = await api('/notify/digest?days=1', { method: 'POST' });
+  alert(d.ok ? `摘要已寄出（${d.transport}）` : `未寄出：${d.note}`);
+  renderNotify();
+});
+$('#n-run').addEventListener('click', async () => {
+  await api('/monitor/run', { method: 'POST' });
+  alert('監控已執行');
+  renderNotify();
+});
