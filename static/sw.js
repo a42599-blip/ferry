@@ -1,12 +1,14 @@
-/* 轉運站 — 極簡 Service Worker（PWA／離線）
-   策略：
-   - 靜態資源（css/js/svg/manifest）：cache-first（快，且不影響功能）
-   - 導覽（HTML）：network-first，失敗才回快取（避免拿到舊版）
-   - API（/api、/admin）：永不快取（一律走網路，資料必須即時） */
+/* 轉運站 — Service Worker（PWA／離線）
+   策略（2026-09-26 修正）：
+   - HTML（導覽）：network-first → 永遠拿到新版
+   - CSS／JS：**network-first**（fallback 快取）← 之前用 cache-first 會讓使用者卡在舊版面
+   - 圖示／LOGO：cache-first（很少變動）
+   - API（/api、/admin）：永不快取
+*/
 'use strict';
 
-const CACHE = 'ferry-v2';
-const STATIC_ASSETS = [
+const CACHE = 'ferry-v3';
+const PRECACHE = [
   '/style.css', '/app.js', '/transfer.js', '/sha256.js',
   '/icon.svg', '/favicon.ico', '/manifest.webmanifest',
   '/locales/zh-Hant.json', '/locales/zh-Hans.json', '/locales/en.json',
@@ -17,16 +19,43 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(STATIC_ASSETS)).catch(() => {}));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).catch(() => {}));
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
+
+async function networkFirst(request) {
+  try {
+    const res = await fetch(request);
+    if (res && res.ok) {
+      const copy = res.clone();
+      caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
+    }
+    return res;
+  } catch (err) {
+    const hit = await caches.match(request);
+    if (hit) return hit;
+    throw err;
+  }
+}
+
+async function cacheFirst(request) {
+  const hit = await caches.match(request);
+  if (hit) return hit;
+  const res = await fetch(request);
+  if (res && res.ok) {
+    const copy = res.clone();
+    caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
+  }
+  return res;
+}
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
@@ -35,21 +64,9 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== location.origin) return;
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin')) return;
 
-  const isStatic = /\.(css|js|svg|ico|webmanifest|json)$/.test(url.pathname);
-  if (isStatic) {
-    event.respondWith(
-      caches.match(request).then((hit) => hit || fetch(request).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
-        return res;
-      }))
-    );
+  if (/\.(png|jpg|jpeg|gif|webp|svg|ico)$/i.test(url.pathname)) {
+    event.respondWith(cacheFirst(request));
     return;
   }
-
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(() => caches.match('/') || caches.match(request))
-    );
-  }
+  event.respondWith(networkFirst(request));
 });
