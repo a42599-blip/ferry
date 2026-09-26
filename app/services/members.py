@@ -62,7 +62,8 @@ def register(email: str, password: str, *, device_id: str | None = None,
     db.execute("UPDATE members SET password=? WHERE id=?", (_hash(password), mid))
     from . import events
 
-    events.track("signup", device_id=device_id, meta={"method": "email"})
+    events.link_member(device_id or "", mid, email)
+    events.track("signup", device_id=device_id, meta={"method": "email", "member_id": mid})
     return {"id": mid, "email": email, "plan": "free"}
 
 
@@ -75,7 +76,8 @@ def login(email: str, password: str, *, device_id: str | None = None) -> dict:
         db.execute("UPDATE members SET device_id=? WHERE id=?", (device_id, row["id"]))
     from . import events
 
-    events.track("login", device_id=device_id, meta={"method": "email"})
+    events.link_member(device_id or "", row["id"], row["email"])
+    events.track("login", device_id=device_id, meta={"method": "email", "member_id": row["id"]})
     return {"id": row["id"], "email": row["email"], "plan": row["plan"],
             "token": issue_token(row["id"])}
 

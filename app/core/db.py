@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS events (
     referrer    TEXT,
     utm         TEXT,
     path        TEXT,
+    url         TEXT,                      -- 使用者實際貼的網址（解析／下載）
     os          TEXT,
     browser     TEXT,
     is_new      INTEGER,                   -- 1=新訪客 0=回訪
@@ -62,7 +63,9 @@ CREATE TABLE IF NOT EXISTS devices (
     country     TEXT,
     os          TEXT,
     browser     TEXT,
-    source      TEXT
+    source      TEXT,
+    member_id   TEXT,                      -- 若已登入，綁定的會員
+    member_email TEXT
 );
 
 CREATE TABLE IF NOT EXISTS members (
@@ -141,6 +144,16 @@ def _migrate(c: sqlite3.Connection) -> None:
             "is_new": "INTEGER",
             "meta": "TEXT",
             "country": "TEXT",
+            "url": "TEXT",
+            "referrer": "TEXT",
+            "browser": "TEXT",
+            "os": "TEXT",
+            "device_id": "TEXT",
+        },
+        "devices": {
+            "member_id": "TEXT",
+            "member_email": "TEXT",
+            "source": "TEXT",
         },
         "orders": {
             "fee": "REAL DEFAULT 0",

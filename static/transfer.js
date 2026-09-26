@@ -6,6 +6,7 @@
 (() => {
   const $ = (s) => document.querySelector(s);
   if (!$('#p-transfer')) return;
+  const t = (k, d) => (window.FY?.t ? window.FY.t(k, d) : d) || d || k;
 
   const ICE = { iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -53,7 +54,7 @@
                   pdf: '📄', doc: '📄', docx: '📄', xlsx: '📊', zip: '🗜️', rar: '🗜️', '7z': '🗜️' };
   function renderFiles() {
     const box = $('#tr-list');
-    if (!S.files.length) box.innerHTML = '<li class="fr"><span class="dim">還沒有選擇檔案</span></li>';
+    if (!S.files.length) box.innerHTML = `<li class="fr"><span class="dim">${t('tr_no_files')}</span></li>`;
     else {
       box.innerHTML = S.files.map((f, i) => {
         const ext = (f.name.split('.').pop() || '').toLowerCase();
@@ -68,7 +69,7 @@
       }));
     }
     const total = S.files.reduce((a, f) => a + f.size, 0);
-    $('#tr-total').textContent = S.files.length ? `（${S.files.length} 個 · ${fmtBytes(total)}）` : '';
+    $('#tr-total').textContent = S.files.length ? `（${S.files.length} ${t('tr_n_items')} · ${fmtBytes(total)}）` : '';
     $('#tr-send').disabled = !S.files.length || !S.dc || S.dc.readyState !== 'open';
   }
 
@@ -125,14 +126,14 @@
     $('#codebox').hidden = false;
     renderKnown();
     if (j.peers?.length) { S.peer = j.peers[0]; onPeerFound(); }
-    else { status('等待對方加入…（把這組號碼給對方）'); startPoll(); }
+    else { status(t('tr_waiting')); startPoll(); }
   }
 
   function renderKnown() {
     const box = $('#known');
     if (!S.known?.length) { box.innerHTML = ''; return; }
-    box.innerHTML = '<div class="lbl" style="margin-bottom:6px">配對過的裝置</div>' + S.known.map((p, i) =>
-      `<button class="big gh sm" style="margin-top:6px" data-peer="${esc(p)}">${esc(String(p).slice(0, 22))}… 直接重連</button>`).join('');
+    box.innerHTML = '<div class="lbl" style="margin-bottom:6px">' + t('tr_known') + '</div>' + S.known.map((p, i) =>
+      `<button class="big gh sm" style="margin-top:6px" data-peer="${esc(p)}">${esc(String(p).slice(0, 22))}… ${t('tr_reconnect')}</button>`).join('');
     box.querySelectorAll('[data-peer]').forEach((b) => b.addEventListener('click', async () => {
       try {
         const j = await api('/pair', { method: 'POST', body: JSON.stringify({ peer_id: S.peerId, target: b.dataset.peer }) });
@@ -148,7 +149,7 @@
   });
   $('#tr-join').addEventListener('click', async () => {
     const code = ($('#join-code').value || '').trim();
-    if (code.length !== 6) return status('請輸入 6 位數字', 'err');
+    if (code.length !== 6) return status(t('tr_enter6'), 'err');
     try { await join(code); } catch (e) { status(e.message, 'err'); }
   });
   $('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#tr-join').click(); });
@@ -163,7 +164,7 @@
         for (const m of j.messages || []) await handleSignal(m);
       } catch (e) {
         if (String(e.message).includes('過期') || String(e.message).includes('不存在')) {
-          stopPoll(); status('配對已過期，請重新產生配對碼', 'err');
+          stopPoll(); status(t('tr_expired'), 'err');
         }
       }
     }, 900);
@@ -192,7 +193,7 @@
   // ── WebRTC ───────────────────────────────────────
   async function onPeerFound() {
     stopPoll();
-    status('找到對方裝置，正在建立直連…');
+    status(t('tr_found'));
     startPoll();
     if (S.peerId < S.peer) { if (!S.pc) await createPeer(true); }
     else if (!S.pc) await createPeer(false);
@@ -205,9 +206,9 @@
     };
     S.pc.onconnectionstatechange = () => {
       const st = S.pc.connectionState;
-      if (st === 'connected') { status('已連線，可以開始傳送了', 'ok'); $('#tr-send').disabled = !S.files.length; }
+      if (st === 'connected') { status(t('tr_connected'), 'ok'); $('#tr-send').disabled = !S.files.length; }
       else if (st === 'failed' || st === 'disconnected')
-        status('連線中斷。請確認兩台裝置在同一個 WiFi，並保持頁面開啟。', 'err');
+        status(t('tr_broken'), 'err');
     };
     S.pc.ondatachannel = (e) => bindChannel(e.channel);
     if (offerer) {
@@ -223,10 +224,10 @@
     dc.binaryType = 'arraybuffer';
     dc.bufferedAmountLowThreshold = LOW_WATER;
     dc.onopen = () => {
-      if (S.pc?.connectionState === 'connected') status('已連線，可以開始傳送了', 'ok');
+      if (S.pc?.connectionState === 'connected') status(t('tr_connected'), 'ok');
       $('#tr-send').disabled = !S.files.length;
     };
-    dc.onclose = () => { status('連線已關閉', 'err'); $('#tr-send').disabled = true; };
+    dc.onclose = () => { status(t('tr_closed'), 'err'); $('#tr-send').disabled = true; };
     dc.onmessage = (e) => onData(e.data);
   }
 
@@ -245,11 +246,11 @@
     try {
       for (let i = 0; i < list.length; i++) {
         const item = list[i];
-        updateRow('send', i, 0, '計算校驗碼…');
+        updateRow('send', i, 0, t('tr_calc'));
         const sha = await sha256OfFile(item.file);
         const id = `${Date.now()}-${i}`;
         dcSend(JSON.stringify({ t: 'start', id, name: item.name, size: item.size, sha }));
-        updateRow('send', i, 0, '傳送中…');
+        updateRow('send', i, 0, t('tr_xfer'));
 
         let off = 0;
         while (off < item.size) {
@@ -268,11 +269,11 @@
           tuneChunk(S.dc.bufferedAmount);
         }
         dcSend(JSON.stringify({ t: 'end', id }));
-        updateRow('send', i, 1, '等待對方校驗…');
+        updateRow('send', i, 1, t('tr_waitack'));
       }
-      status('已送出，等待對方確認校驗結果…');
+      status(t('tr_sent'));
     } catch (err) {
-      status('傳輸中斷：' + err.message, 'err');
+      status(t('tr_interrupted') + err.message, 'err');
     } finally {
       S.sending = false; stopSpeed();
       $('#tr-send').disabled = !S.files.length || S.dc?.readyState !== 'open';
@@ -312,11 +313,11 @@
       S.receiving = { id: m.id, name: m.name, size: m.size, sha: m.sha,
                       chunks: [], got: 0, hasher: new SHA256(), index: idx };
       addRow('recv', m.name, m.size);
-      status('正在接收：' + m.name);
+      status(t('tr_receiving') + m.name);
     } else if (m.t === 'end') {
       finishReceive();
     } else if (m.t === 'ack') {
-      status(m.ok ? '對方已確認檔案完整（校驗一致）' : '對方回報校驗失敗', m.ok ? 'ok' : 'err');
+      status(m.ok ? t('tr_acked_ok') : t('tr_acked_bad'), m.ok ? 'ok' : 'err');
     }
   }
 
@@ -326,7 +327,7 @@
     S.receiving = null;
     const sha = r.hasher.hex();
     const ok = (sha === r.sha);
-    updateRow('recv', r.index, 1, ok ? '校驗一致' : '校驗不一致', ok ? 'ok' : 'err');
+    updateRow('recv', r.index, 1, ok ? t('tr_status_ok') : t('tr_status_bad'), ok ? 'ok' : 'err');
     const blob = new Blob(r.chunks);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -334,7 +335,7 @@
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 60000);
     dcSend(JSON.stringify({ t: 'ack', id: r.id, ok }));
-    status(ok ? `${r.name} 接收完成，校驗一致` : `${r.name} 校驗不一致（檔案可能不完整）`, ok ? 'ok' : 'err');
+    status(ok ? `${r.name} ${t('tr_recv_done')}` : `${r.name} ${t('tr_recv_bad')}`, ok ? 'ok' : 'err');
     api('/done', { method: 'POST', body: JSON.stringify({
       peer_id: S.peerId, ok, files: 1, total_bytes: r.size }) }).catch(() => {});
   }
@@ -346,7 +347,7 @@
         <div class="row-between" style="display:flex;justify-content:space-between;gap:8px">
           <span class="nm">${esc(name)}</span><span class="sz">${fmtBytes(size)}</span></div>
         <div class="track" style="margin-top:8px"><i style="width:0"></i></div>
-        <div class="pm" style="margin-top:6px"><span class="st">等待中</span></div>
+        <div class="pm" style="margin-top:6px"><span class="st"></span></div>
       </div>`;
   }
   function addRow(kind, name, size) {
@@ -382,7 +383,7 @@
       const dt = (performance.now() - S.speed.at) / 1000;
       const bps = dt > 0 ? S.speed.bytes / dt : 0;
       S.speed.bytes = 0; S.speed.at = performance.now();
-      $('#tr-speed').textContent = bps > 0 ? '· ' + fmtBytes(bps) + '/s' : '';
+      $('#tr-speed').textContent = bps > 0 ? '· ' + fmtBytes(bps) + t('tr_per_sec') : '';
     }, 800);
   }
   function stopSpeed() {

@@ -1,42 +1,166 @@
-/* 轉運站 — 前台（原生 JS，無框架）*/
+/* 轉運站 — 前台（原生 JS，無框架）
+   ⚠️ 所有顯示文字一律走 t()，翻譯要含「按鈕、placeholder、動態訊息」。 */
 'use strict';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
-const state = { config: null, info: null, selected: null, tz: Intl.DateTimeFormat().resolvedOptions().timeZone };
+const state = {
+  config: null, info: null, selected: null,
+  tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  lang: 'zh-Hant', L: {},
+};
 
-// ── 平台（分組＋圖示，順序＝規格書 5-4）────────────────
-const PLATFORMS = [
-  { id: 'douyin', label: '抖音', logo: '/logos/douyin.png', g: 'cn' },
-  { id: 'bilibili', label: 'B站', logo: '/logos/bilibili.png', g: 'cn' },
-  { id: 'xiaohongshu', label: '小紅書', logo: '/logos/xiaohongshu.png', g: 'cn' },
-  { id: 'xigua', label: '西瓜視頻', logo: '/logos/xigua.png', g: 'cn' },
-  { id: 'weibo', label: '微博', logo: '/logos/weibo.png', g: 'cn' },
-  { id: 'toutiao', label: '今日頭條', logo: '/logos/toutiao.png', g: 'cn' },
-  { id: 'tiktok', label: 'TikTok', logo: '/logos/tiktok.png', g: 'intl' },
-  { id: 'instagram', label: 'Instagram', logo: '/logos/instagram.png', g: 'intl' },
-  { id: 'facebook', label: 'Facebook', logo: '/logos/facebook.png', g: 'intl' },
-  { id: 'x', label: 'X', logo: '/logos/x.png', g: 'intl' },
-  { id: 'youtube', label: 'YouTube', logo: '/logos/youtube.png', g: 'intl' },
-  { id: 'threads', label: '脆 Threads', logo: '/logos/threads.png', g: 'intl' },
-  { id: 'shopee', label: '蝦皮', logo: '/logos/shopee.png', g: 'intl' },
-];
-const GROUPS = [
-  { key: 'cn', title: '中國大陸平台' },
-  { key: 'intl', title: '海外平台（含台灣、國際）' },
-];
-
-function renderPlatforms(enabled) {
-  const on = enabled || {};
-  const html = GROUPS.map((g) => `<div class="pgrp"><div class="pgh">${g.title}</div><div class="plist">${
-    PLATFORMS.filter((p) => p.g === g.key).map((p) => {
-      const off = on[p.id] === false ? ' off' : '';
-      return `<span class="pi${off}" title="${p.label}"><img src="${p.logo}" alt="${p.label}"><i>${p.label}</i></span>`;
-    }).join('')
-  }</div></div>`).join('');
-  ['#plats', '#plats-teach'].forEach((sel) => { const el = $(sel); if (el) el.innerHTML = html; });
+// ── i18n（全域共用，transfer.js 也會用）───────────────
+function t(key, fallback) {
+  const v = state.L[key];
+  return (v === undefined || v === null || v === '') ? (fallback !== undefined ? fallback : key) : v;
 }
+window.FY = { t: (k, d) => t(k, d), lang: () => state.lang };
+
+function applyLang() {
+  $$('[data-i18n]').forEach((el) => { const v = t(el.dataset.i18n, el.textContent); if (v) el.textContent = v; });
+  $$('[data-i18n-ph]').forEach((el) => { const v = t(el.dataset.i18nPh); if (v) el.placeholder = v; });
+  $$('#lang button').forEach((b) => b.classList.toggle('on', b.dataset.lang === state.lang));
+  document.documentElement.lang = state.lang;
+  document.title = t('brand', '轉運站') + ' · ' + t('dl_title');
+  buildTeach();
+  buildPlans();
+  renderPlatforms(state.config?.platforms, state.config?.enabled_platform_count);
+  renderQuota(state.quota);
+  renderHistory();
+  if (state.info) renderResult(state.info);
+  updateCtx();
+}
+
+async function loadLang(code) {
+  state.lang = code || localStorage.getItem('fy_lang') || 'zh-Hant';
+  try {
+    const r = await fetch('/locales/' + state.lang + '.json');
+    state.L = await r.json();
+  } catch { state.L = {}; }
+  localStorage.setItem('fy_lang', state.lang);
+  applyLang();
+}
+$$('#lang button').forEach((b) => b.addEventListener('click', () => loadLang(b.dataset.lang)));
+
+// ── 平台（分組＋圖示；只顯示「開著」的）────────────────
+const PLATFORMS = [
+  { id: 'douyin', key: 'plat_douyin', zh: '抖音', logo: '/logos/douyin.png', g: 'cn' },
+  { id: 'bilibili', key: 'plat_bilibili', zh: 'B站', logo: '/logos/bilibili.png', g: 'cn' },
+  { id: 'xiaohongshu', key: 'plat_xiaohongshu', zh: '小紅書', logo: '/logos/xiaohongshu.png', g: 'cn' },
+  { id: 'xigua', key: 'plat_xigua', zh: '西瓜視頻', logo: '/logos/xigua.png', g: 'cn' },
+  { id: 'weibo', key: 'plat_weibo', zh: '微博', logo: '/logos/weibo.png', g: 'cn' },
+  { id: 'toutiao', key: 'plat_toutiao', zh: '今日頭條', logo: '/logos/toutiao.png', g: 'cn' },
+  { id: 'tiktok', key: 'plat_tiktok', zh: 'TikTok', logo: '/logos/tiktok.png', g: 'intl' },
+  { id: 'instagram', key: 'plat_instagram', zh: 'Instagram', logo: '/logos/instagram.png', g: 'intl' },
+  { id: 'facebook', key: 'plat_facebook', zh: 'Facebook', logo: '/logos/facebook.png', g: 'intl' },
+  { id: 'x', key: 'plat_x', zh: 'X', logo: '/logos/x.png', g: 'intl' },
+  { id: 'youtube', key: 'plat_youtube', zh: 'YouTube', logo: '/logos/youtube.png', g: 'intl' },
+  { id: 'threads', key: 'plat_threads', zh: '脆 Threads', logo: '/logos/threads.png', g: 'intl' },
+  { id: 'shopee', key: 'plat_shopee', zh: '蝦皮', logo: '/logos/shopee.png', g: 'intl' },
+];
+const GROUPS = [{ key: 'cn', label: 'grp_cn' }, { key: 'intl', label: 'grp_intl' }];
+
+function renderPlatforms(plats, count) {
+  const on = plats || {};
+  const enabled = PLATFORMS.filter((p) => on[p.id]?.enabled !== false);
+  const label = t('supported', '支援') + ' ' + (count ?? enabled.length) + ' ' + t('supported_suffix', '個平台');
+  $('#plat-label').textContent = label;
+  const teachLabel = $('#teach-plat-label');
+  if (teachLabel) teachLabel.textContent = label;
+
+  if (!enabled.length) {
+    const none = `<div class="pledge">${t('platforms_none')}</div>`;
+    $('#plats').innerHTML = none;
+    if ($('#plats-teach')) $('#plats-teach').innerHTML = none;
+    return;
+  }
+  const html = GROUPS.map((g) => {
+    const list = enabled.filter((p) => p.g === g.key);
+    if (!list.length) return '';
+    return `<div class="pgrp"><div class="pgh">${t(g.label)}</div><div class="plist">${
+      list.map((p) => `<span class="pi" title="${p.zh}"><img src="${p.logo}" alt="${p.zh}" loading="lazy"><i>${t(p.key, p.zh)}</i></span>`).join('')
+    }</div></div>`;
+  }).join('');
+  $('#plats').innerHTML = html;
+  if ($('#plats-teach')) $('#plats-teach').innerHTML = html;
+}
+
+// ── 教學 / 方案（內容來自語系檔）───────────────────────
+function buildTeach() {
+  const dl = t('teach_dl_steps', []);
+  const tr = t('teach_tr_steps', []);
+  const osl = t('teach_os_list', []);
+  const faq = t('teach_faq', []);
+  const steps = (arr) => (arr || []).map((s) => `<li>${s}</li>`).join('');
+  if ($('#teach-steps-dl')) $('#teach-steps-dl').innerHTML = steps(dl);
+  if ($('#teach-steps-tr')) $('#teach-steps-tr').innerHTML = steps(tr);
+  if ($('#teach-os-list')) $('#teach-os-list').innerHTML = (osl || []).map(
+    ([k, v]) => `<div class="r"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  if ($('#teach-faq')) $('#teach-faq').innerHTML = (faq || []).map(
+    ([q, a]) => `<div class="r"><div class="k">${q}</div><div class="v">${a}</div></div>`).join('');
+}
+function buildPlans() {
+  const n = { dl: state.config?.quota?.download_per_day ?? 5, tr: state.config?.quota?.transfer_per_day ?? 5 };
+  const fill = (arr) => (arr || []).map((s) => `<li>${String(s).replace('{dl}', n.dl).replace('{tr}', n.tr)}</li>`).join('');
+  if ($('#plan-free-list')) $('#plan-free-list').innerHTML = fill(t('plan_free_list', []));
+  if ($('#plan-monthly-list')) $('#plan-monthly-list').innerHTML = fill(t('plan_monthly_list', []));
+  if ($('#plan-lifetime-list')) $('#plan-lifetime-list').innerHTML = fill(t('plan_lifetime_list', []));
+}
+
+// ── 開關連動：關掉的功能，前台整個消失 ─────────────────
+const FEATURE_TAB = { transfer: 'feature.transfer', teach: 'feature.teach', plans: 'feature.plans', member: 'feature.member' };
+const AVAILABLE_TABS = ['download', 'transfer', 'teach', 'plans', 'member'];
+
+function applyFlags(cfg) {
+  const f = cfg.features || {};
+  // 分頁／面板
+  AVAILABLE_TABS.forEach((tab) => {
+    const need = FEATURE_TAB[tab];
+    const ok = !need || f[need] !== false;
+    $$(`[data-tab="${tab}"]`).forEach((b) => { b.hidden = !ok; });
+    const panel = $('#p-' + tab);
+    if (panel) panel.dataset.disabled = ok ? '' : '1';
+  });
+  // 面板內容區塊
+  if ($('#report-box')) $('#report-box').hidden = f['feature.report'] === false;
+  if ($('#history-box')) $('#history-box').hidden = f['feature.history'] === false;
+  if ($('#download')) $('#download').hidden = f['feature.download'] === false;
+  if ($('#go')) $('#go').disabled = f['feature.maintenance'] === true;
+  if ($('#url')) $('#url').disabled = f['feature.maintenance'] === true;
+
+  if (f['feature.maintenance']) {
+    msg('#status', t('maintenance'), 'err');
+  }
+  // 目前分頁若被關掉 → 跳到第一個可用的
+  const cur = currentTab();
+  if (!tabAvailable(cur)) go(AVAILABLE_TABS.find(tabAvailable) || 'download');
+  else go(cur);
+  renderPlatforms(cfg.platforms, cfg.enabled_platform_count);
+}
+
+const tabAvailable = (tab) => {
+  const need = FEATURE_TAB[tab];
+  return !need || state.config?.features?.[need] !== false;
+};
+const currentTab = () => ($('.panel.on')?.id || 'p-download').slice(2);
+
+// ── 分頁 ─────────────────────────────────────────
+function go(tab) {
+  if (!tabAvailable(tab)) return;
+  $$('.tabs button, .foot button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+  $$('.panel').forEach((p) => p.classList.toggle('on', p.id === 'p-' + tab));
+  updateCtx();
+  if (tab === 'member') { refreshMember(); renderHistory(); }
+  if (tab === 'plans') loadPlans();
+}
+function updateCtx() {
+  const tab = currentTab();
+  $('#ctx').textContent = t('tab_' + tab, '');
+}
+$$('[data-tab]').forEach((b) => b.addEventListener('click', () => go(b.dataset.tab)));
+$('#logo')?.addEventListener('click', (e) => { e.preventDefault(); go('download'); });
 
 // ── 工具 ─────────────────────────────────────────
 const fmtSize = (n) => {
@@ -48,13 +172,12 @@ const fmtSize = (n) => {
 };
 const fmtDur = (s) => {
   if (!s && s !== 0) return '';
-  const m = Math.floor(s / 60), ss = String(s % 60).padStart(2, '0');
-  return m + ':' + ss;
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const msg = (sel, text, kind = '') => {
   const el = $(sel); if (!el) return;
-  el.hidden = false; el.className = 'msg ' + kind; el.textContent = text;
+  el.hidden = !text; el.className = 'msg ' + kind; el.textContent = text || '';
 };
 const deviceId = () => {
   let id = localStorage.getItem('fy_device_id');
@@ -68,9 +191,7 @@ const api = async (url, opt = {}) => {
   const r = await fetch(url, {
     ...opt,
     headers: {
-      'Content-Type': 'application/json',
-      'X-Device-Id': deviceId(),
-      'X-Timezone': state.tz,
+      'Content-Type': 'application/json', 'X-Device-Id': deviceId(), 'X-Timezone': state.tz,
       ...(memberToken() ? { 'X-Member-Token': memberToken() } : {}),
       ...(opt.headers || {}),
     },
@@ -80,53 +201,29 @@ const api = async (url, opt = {}) => {
   return j;
 };
 
-// ── 分頁 ─────────────────────────────────────────
-const TITLES = { download: '無水印下載', transfer: '無損傳輸', teach: '教學', plans: '方案', member: '會員' };
-function go(tab) {
-  $$('.tab, .foot button, #tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
-  $$('.panel').forEach((p) => p.classList.toggle('on', p.id === 'p-' + tab));
-  $('#ctx').textContent = TITLES[tab] || '';
-  if (tab === 'member') { refreshMember(); renderHistory(); }
-  if (tab === 'plans') loadPlans();
-}
-$$('[data-tab]').forEach((b) => b.addEventListener('click', () => go(b.dataset.tab)));
-
-// ── 語言 ─────────────────────────────────────────
-let LANGS = {};
-async function loadLang() {
-  const code = localStorage.getItem('fy_lang') || 'zh-Hant';
-  $$('#lang button').forEach((b) => b.classList.toggle('on', b.dataset.lang === code));
-  try { LANGS = await (await fetch('/locales/' + code + '.json')).json(); } catch { LANGS = {}; }
-  document.documentElement.lang = code;
-  $$('[data-i18n]').forEach((el) => { const v = LANGS[el.dataset.i18n]; if (v) el.textContent = v; });
-}
-$$('#lang button').forEach((b) => b.addEventListener('click', () => {
-  localStorage.setItem('fy_lang', b.dataset.lang); loadLang();
-}));
-
 // ── 設定 / 次數 ───────────────────────────────────
 async function loadConfig() {
   const cfg = await api('/api/config');
   state.config = cfg;
-  renderPlatforms(cfg.platforms);
-  $('#pl-dl').textContent = cfg.quota?.download_per_day ?? 5;
-  $('#pl-tr').textContent = cfg.quota?.transfer_per_day ?? 5;
+  applyFlags(cfg);
+  buildPlans();
+}
+function renderQuota(q) {
+  if (!q) return;
+  state.quota = q;
+  const unlimited = q.unlimited || (q.download?.remaining ?? 0) >= 9999;
+  if (unlimited) {
+    $('#q-left').textContent = '∞';
+    $('#q-used').textContent = '–';
+    $('#q-reset').textContent = t('quota_unlimited');
+  } else {
+    $('#q-left').textContent = q.download?.remaining ?? '–';
+    $('#q-used').textContent = q.download?.used ?? '–';
+    $('#q-reset').textContent = t('quota_reset_pre') + ' ' + (q.download?.reset_hint || '00:00') + ' ' + t('quota_reset_suf');
+  }
 }
 async function loadQuota() {
-  try {
-    const j = await api('/api/quota');
-    const q = j.quota || {};
-    const unlimited = q.unlimited || (q.download?.remaining ?? 0) >= 9999;
-    if (unlimited) {
-      $('#q-left').textContent = '∞';
-      $('#q-used').textContent = '–';
-      $('#q-reset').textContent = '（付費會員：不限次數）';
-    } else {
-      $('#q-left').textContent = q.download?.remaining ?? '–';
-      $('#q-used').textContent = q.download?.used ?? '–';
-      $('#q-reset').textContent = '將於 ' + (q.download?.reset_hint || '當地 00:00') + ' 重置（當地時間）';
-    }
-  } catch { /* 忽略 */ }
+  try { renderQuota((await api('/api/quota')).quota); } catch { /* 忽略 */ }
 }
 
 // ── 解析 ─────────────────────────────────────────
@@ -136,9 +233,8 @@ $('#url').addEventListener('keydown', (e) => { if (e.key === 'Enter') doResolve(
 async function doResolve() {
   const url = $('#url').value.trim();
   if (!url) return;
-  $('#status').hidden = true;
+  msg('#status', t('parsing'));
   $('#go').disabled = true;
-  msg('#status', '解析中…');
   try {
     const res = await api('/api/resolve', { method: 'POST', body: JSON.stringify({ url }) });
     state.info = res.data;
@@ -152,16 +248,12 @@ async function doResolve() {
 }
 
 function renderResult(info) {
-  $('#status').hidden = true;
-  const pv = $('#pv');
+  msg('#status', '');
   const cover = $('#cover');
   cover.onerror = () => { cover.hidden = true; $('#shade').hidden = true; };
-  if (info.cover) {
-    cover.src = info.cover; cover.hidden = false; $('#shade').hidden = false;
-  } else {
-    cover.hidden = true; $('#shade').hidden = true;
-  }
-  $('#pv-title').textContent = info.title || '（無標題）';
+  if (info.cover) { cover.src = info.cover; cover.hidden = false; $('#shade').hidden = false; }
+  else { cover.hidden = true; $('#shade').hidden = true; }
+  $('#pv-title').textContent = info.title || t('pv_notitle');
   $('#pv-plat').textContent = info.platform || '';
   $('#pv-dur').textContent = fmtDur(info.duration);
 
@@ -172,22 +264,33 @@ function renderResult(info) {
   list.forEach((f, i) => {
     const el = document.createElement('div');
     el.className = 'q';
-    const tag = f.audio ? '<span class="tag">音訊</span>' : '';
-    el.innerHTML = `<span class="lb">${tag}${esc(f.label)}</span><span class="s">${f.size ? fmtSize(f.size) : ''} ${f.ext || ''}</span>`;
+    const tag = f.audio ? `<span class="tag">${t('tag_audio')}</span>` : '';
+    el.innerHTML = `<span class="lb">${tag}${esc(qlabel(f.label))}</span><span class="s">${f.size ? fmtSize(f.size) : ''} ${f.ext || ''}</span>`;
     el.addEventListener('click', () => selectFormat(i));
     el.dataset.i = i;
     box.appendChild(el);
   });
-  if (!list.length) box.innerHTML = '<div class="q"><span class="lb">沒有可下載的格式</span></div>';
+  if (!list.length) box.innerHTML = `<div class="q"><span class="lb">${t('no_formats')}</span></div>`;
   if (list.length === 1) selectFormat(0);
-  else { $('#download').disabled = true; $('#download').textContent = '選擇畫質後下載'; }
+  else { $('#download').disabled = true; $('#download').textContent = t('btn_choose_quality'); }
+}
+// 後端回傳的畫質名稱（中文）→ 依語言顯示
+const QMAP = { '原畫': 'q_origin', '高清': 'q_hd', '標清': 'q_sd', '純音訊': 'q_audio',
+               '下載版': 'q_download', '備援線路': 'q_backup' };
+function qlabel(label) {
+  if (state.lang === 'zh-Hant' || !label) return label;
+  if (QMAP[label]) return t(QMAP[label], label);
+  const m = /^線路 (\d+)$/.exec(label);
+  if (m) return t('q_line', 'Line') + ' ' + m[1];
+  if (/^圖 \d+$/.test(label)) return label.replace('圖', state.lang === 'en' ? 'Image' : '图');
+  return label;
 }
 
 function selectFormat(i) {
   state.selected = i;
   $$('#qs .q').forEach((el) => el.classList.toggle('on', Number(el.dataset.i) === i));
   $('#download').disabled = false;
-  $('#download').textContent = '下載到這台裝置';
+  $('#download').textContent = t('btn_download');
 }
 
 // ── 下載 ─────────────────────────────────────────
@@ -195,14 +298,13 @@ $('#download').addEventListener('click', async () => {
   const f = state.info?.formats?.[state.selected];
   if (!f) return;
   const track = $('#track'), bar = $('#bar'), pm = $('#pm');
-  track.hidden = false; pm.hidden = false; bar.style.width = '0%'; $('#pct').textContent = '0%';
-  $('#pspeed').textContent = '';
+  track.hidden = false; pm.hidden = false; bar.style.width = '0%'; $('#pct').textContent = '0%'; $('#pspeed').textContent = '';
   try {
     if (f.mode === 'direct') {
       const a = document.createElement('a');
       a.href = f.url; a.download = ''; a.rel = 'noreferrer';
       document.body.appendChild(a); a.click(); a.remove();
-      $('#pct').textContent = '已開始下載';
+      $('#pct').textContent = t('dl_started');
     } else if (f.mode === 'proxy') {
       const ext = f.audio ? (f.ext || 'm4a') : (f.ext || 'mp4');
       const q = new URLSearchParams({ src: state.info.source_url, name: (state.info.title || 'video').slice(0, 60) + '.' + ext });
@@ -210,7 +312,7 @@ $('#download').addEventListener('click', async () => {
       const a = document.createElement('a');
       a.href = '/api/download?' + q.toString(); a.rel = 'noreferrer';
       document.body.appendChild(a); a.click(); a.remove();
-      $('#pct').textContent = '已開始下載（伺服器代理）';
+      $('#pct').textContent = t('dl_proxy');
     } else {
       const t0 = performance.now();
       const resp = await fetch(f.url, { headers: f.headers || {} });
@@ -225,7 +327,7 @@ $('#download').addEventListener('click', async () => {
           const p = Math.round(got / total * 100);
           bar.style.width = p + '%'; $('#pct').textContent = p + '%';
           const sec = (performance.now() - t0) / 1000;
-          if (sec > 0.5) $('#pspeed').textContent = fmtSize(got / sec) + '/s';
+          if (sec > 0.5) $('#pspeed').textContent = fmtSize(got / sec) + t('tr_per_sec');
         }
       }
       const blob = new Blob(chunks);
@@ -233,18 +335,18 @@ $('#download').addEventListener('click', async () => {
       a.href = URL.createObjectURL(blob);
       a.download = (state.info.title || 'video').slice(0, 40) + '.' + (f.ext || 'mp4');
       a.click(); URL.revokeObjectURL(a.href);
-      $('#pct').textContent = '完成'; $('#pspeed').textContent = fmtSize(got);
+      $('#pct').textContent = t('dl_done'); $('#pspeed').textContent = fmtSize(got);
     }
     saveHistory(state.info, f);
     api('/api/track/download', { method: 'POST', body: JSON.stringify({
-      platform: state.info.platform, quality: f.label, size: f.size || null, mode: f.mode,
-    }) }).catch(() => {});
+      platform: state.info.platform, quality: f.label, size: f.size || null,
+      mode: f.mode, url: state.info.source_url }) }).catch(() => {});
   } catch (err) {
-    $('#pspeed').textContent = '失敗：' + err.message;
+    $('#pspeed').textContent = t('dl_fail') + err.message;
   }
 });
 
-// ── 歷史（存裝置，不上傳）────────────────────────
+// ── 歷史 ─────────────────────────────────────────
 const HKEY = 'fy_history';
 const getHistory = () => { try { return JSON.parse(localStorage.getItem(HKEY) || '[]'); } catch { return []; } };
 function saveHistory(info, fmt) {
@@ -257,16 +359,18 @@ function saveHistory(info, fmt) {
   localStorage.setItem(HKEY, JSON.stringify(list.slice(0, state.config?.history_limit || 50)));
 }
 function renderHistory() {
-  const list = getHistory(), box = $('#h-list');
-  if (!list.length) { box.innerHTML = '<div class="hrow"><span class="dim">還沒有下載記錄</span></div>'; return; }
+  const box = $('#h-list');
+  if (!box) return;
+  const list = getHistory();
+  if (!list.length) { box.innerHTML = `<div class="hrow"><span class="dim">${t('history_empty')}</span></div>`; return; }
   box.innerHTML = list.map((h) => `<div class="hrow">
-    <img src="${esc(h.cover || '')}" alt="" loading="lazy">
+    <img src="${esc(h.cover || '')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
     <div class="m"><div class="t">${esc(h.title)}</div>
-    <div class="s">${esc(h.platform)} · ${esc(h.label)}${h.size ? ' · ' + fmtSize(h.size) : ''} · ${new Date(h.at).toLocaleString('zh-TW')}</div></div>
+    <div class="s">${esc(h.platform)} · ${esc(h.label)}${h.size ? ' · ' + fmtSize(h.size) : ''} · ${new Date(h.at).toLocaleString()}</div></div>
   </div>`).join('');
 }
 $('#h-clear').addEventListener('click', () => {
-  if (confirm('確定清空歷史記錄？')) { localStorage.removeItem(HKEY); renderHistory(); }
+  if (confirm(t('confirm_clear'))) { localStorage.removeItem(HKEY); renderHistory(); }
 });
 
 // ── 會員 ─────────────────────────────────────────
@@ -276,11 +380,11 @@ async function refreshMember() {
     if (me.logged_in) {
       $('#m-guest').hidden = true; $('#m-info').hidden = false;
       const m = me.member || {};
-      const planName = { free: '免費', monthly: '月會員', lifetime: '終身會員' }[me.plan] || me.plan;
+      const planName = t('plan_' + (me.plan || 'free'));
       $('#m-detail').innerHTML = `
-        <div class="r"><div class="k">Email</div><div class="v">${esc(m.email)}</div></div>
-        <div class="r"><div class="k">方案</div><div class="v">${planName}${me.unlimited ? '（不限次數）' : ''}</div></div>
-        <div class="r"><div class="k">到期</div><div class="v">${m.expires_at ? new Date(m.expires_at * 1000).toLocaleDateString('zh-TW') : '—'}</div></div>`;
+        <div class="r"><div class="k">${t('m_email')}</div><div class="v">${esc(m.email)}</div></div>
+        <div class="r"><div class="k">${t('m_plan')}</div><div class="v">${planName}${me.unlimited ? ' ' + t('m_unlimited') : ''}</div></div>
+        <div class="r"><div class="k">${t('m_expires')}</div><div class="v">${m.expires_at ? new Date(m.expires_at * 1000).toLocaleDateString() : '—'}</div></div>`;
       return;
     }
   } catch { /* 未登入 */ }
@@ -291,7 +395,7 @@ $('#m-login').addEventListener('click', async () => {
     const j = await api('/api/member/login', { method: 'POST', body: JSON.stringify({
       email: $('#m-email').value, password: $('#m-pass').value, tz: state.tz }) });
     localStorage.setItem(MKEY, j.token);
-    msg('#m-msg', '登入成功', 'ok');
+    msg('#m-msg', t('login_ok'), 'ok');
     await refreshMember(); await loadQuota();
   } catch (e) { msg('#m-msg', e.message, 'err'); }
 });
@@ -300,7 +404,7 @@ $('#m-register').addEventListener('click', async () => {
     const j = await api('/api/member/register', { method: 'POST', body: JSON.stringify({
       email: $('#m-email').value, password: $('#m-pass').value, tz: state.tz }) });
     localStorage.setItem(MKEY, j.token);
-    msg('#m-msg', '註冊成功，已自動登入', 'ok');
+    msg('#m-msg', t('register_ok'), 'ok');
     await refreshMember(); await loadQuota();
   } catch (e) { msg('#m-msg', e.message, 'err'); }
 });
@@ -311,7 +415,7 @@ $('#rp-send').addEventListener('click', async () => {
   try {
     const j = await api('/api/report', { method: 'POST', body: JSON.stringify({
       message: $('#rp-msg').value, contact: $('#rp-contact').value }) });
-    msg('#rp-status', j.message || '已送出', 'ok');
+    msg('#rp-status', j.message || 'OK', 'ok');
     $('#rp-msg').value = '';
   } catch (e) { msg('#rp-status', e.message, 'err'); }
 });
@@ -325,9 +429,7 @@ async function loadPlans() {
       if (el) el.textContent = p.price;
     });
     const ready = Object.values(j.providers || {}).filter((p) => p.ready).length;
-    msg('#pay-status', ready
-      ? '金流已設定完成，可開始收款。'
-      : '收費功能準備中：程式與訂單流程都已完成，等金流商金鑰設定後即可收款。');
+    msg('#pay-status', ready ? t('pay_ready') : t('pay_preparing'));
   } catch { /* 忽略 */ }
 }
 $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {

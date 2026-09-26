@@ -41,11 +41,14 @@ a{color:inherit;text-decoration:none}
 /* ── 頁首 ─────────────────────────────────────── */
 .top{display:flex;align-items:center;justify-content:space-between;gap:20px;
   padding:18px 20px 0;flex:0 0 auto}
-.top .lg{font-size:17px}
+.logo{display:flex;align-items:center;gap:9px;text-decoration:none;flex:0 0 auto}
+.logo-mark{width:9px;height:9px;background:var(--acc);display:block;transform:rotate(45deg);flex:0 0 auto}
+.logo-text{font-family:var(--brnd);font-weight:700;font-size:20px;letter-spacing:.1em;color:var(--acc);line-height:1}
 .top .ctx{font-size:12.5px;color:var(--dim)}
 .top .right{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:12.5px;color:var(--dim)}
 .tabs{display:none;gap:26px;font-size:13.5px;color:var(--dim)}
-.tabs b{color:var(--text);font-weight:400}
+.tabs button{color:var(--dim);font-size:13.5px}
+.tabs button.on{color:var(--text)}
 .lang{display:inline-flex;gap:6px;font-size:12.5px}
 .lang button{color:var(--lab2);font-size:12.5px}
 .lang button.on{color:var(--acc)}

@@ -12,16 +12,23 @@ import time
 from ..core import db, registry
 from ..core.config import settings
 
-# ── 功能模組開關（規格書第 22-3 章）──────────────────
+# ── 功能模組開關（規格書第 22-3 章；小羅要求「全功能都能分開開關」）──
 _DEFAULT_FEATURES: dict[str, bool] = {
+    # 主要功能
     "feature.download": True,      # 無水印下載
     "feature.transfer": True,      # 無損傳輸
-    "feature.quality": True,       # 畫質選擇（關掉＝只給原畫）
+    "feature.quality": True,       # 畫質選擇（關掉＝只給最高畫質）
     "feature.audio_only": True,    # 純音訊輸出
-    "feature.history": True,       # 歷史記錄（可看、不可點擊重新下載）
-    "feature.free_limit": settings.free_limit_enabled,  # 免費次數限制（開發期關閉）
+    "feature.history": True,       # 歷史記錄
+    "feature.free_limit": settings.free_limit_enabled,  # 免費次數限制
+    # 頁面（關掉 → 前台導航與內容一併消失）
+    "feature.teach": True,         # 教學頁
+    "feature.plans": True,         # 方案頁
+    "feature.member": True,        # 會員頁
+    "feature.report": True,        # 回報問題
+    # 全站
     "feature.maintenance": False,  # 全站維護模式
-    # ── 以下為「預留」模組：現在不實作，但接口先留好 ──
+    # ── 以下為「預留」模組：接口先留好 ──
     "feature.auth": False,         # 會員登入（開發期關閉，畫面預留）
     "feature.billing": False,      # 付費／訂閱（P6 才做，接口先留）
 }
@@ -145,15 +152,20 @@ def set_auto_off(on: bool) -> None:
 
 # ── 給前端（/api/config）─────────────────────────────
 def snapshot() -> dict:
+    feats = all_features()
+    plats = {name: platform_enabled(name) for name in registry.platform_names()}
+    # 只回「前端要用到的」：關掉的平台不送（前端自然就不顯示）
     return {
-        "features": all_features(),
+        "features": feats,
         "platforms": {
-            name: {"enabled": platform_enabled(name)}
-            for name in registry.platform_names()
+            name: {"enabled": on, "label": registry.REGISTRY[name].label}
+            for name, on in plats.items()
         },
+        "enabled_platform_count": sum(1 for v in plats.values() if v),
         "quota": {
             "download_per_day": settings.free_download_per_day,
             "transfer_per_day": settings.free_transfer_per_day,
         },
         "history_limit": settings.history_limit,
+        "maintenance": feats.get("feature.maintenance", False),
     }

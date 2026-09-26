@@ -10,24 +10,27 @@
 <meta name="theme-color" content="#0F1113">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@500&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=3">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css?v=4">
 </head>
 <body>
 
 <!-- ── 頁首 ── -->
 <header class="top">
-  <span class="lg br">轉運站</span>
+  <a class="logo" href="#" id="logo">
+    <span class="logo-mark" aria-hidden="true"></span>
+    <span class="logo-text" data-i18n="brand">轉運站</span>
+  </a>
   <nav class="tabs" id="tabs">
-    <button data-tab="download" class="on">無水印下載</button>
-    <button data-tab="transfer">無損傳輸</button>
-    <button data-tab="teach">教學</button>
-    <button data-tab="plans">方案</button>
+    <button data-tab="download" data-i18n="tab_download" class="on">無水印下載</button>
+    <button data-tab="transfer" data-i18n="tab_transfer">無損傳輸</button>
+    <button data-tab="teach" data-i18n="tab_teach">教學</button>
+    <button data-tab="plans" data-i18n="tab_plans">方案</button>
   </nav>
-  <span class="ctx" id="ctx">無水印下載</span>
+  <span class="ctx" id="ctx"></span>
   <div class="right">
-    <span class="hide-sm">不上傳　不儲存　免安裝</span>
-    <button class="dim" data-tab="member" id="member-link">會員</button>
+    <span class="hide-sm" data-i18n="topline">不上傳　不儲存　免安裝</span>
+    <button class="dim" data-tab="member" data-i18n="nav_member" id="member-link">會員</button>
     <span class="lang" id="lang">
       <button data-lang="zh-Hant" class="on">繁</button>
       <button data-lang="zh-Hans">簡</button>
@@ -42,30 +45,33 @@
   <section class="panel on" id="p-download">
     <div class="col">
       <div class="o-head">
-        <h1 id="dl-title">貼上連結，原檔到手。</h1>
+        <h1 data-i18n="dl_title">貼上連結，原檔到手。</h1>
         <p class="lede" data-i18n="dl_lede">不重新壓縮、不轉檔，畫質只列這支影片真的有的選項。</p>
       </div>
       <div class="inbar o-in">
-        <input id="url" type="url" inputmode="url" autocomplete="off" placeholder="請貼上影片網址">
-        <button class="go" id="go">解析</button>
+        <input id="url" type="url" inputmode="url" autocomplete="off" data-i18n-ph="dl_placeholder" placeholder="請貼上影片網址">
+        <button class="go" id="go" data-i18n="btn_parse">解析</button>
       </div>
       <div class="quota o-quota">
-        今日剩餘 <b class="num" id="q-left">–</b> 次　今日已使用 <b class="num" id="q-used">–</b> 次　
+        <span data-i18n="quota_left">今日剩餘</span> <b class="num" id="q-left">–</b>
+        <span data-i18n="quota_times">次</span>　
+        <span data-i18n="quota_used">今日已使用</span> <b class="num" id="q-used">–</b>
+        <span data-i18n="quota_times">次</span>　
         <span class="dim" id="q-reset"></span>
       </div>
-      <button class="big o-big" id="download" disabled>下載到這台裝置</button>
+      <button class="big o-big" id="download" disabled data-i18n="btn_download">下載到這台裝置</button>
       <div class="o-plats">
-        <div class="lbl">支援 13 個平台</div>
+        <div class="lbl" id="plat-label"></div>
         <div class="plats" id="plats"></div>
       </div>
     </div>
 
     <div class="col">
       <div class="pv o-pv" id="pv">
-        <span class="t">解析結果</span>
+        <span class="t" data-i18n="pv_result">解析結果</span>
         <img class="cover" id="cover" alt="" hidden>
         <div class="shade" id="shade" hidden></div>
-        <div class="c"><span class="ttl" id="pv-title">貼上連結後按「解析」</span>
+        <div class="c"><span class="ttl" id="pv-title" data-i18n="pv_empty">貼上連結後按「解析」</span>
           <span id="pv-plat" class="dim"></span><span id="pv-dur" class="dim"></span></div>
       </div>
       <div class="msg" id="status" hidden></div>
@@ -82,83 +88,63 @@
   <section class="panel" id="p-transfer">
     <div class="col">
       <div class="t-head">
-        <h1>同一個 WiFi，檔案直達。</h1>
+        <h1 data-i18n="tr_title">同一個 WiFi，檔案直達。</h1>
         <p class="lede" data-i18n="tr_lede">檔案在兩台裝置之間直傳，不經我們的伺服器、不壓縮、不轉檔，並用 SHA-256 校驗完整性。</p>
       </div>
       <div class="pick t-pick">
-        <button id="pick-photo">從相簿選</button>
-        <button id="pick-files">從檔案選</button>
-        <button id="pick-folder">選資料夾</button>
+        <button id="pick-photo" data-i18n="tr_pick_photo">從相簿選</button>
+        <button id="pick-files" data-i18n="tr_pick_files">從檔案選</button>
+        <button id="pick-folder" data-i18n="tr_pick_folder">選資料夾</button>
       </div>
       <input type="file" id="in-files" multiple hidden>
       <input type="file" id="in-photo" accept="image/*,video/*" multiple hidden>
       <input type="file" id="in-folder" webkitdirectory multiple hidden>
-      <div class="rack t-rack" id="rack">拖曳檔案到這裡（電腦可拖整個資料夾）</div>
+      <div class="rack t-rack" id="rack" data-i18n="tr_drop">拖曳檔案到這裡（電腦可拖整個資料夾）</div>
       <div class="code t-code" id="codebox" hidden>
-        <div class="l">把這組號碼給對方</div>
+        <div class="l" data-i18n="tr_code_label">把這組號碼給對方</div>
         <div class="c num" id="mycode">------</div>
-        <div class="e">2 分鐘內有效</div>
+        <div class="e" data-i18n="tr_code_valid">2 分鐘內有效</div>
       </div>
-      <button class="big t-send" id="tr-send" disabled>開始傳送</button>
+      <button class="big t-send" id="tr-send" disabled data-i18n="btn_send">開始傳送</button>
     </div>
 
     <div class="col">
       <div class="inbar t-join">
-        <input id="join-code" inputmode="numeric" maxlength="6" placeholder="輸入對方的 6 位配對碼">
-        <button class="go" id="tr-join">配對</button>
+        <input id="join-code" inputmode="numeric" maxlength="6" data-i18n-ph="tr_code_ph" placeholder="輸入對方的 6 位配對碼">
+        <button class="go" id="tr-join" data-i18n="btn_pair">配對</button>
       </div>
-      <button class="big gh sm t-gen" id="tr-gen">產生我的配對碼</button>
+      <button class="big gh sm t-gen" id="tr-gen" data-i18n="btn_gen">產生我的配對碼</button>
       <div class="dvlist t-known" id="known"></div>
       <div class="msg t-msg" id="tr-status" hidden></div>
-      <div class="t-files"><div class="lbl" style="margin-top:16px">已選檔案 <span id="tr-total" class="dim"></span></div>
-      <ul class="flist" id="tr-list" style="list-style:none"></ul></div>
+      <div class="t-files">
+        <div class="lbl"><span data-i18n="tr_selected">已選檔案</span> <span id="tr-total" class="dim"></span></div>
+        <ul class="flist" id="tr-list" style="list-style:none"></ul>
+      </div>
     </div>
 
     <div class="col">
-      <div class="t-prog"><div class="lbl">傳送進度 <span class="dim" id="tr-speed"></span></div>
-      <ul class="flist" id="send-list" style="list-style:none;margin-top:10px"></ul>
-      <div class="lbl" style="margin-top:16px">接收</div>
-      <ul class="flist" id="recv-list" style="list-style:none;margin-top:10px"></ul></div>
+      <div class="t-prog">
+        <div class="lbl"><span data-i18n="tr_progress">傳送進度</span> <span class="dim" id="tr-speed"></span></div>
+        <ul class="flist" id="send-list" style="list-style:none;margin-top:10px"></ul>
+        <div class="lbl" style="margin-top:16px" data-i18n="tr_recv">接收</div>
+        <ul class="flist" id="recv-list" style="list-style:none;margin-top:10px"></ul>
+      </div>
     </div>
   </section>
 
   <!-- ══ 教學 ══ -->
   <section class="panel one" id="p-teach">
     <div class="col">
-      <h1 style="margin-top:0">怎麼用</h1>
-      <h2 class="sec">無水印下載</h2>
-      <ol class="steps">
-        <li>在 App 按「分享 → 複製連結」</li>
-        <li>回本站貼上，按「解析」</li>
-        <li>選畫質，按「下載到這台裝置」</li>
-      </ol>
-      <div class="note">解析不另外計次；一次下載＝用掉一次免費額度。</div>
-
-      <h2 class="sec">無損傳輸</h2>
-      <ol class="steps">
-        <li>兩台裝置連上<b>同一個 WiFi</b></li>
-        <li>一台按「產生我的配對碼」，另一台輸入 6 位數字按「配對」</li>
-        <li>等狀態變成「已連線」</li>
-        <li>選檔案 → 開始傳送（連過一次會記住對方）</li>
-      </ol>
-
-      <h2 class="sec">支援的系統</h2>
-      <div class="kv">
-        <div class="r"><div class="k">系統</div><div class="v">iOS／Android／HarmonyOS／Windows／macOS／Linux</div></div>
-        <div class="r"><div class="k">瀏覽器</div><div class="v">Safari／Chrome／Edge／Firefox（微信、QQ、LINE 內建瀏覽器可能無法傳輸）</div></div>
-        <div class="r"><div class="k">我們會存嗎</div><div class="v">不會。下載直接跟平台 CDN 取檔；傳輸是裝置對裝置直連。</div></div>
-      </div>
-
-      <h2 class="sec">常見問題</h2>
-      <div class="kv">
-        <div class="r"><div class="k">iPhone 大檔中斷</div><div class="v">瀏覽器記憶體限制，建議超過 1GB 用電腦，或分批傳。</div></div>
-        <div class="r"><div class="k">公司 WiFi 傳不了</div><div class="v">那是 AP 隔離。改用手機開熱點，兩台都連它。</div></div>
-        <div class="r"><div class="k">iCloud 照片</div><div class="v">請先在手機下載到本機再選。</div></div>
-        <div class="r"><div class="k">畫質怎麼選</div><div class="v">平台有幾種就列幾種（最高 8K）；只有一種時就固定那一種。</div></div>
-        <div class="r"><div class="k">不能用怎麼辦</div><div class="v">到「會員」頁最下方回報問題，會直接通知管理員。</div></div>
-      </div>
-
-      <div class="lbl" style="margin-top:20px">支援 13 個平台</div>
+      <h1 style="margin-top:0" data-i18n="teach_title">怎麼用</h1>
+      <h2 class="sec" data-i18n="teach_dl">無水印下載</h2>
+      <ol class="steps" id="teach-steps-dl"></ol>
+      <h2 class="sec" data-i18n="teach_tr">無損傳輸</h2>
+      <ol class="steps" id="teach-steps-tr"></ol>
+      <h2 class="sec" data-i18n="teach_os">支援的系統</h2>
+      <div class="kv" id="teach-os-list"></div>
+      <h2 class="sec" data-i18n="teach_faq">常見問題</h2>
+      <div class="kv" id="teach-faq"></div>
+      <div class="lbl" style="margin-top:20px" id="teach-plat-label"></div>
       <div class="plats" id="plats-teach"></div>
     </div>
   </section>
@@ -166,38 +152,26 @@
   <!-- ══ 方案 ══ -->
   <section class="panel one" id="p-plans">
     <div class="col">
-      <h1 style="margin-top:0">方案</h1>
-      <p class="lede">未登入也能用。免費額度以你所在時區的每日 00:00 重新計算，下載與傳輸互不影響。</p>
+      <h1 style="margin-top:0" data-i18n="plans_title">方案</h1>
+      <p class="lede" data-i18n="plans_lede">未登入也能用。免費額度以你所在時區的每日 00:00 重新計算，下載與傳輸互不影響。</p>
       <div class="plans">
         <div class="plan">
-          <h3>免費</h3>
+          <h3 data-i18n="plan_free">免費</h3>
           <div class="price num">US$ 0</div>
-          <ul>
-            <li>13 個平台、全部畫質</li>
-            <li>下載 <b><span class="num" id="pl-dl">5</span> 次／日</b></li>
-            <li>傳輸 <b><span class="num" id="pl-tr">5</span> 次／日</b></li>
-          </ul>
-          <button class="big gh" disabled>目前使用中</button>
+          <ul id="plan-free-list"></ul>
+          <button class="big gh" disabled data-i18n="plan_current">目前使用中</button>
         </div>
         <div class="plan hot">
-          <h3>月會員</h3>
-          <div class="price num">US$ <span data-price="monthly">2.99</span><i>/月</i></div>
-          <ul>
-            <li>下載 <b>不限次數</b></li>
-            <li>傳輸 <b>不限次數</b></li>
-            <li>新功能優先</li>
-          </ul>
-          <button class="big" data-buy="monthly">立即開通</button>
+          <h3 data-i18n="plan_monthly">月會員</h3>
+          <div class="price num">US$ <span data-price="monthly">2.99</span><i data-i18n="plan_per_month">/月</i></div>
+          <ul id="plan-monthly-list"></ul>
+          <button class="big" data-buy="monthly" data-i18n="btn_subscribe">立即開通</button>
         </div>
         <div class="plan">
-          <h3>終身會員</h3>
-          <div class="price num">US$ <span data-price="lifetime">59</span><i>早鳥・限 200 名</i></div>
-          <ul>
-            <li>同月會員全部功能</li>
-            <li>一次付清</li>
-            <li>效期＝本服務存續期間</li>
-          </ul>
-          <button class="big" data-buy="lifetime">立即開通</button>
+          <h3 data-i18n="plan_lifetime">終身會員</h3>
+          <div class="price num">US$ <span data-price="lifetime">59</span><i data-i18n="plan_early">早鳥・限 200 名</i></div>
+          <ul id="plan-lifetime-list"></ul>
+          <button class="big" data-buy="lifetime" data-i18n="btn_subscribe">立即開通</button>
         </div>
       </div>
       <div class="msg" id="pay-status" hidden></div>
@@ -207,32 +181,36 @@
   <!-- ══ 會員 ══ -->
   <section class="panel one" id="p-member">
     <div class="col">
-      <h1 style="margin-top:0">會員</h1>
+      <h1 style="margin-top:0" data-i18n="member_title">會員</h1>
       <div id="m-guest">
-        <p class="lede">登入後免費次數綁帳號（換裝置也保留）；付費後下載與傳輸不限次數。</p>
-        <div class="inbar" style="margin-top:14px"><input id="m-email" type="email" placeholder="Email"></div>
-        <div class="inbar" style="margin-top:10px"><input id="m-pass" type="password" placeholder="密碼（至少 6 字）"></div>
+        <p class="lede" data-i18n="member_lede">登入後免費次數綁帳號（換裝置也保留）；付費後下載與傳輸不限次數。</p>
+        <div class="inbar" style="margin-top:14px"><input id="m-email" type="email" data-i18n-ph="member_email" placeholder="Email"></div>
+        <div class="inbar" style="margin-top:10px"><input id="m-pass" type="password" data-i18n-ph="member_pass" placeholder="密碼（至少 6 字）"></div>
         <div class="pick">
-          <button id="m-login" class="big sm" style="margin:0">登入</button>
-          <button id="m-register" class="big gh sm" style="margin:0">註冊</button>
+          <button id="m-login" class="big sm" style="margin:0" data-i18n="btn_login">登入</button>
+          <button id="m-register" class="big gh sm" style="margin:0" data-i18n="btn_register">註冊</button>
         </div>
         <div class="msg" id="m-msg" hidden></div>
       </div>
       <div id="m-info" hidden>
         <div class="kv" id="m-detail"></div>
-        <button class="big gh sm" id="m-logout" style="margin-top:14px">登出</button>
+        <button class="big gh sm" id="m-logout" style="margin-top:14px" data-i18n="btn_logout">登出</button>
       </div>
 
-      <h2 class="sec">回報問題</h2>
-      <div class="inbar" style="margin-top:10px"><input id="rp-msg" placeholder="例如：抖音貼連結沒反應"></div>
-      <div class="inbar" style="margin-top:10px"><input id="rp-contact" placeholder="聯絡方式（選填）"></div>
-      <button class="big gh sm" id="rp-send" style="margin-top:10px">送出</button>
-      <div class="msg" id="rp-status" hidden></div>
+      <div id="report-box">
+        <h2 class="sec" data-i18n="report_title">回報問題</h2>
+        <div class="inbar" style="margin-top:10px"><input id="rp-msg" data-i18n-ph="report_ph" placeholder="例如：抖音貼連結沒反應"></div>
+        <div class="inbar" style="margin-top:10px"><input id="rp-contact" data-i18n-ph="report_contact" placeholder="聯絡方式（選填）"></div>
+        <button class="big gh sm" id="rp-send" style="margin-top:10px" data-i18n="btn_submit">送出</button>
+        <div class="msg" id="rp-status" hidden></div>
+      </div>
 
-      <h2 class="sec">歷史記錄</h2>
-      <p class="note">只記錄你曾下載過的影片，存在你自己的裝置。</p>
-      <div class="hlist" id="h-list"></div>
-      <button class="big gh sm" id="h-clear" style="margin-top:10px">清空歷史</button>
+      <div id="history-box">
+        <h2 class="sec" data-i18n="history_title">歷史記錄</h2>
+        <p class="note" data-i18n="history_note">只記錄你曾下載過的影片，存在你自己的裝置。</p>
+        <div class="hlist" id="h-list"></div>
+        <button class="big gh sm" id="h-clear" style="margin-top:10px" data-i18n="btn_clear">清空歷史</button>
+      </div>
     </div>
   </section>
 
@@ -240,16 +218,16 @@
 
 <!-- ── 底部導航（手機） ── -->
 <footer class="foot" id="foot">
-  <button data-tab="download" class="on">下載</button>
-  <button data-tab="transfer">傳輸</button>
-  <button data-tab="teach">教學</button>
-  <button data-tab="plans">方案</button>
-  <button data-tab="member">會員</button>
+  <button data-tab="download" data-i18n="nav_download" class="on">下載</button>
+  <button data-tab="transfer" data-i18n="nav_transfer">傳輸</button>
+  <button data-tab="teach" data-i18n="nav_teach">教學</button>
+  <button data-tab="plans" data-i18n="nav_plans">方案</button>
+  <button data-tab="member" data-i18n="nav_member">會員</button>
 </footer>
 
-<script src="/sha256.js?v=3"></script>
-<script src="/app.js?v=3"></script>
-<script src="/transfer.js?v=3"></script>
+<script src="/sha256.js?v=4"></script>
+<script src="/app.js?v=4"></script>
+<script src="/transfer.js?v=4"></script>
 <script>
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('/sw.js').catch(() => {});

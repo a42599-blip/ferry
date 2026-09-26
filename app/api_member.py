@@ -109,7 +109,8 @@ async def report(request: Request, body: dict = Body(...)) -> dict:
 async def track_download(request: Request, body: dict = Body(...)) -> dict:
     from .services import events
 
-    events.track("download", device_id=auth.current_subject(request),
+    events.track("download", device_id=auth._device_id(request),
                  platform=body.get("platform"), quality=body.get("quality"),
-                 size=body.get("size"), mode=body.get("mode"), result="ok")
+                 size=body.get("size"), mode=body.get("mode"), result="ok",
+                 url=body.get("url"))
     return {"ok": True}

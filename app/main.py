@@ -84,6 +84,12 @@ async def _track(request: Request, call_next):
     response = await call_next(request)
     try:
         path = request.url.path
+        # 任何請求都補上裝置環境（國家／系統／瀏覽器）→ 後台資料才完整
+        if not path.startswith(("/admin/api", "/api/signal", "/api/health")):
+            info0 = _client_info(request)
+            events.touch_meta(info0["device_id"], country=info0["country"],
+                              os_name=info0["os_name"], browser=info0["browser"],
+                              source=(request.headers.get("referer") or "")[:300] or None)
         if request.method == "GET" and path in ("/", "/index.html", "/admin", "/admin/"):
             info = _client_info(request)
             is_new = events.touch_device(
@@ -142,19 +148,21 @@ async def post_resolve(body: ResolveIn, request: Request):
         return JSONResponse(status_code=503, content={
             "ok": False, "code": "MAINTENANCE", "message": "系統維護中，請稍後再試"})
 
-    subject = auth.current_subject(request)
-    tz = tz_util.from_request(request)          # ← 依「裝置所在位置」的當地時間
+    subject = auth.current_subject(request)      # 額度用（會員／裝置）
+    device = auth._device_id(request)            # 事件用（永遠是裝置，軌跡才不會斷）
+    tz = tz_util.from_request(request)           # ← 依「裝置所在位置」的當地時間
     info_dict: dict = {}
     try:
         info = await resolve_service.resolve(body.url)
         info_dict = info.to_dict()
     except AppError as exc:
-        events.track("resolve", device_id=subject, platform=getattr(exc, "platform", None) or "",
-                     result="fail", error_code=exc.code, latency_ms=None)
+        events.track("resolve", device_id=device, platform=getattr(exc, "platform", None) or "",
+                     result="fail", error_code=exc.code, url=body.url,
+                     country=request.headers.get("cf-ipcountry"))
         raise
 
-    events.track("resolve", device_id=subject, platform=info.platform, result="ok",
-                 latency_ms=info.extra.get("elapsed_ms"),
+    events.track("resolve", device_id=device, platform=info.platform, result="ok",
+                 latency_ms=info.extra.get("elapsed_ms"), url=body.url,
                  country=request.headers.get("cf-ipcountry"))
 
     if not flags.feature_enabled("feature.download"):
@@ -203,8 +211,9 @@ async def proxied_download(
         media_type = "image/png"
 
     size = os.path.getsize(path)
-    events.track("download", device_id=auth.current_subject(request),
+    events.track("download", device_id=auth._device_id(request),
                  platform=(await _platform_of(src)), result="ok", size=size,
+                 url=src,
                  quality=str(h or ("audio" if audio else "")), mode="proxy")
 
     return FileResponse(

@@ -34,20 +34,73 @@ def track(kind: str, *, device_id: Optional[str] = None, platform: Optional[str]
           mode: Optional[str] = None, error_code: Optional[str] = None,
           country: Optional[str] = None, referrer: Optional[str] = None,
           utm: Optional[str] = None, path: Optional[str] = None,
+          url: Optional[str] = None,
           os_name: Optional[str] = None, browser: Optional[str] = None,
           is_new: Optional[bool] = None, meta: Optional[dict] = None) -> None:
-    """記一筆事件（永不拋錯）。"""
+    """記一筆事件（永不拋錯）。
+
+    ⚠️ 任何帶 device_id 的事件都會自動把該裝置寫進 devices 表，
+       這樣「沒看首頁、直接解析」的使用者後台也看得到（真實聯動）。
+    """
+    if device_id:
+        _ensure_device(device_id)
     try:
         db.execute(
             "INSERT INTO events(ts, kind, device_id, platform, result, latency_ms, quality,"
-            " size, mode, error_code, country, referrer, utm, path, os, browser, is_new, meta)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " size, mode, error_code, country, referrer, utm, path, url, os, browser, is_new, meta)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (time.time(), kind, device_id, platform, result, latency_ms, quality, size,
-             mode, error_code, country, referrer, utm, path, os_name, browser,
+             mode, error_code, country, referrer, utm, path, (url or "")[:500] or None,
+             os_name, browser,
              None if is_new is None else int(is_new),
              json.dumps(meta, ensure_ascii=False) if meta else None),
         )
     except Exception:  # noqa: BLE001 — 記錄失敗絕不影響使用者
+        pass
+
+
+def _ensure_device(device_id: str) -> None:
+    """沒有這台裝置就建一筆（不改 visits）。"""
+    try:
+        db.execute(
+            "INSERT INTO devices(device_id, first_seen, last_seen, visits)"
+            " VALUES(?,?,?,0) ON CONFLICT(device_id) DO UPDATE SET last_seen=excluded.last_seen",
+            (device_id, time.time(), time.time()),
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def touch_meta(device_id: str, *, country: Optional[str] = None, os_name: Optional[str] = None,
+               browser: Optional[str] = None, source: Optional[str] = None) -> None:
+    """補上裝置的環境資訊（不改 visits）——任何請求都可以呼叫。"""
+    if not device_id:
+        return
+    _ensure_device(device_id)
+    try:
+        db.execute(
+            "UPDATE devices SET country=COALESCE(?, country), os=COALESCE(?, os),"
+            " browser=COALESCE(?, browser), source=COALESCE(?, source), last_seen=?"
+            " WHERE device_id=?",
+            (country or None, os_name or None, browser or None, source or None,
+             time.time(), device_id),
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def link_member(device_id: str, member_id: str, email: str | None = None) -> None:
+    """把裝置綁到會員（註冊／登入時呼叫）→ 後台就能顯示「會員」。"""
+    if not device_id or not member_id:
+        return
+    _ensure_device(device_id)
+    try:
+        db.execute(
+            "UPDATE devices SET member_id=?, member_email=COALESCE(?, member_email), last_seen=?"
+            " WHERE device_id=?",
+            (member_id, email, time.time(), device_id),
+        )
+    except Exception:  # noqa: BLE001
         pass
 
 
@@ -230,22 +283,53 @@ def transfer_stats(days: int = 30) -> dict:
     }
 
 
-def list_devices(days: int = 30, limit: int = 100) -> list[dict]:
+def list_devices(days: int = 30, limit: int = 200) -> list[dict]:
+    """裝置清單（後台「會員與裝置」頁）。
+
+    每列都告訴你：**他是會員還是訪客**、解析成功幾次失敗幾次、
+    最近解析哪個平台／哪個網址、下載幾次、最後活動時間。
+    """
     rows = db.query(
-        "SELECT d.device_id, d.first_seen, d.last_seen, d.visits, d.country, d.os, d.browser,"
-        " (SELECT COUNT(*) FROM events e WHERE e.device_id=d.device_id AND e.kind='resolve') AS resolves,"
-        " (SELECT COUNT(*) FROM events e WHERE e.device_id=d.device_id AND e.kind='download') AS downloads"
-        " FROM devices d WHERE d.last_seen>=? ORDER BY d.last_seen DESC LIMIT ?",
+        "SELECT d.device_id, d.first_seen, d.last_seen, d.visits, d.country, d.os, d.browser, d.source,"
+        "  (SELECT COUNT(*) FROM events e WHERE e.device_id=d.device_id AND e.kind='resolve') AS resolves,"
+        "  (SELECT COUNT(*) FROM events e WHERE e.device_id=d.device_id AND e.kind='resolve' AND e.result='ok') AS resolve_ok,"
+        "  (SELECT COUNT(*) FROM events e WHERE e.device_id=d.device_id AND e.kind='resolve' AND e.result='fail') AS resolve_fail,"
+        "  (SELECT COUNT(*) FROM events e WHERE e.device_id=d.device_id AND e.kind='download') AS downloads,"
+        "  (SELECT COUNT(*) FROM events e WHERE e.device_id=d.device_id AND e.kind='transfer_done') AS transfers,"
+        "  (SELECT MAX(e.platform) FROM events e WHERE e.device_id=d.device_id AND e.platform IS NOT NULL AND e.platform<>'') AS last_platform,"
+        "  (SELECT MAX(e.url) FROM events e WHERE e.device_id=d.device_id AND e.url IS NOT NULL) AS last_url,"
+        "  COALESCE(m.email, d.member_email) AS member_email,"
+        "  m.plan AS member_plan, COALESCE(m.id, d.member_id) AS member_id"
+        " FROM devices d"
+        " LEFT JOIN members m ON (m.device_id = d.device_id OR m.id = d.member_id)"
+        " WHERE d.last_seen>=? ORDER BY d.last_seen DESC LIMIT ?",
         (_since(days), limit),
     )
-    return [dict(r) for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r)
+        # 身份：user:xxx 開頭＝已登入會員；members 有對應＝會員；否則訪客
+        did = d.get("device_id") or ""
+        if did.startswith("user:"):
+            d["kind"] = "member"
+            d["kind_label"] = "會員"
+        elif d.get("member_id"):
+            d["kind"] = "member"
+            d["kind_label"] = "會員（已綁帳號）"
+        else:
+            d["kind"] = "visitor"
+            d["kind_label"] = "訪客"
+        total = (d.get("resolve_ok") or 0) + (d.get("resolve_fail") or 0)
+        d["success_rate"] = round((d.get("resolve_ok") or 0) / total * 100, 1) if total else None
+        out.append(d)
+    return out
 
 
 def device_trace(device_id: str, limit: int = 200) -> list[dict]:
     """單一裝置完整軌跡（規格書：後台「會員與裝置」頁）。"""
     rows = db.query(
-        "SELECT ts, kind, platform, result, latency_ms, quality, size, error_code, path"
-        " FROM events WHERE device_id=? ORDER BY ts DESC LIMIT ?",
+        "SELECT ts, kind, platform, result, latency_ms, quality, size, mode, error_code,"
+        " path, url, referrer FROM events WHERE device_id=? ORDER BY ts DESC LIMIT ?",
         (device_id, limit),
     )
     return [dict(r) for r in rows]

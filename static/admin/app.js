@@ -6,8 +6,12 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 const TKEY = 'fy_admin_token';
 
 const FEATURE_LABELS = {
-  'feature.download': '無水印下載',
-  'feature.transfer': '無損傳輸',
+  'feature.download': '無水印下載（主功能）',
+  'feature.transfer': '無損傳輸（頁面）',
+  'feature.teach': '教學頁',
+  'feature.plans': '方案頁',
+  'feature.member': '會員頁',
+  'feature.report': '回報問題',
   'feature.quality': '畫質選擇',
   'feature.audio_only': '純音訊輸出',
   'feature.history': '歷史記錄',
@@ -176,16 +180,16 @@ async function renderFlags() {
   $('#feature-list').innerHTML = Object.entries(d.features).map(([k, v]) => `
     <label class="switch">
       <span>${FEATURE_LABELS[k] || k}<small>${k}</small></span>
-      <span class="toggle"><input type="checkbox" data-feature="${k}" ${v ? 'checked' : ''}><span></span></span>
+      <label class="toggle"><input type="checkbox" data-feature="${k}" ${v ? 'checked' : ''}><span></span></label>
     </label>`).join('');
 
   $('#platform-list').innerHTML = table([
     { t: '平台', v: (r) => `${esc(r.label)} <small class="muted">${esc(r.id)}</small>`, html: true },
     { t: '狀態', v: (r) => r.enabled ? '<span class="badge ok">啟用</span>' : '<span class="badge err">關閉</span>', html: true },
-    { t: '近 7 天次數', v: 'today_total', num: true },
+    { t: '近 7 天解析', v: 'today_total', num: true },
     { t: '成功率', v: (r) => rateBadge(r.success_rate), html: true },
     { t: '平均耗時', v: (r) => r.avg_ms ? (r.avg_ms / 1000).toFixed(1) + 's' : '–', num: true },
-    { t: '開關', v: (r) => `<span class="toggle"><input type="checkbox" data-platform="${esc(r.id)}" ${r.enabled ? 'checked' : ''}><span></span></span>`, html: true },
+    { t: '開關', v: (r) => `<label class="toggle"><input type="checkbox" data-platform="${esc(r.id)}" ${r.enabled ? 'checked' : ''}><span></span></label>`, html: true },
   ], d.platforms);
   $('#auto-off').checked = !!d.auto_off;
 
@@ -212,11 +216,21 @@ $$('[data-all]').forEach((b) => b.addEventListener('click', async () => {
 async function renderDevices() {
   const d = await api('/devices?days=' + days());
   $('#devices').innerHTML = table([
-    { t: '裝置', v: (r) => `<span class="rowlink" data-dev="${esc(r.device_id)}">${esc(String(r.device_id).slice(0, 26))}…</span>`, html: true },
+    { t: '身份', v: (r) => r.kind === 'member'
+        ? `<span class="badge ok">${esc(r.kind_label)}</span>${r.member_email ? '<br><small class="muted">' + esc(r.member_email) + '</small>' : ''}`
+        : '<span class="badge">訪客</span>', html: true },
+    { t: '裝置 / 帳號', v: (r) => `<span class="rowlink" data-dev="${esc(r.device_id)}">${esc(String(r.device_id).slice(0, 22))}…</span>`, html: true },
     { t: '國家', v: 'country' }, { t: '系統', v: 'os' }, { t: '瀏覽器', v: 'browser' },
-    { t: '解析', v: 'resolves', num: true }, { t: '下載', v: 'downloads', num: true },
+    { t: '解析（成功 / 失敗）', v: (r) => `<b>${fmtN(r.resolve_ok)}</b> / ${fmtN(r.resolve_fail)}<br><small class="muted">共 ${fmtN(r.resolves)} 次</small>`, html: true },
+    { t: '成功率', v: (r) => rateBadge(r.success_rate), html: true },
+    { t: '常用平台', v: (r) => esc(r.last_platform || '–') },
+    { t: '最近解析的網址', v: (r) => r.last_url
+        ? `<a href="${esc(r.last_url)}" target="_blank" rel="noreferrer">${esc(String(r.last_url).slice(0, 40))}${String(r.last_url).length > 40 ? '…' : ''}</a>`
+        : '–', html: true },
+    { t: '下載', v: 'downloads', num: true },
+    { t: '傳輸', v: 'transfers', num: true },
     { t: '拜訪', v: 'visits', num: true },
-    { t: '最後', v: (r) => fmtTime(r.last_seen) },
+    { t: '最後活動', v: (r) => fmtTime(r.last_seen) },
   ], d.devices);
   $$('#devices .rowlink').forEach((el) => el.addEventListener('click', () => loadTrace(el.dataset.dev)));
 }
@@ -225,11 +239,23 @@ async function loadTrace(dev) {
   const d = await api('/devices/' + encodeURIComponent(dev));
   $('#trace-card').hidden = false;
   $('#trace-id').textContent = dev;
+  const KIND = { page_view: '進站', resolve: '解析', download: '下載',
+                 transfer_pair: '傳輸配對', transfer_done: '傳輸完成',
+                 signup: '註冊', login: '登入', pay: '付款', notify: '通知' };
   $('#trace').innerHTML = table([
     { t: '時間', v: (r) => fmtTime(r.ts) },
-    { t: '事件', v: 'kind' }, { t: '平台', v: 'platform' }, { t: '結果', v: 'result' },
-    { t: '畫質', v: 'quality' }, { t: '大小', v: (r) => r.size ? fmtBytes(r.size) : '–', num: true },
-    { t: '錯誤', v: 'error_code' }, { t: '路徑', v: 'path' },
+    { t: '事件', v: (r) => KIND[r.kind] || r.kind },
+    { t: '平台', v: 'platform' },
+    { t: '結果', v: (r) => r.result === 'ok' ? '<span class="badge ok">成功</span>'
+        : r.result === 'fail' ? '<span class="badge err">失敗</span>' : '–', html: true },
+    { t: '解析/下載的網址', v: (r) => r.url
+        ? `<a href="${esc(r.url)}" target="_blank" rel="noreferrer">${esc(String(r.url).slice(0, 60))}${String(r.url).length > 60 ? '…' : ''}</a>`
+        : '–', html: true },
+    { t: '畫質', v: 'quality' },
+    { t: '大小', v: (r) => r.size ? fmtBytes(r.size) : '–', num: true },
+    { t: '耗時', v: (r) => r.latency_ms ? (r.latency_ms / 1000).toFixed(1) + 's' : '–', num: true },
+    { t: '錯誤', v: 'error_code' },
+    { t: '來源', v: (r) => r.referrer ? `<small class="muted">${esc(String(r.referrer).slice(0, 30))}</small>` : '–', html: true },
   ], d.trace);
 }
 
@@ -363,7 +389,7 @@ async function renderNotify() {
     const left = d.cooldown[key];
     return `<label class="switch">
       <span>${meta.title}<small>${SEV[meta.severity]} · ${key}${left ? ' · 冷卻 ' + left + 's' : ''}</small></span>
-      <span class="toggle"><input type="checkbox" data-notify="${key}" ${on ? 'checked' : ''} ${locked ? 'disabled' : ''}><span></span></span>
+      <label class="toggle"><input type="checkbox" data-notify="${key}" ${on ? 'checked' : ''} ${locked ? 'disabled' : ''}><span></span></label>
     </label>`;
   }).join('');
   $$('#n-events input[data-notify]').forEach((el) => el.addEventListener('change', async () => {
