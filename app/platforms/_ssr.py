@@ -9,6 +9,8 @@
 from __future__ import annotations
 
 import asyncio
+import html as html_lib
+import re
 from typing import Iterable
 
 #: 預設最多等幾秒（0.4 秒一次）
@@ -94,14 +96,17 @@ async def _render(
 # ⚠️ 教訓：`<meta[^>]+content=["'](.*?)["'][^>]+property=...` 這種寫法
 #    在幾百 KB 的頁面上會**災難性回溯**，把整個 event loop 卡死（連逾時都救不了）。
 #    正確做法：先把 <meta …> 標籤逐一切出來（[^>]* 線性），再從標籤內取屬性。
-_META_TAG = None
+#: 掃描 meta 的頁面上限（避免超大頁面拖慢）
+_META_SCAN_LIMIT = 600_000
+
+_META_RE = re.compile(r"<meta[^>]*>", re.I)
+_ATTR_RE = re.compile(r'''([a-zA-Z:_-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')''')
 
 
 def meta_content(html: str, prop: str, *, limit: int = 600_000) -> str:
     """取 <meta property/name="prop" content="…"> 的值（安全版）。"""
     if not html:
         return ""
-    import html as _html
 
     window = html[:limit]
     for tag in _META_RE.findall(window):
@@ -110,11 +115,6 @@ def meta_content(html: str, prop: str, *, limit: int = 600_000) -> str:
             attrs[k.lower()] = v1 or v2
         key = attrs.get("property") or attrs.get("name") or ""
         if key.lower() == prop.lower():
-            return _html.unescape(attrs.get("content", ""))
+            return html_lib.unescape(attrs.get("content", ""))
     return ""
 
-
-import re as _re  # noqa: E402  （放這裡讓上面的函式用到，避免循環匯入）
-
-_META_RE = _re.compile(r"<meta\b[^>]*>", _re.I)
-_ATTR_RE = _re.compile(r"""([a-zA-Z:_-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')""")
