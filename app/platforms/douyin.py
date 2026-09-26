@@ -32,6 +32,9 @@ _UA = (
     "(KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
 )
 
+#: ttwid 快取（有效期很長；同一個 process 共用，不必每次重拿）
+_ttwid_cache: str | None = None
+
 
 class DouyinResolver(YtDlpResolver):
     name = "douyin"
@@ -185,6 +188,8 @@ class DouyinResolver(YtDlpResolver):
 
     # ── 路線①：官方 Web API（a_bogus 簽章）────────────
     async def _via_official(self, url: str) -> VideoInfo | None:
+        global _ttwid_cache
+
         aweme_id = await self._aweme_id(url)
         if not aweme_id:
             return None
@@ -214,8 +219,7 @@ class DouyinResolver(YtDlpResolver):
             "aweme_id": aweme_id,
         }
 
-        abogus = _abogus()
-        params["a_bogus"] = abogus.get_value(params)
+        params["a_bogus"] = ""          # 佔位，下面每輪重算
 
         headers = {
             "User-Agent": _UA,
@@ -224,22 +228,33 @@ class DouyinResolver(YtDlpResolver):
             "Accept-Language": "zh-CN,zh;q=0.9",
         }
 
-        async with HttpClient(ua=_UA, timeout=20) as http:
-            ttwid = await self._ttwid(http)
-            if ttwid:
-                headers["Cookie"] = f"ttwid={ttwid}"
-            resp = await http.get(_DETAIL, params=params, headers=headers)
-            if resp.status_code != 200:
-                return None
-            try:
-                data = resp.json()
-            except Exception:  # noqa: BLE001
-                return None
+        # 抖音會偶發限流 → 重試（每次重算 a_bogus）
+        for attempt in range(3):
+            params["a_bogus"] = _abogus().get_value(
+                {k: v for k, v in params.items() if k != "a_bogus"}
+            )
+            async with HttpClient(ua=_UA, timeout=20) as http:
+                if not _ttwid_cache:
+                    _ttwid_cache = await self._ttwid(http) or ""
+                if _ttwid_cache:
+                    headers["Cookie"] = f"ttwid={_ttwid_cache}"
+                resp = await http.get(_DETAIL, params=params, headers=headers)
+                if resp.status_code != 200:
+                    if attempt < 2:
+                        await asyncio.sleep(0.8 * (attempt + 1))
+                        continue
+                    return None
+                try:
+                    data = resp.json()
+                except Exception:  # noqa: BLE001
+                    return None
 
-        detail = (data or {}).get("aweme_detail")
-        if not detail:
-            return None
-        return self._build_official(url, detail)
+            detail = (data or {}).get("aweme_detail")
+            if detail:
+                return self._build_official(url, detail)
+            if attempt < 2:
+                await asyncio.sleep(0.8 * (attempt + 1))
+        return None
 
     @staticmethod
     async def _ttwid(http: HttpClient) -> str | None:
