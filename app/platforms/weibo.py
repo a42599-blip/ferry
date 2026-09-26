@@ -45,7 +45,15 @@ class WeiboResolver(YtDlpResolver):
             pass
         except Exception:  # noqa: BLE001
             pass
-        return await YtDlpResolver.resolve(self, url)
+        # yt-dlp 只認得 m.weibo.cn 形式（weibo.com/detail 會跳到訪客驗證頁）
+        canonical = await self._canonical(url)
+        return await YtDlpResolver.resolve(self, canonical)
+
+    async def _canonical(self, url: str) -> str:
+        mid = await self._status_id(url)
+        if mid and re.search(r"weibo\.com/(?:detail|\d+/[0-9A-Za-z]{6,12})", url):
+            return f"https://m.weibo.cn/detail/{mid}"
+        return url
 
     # ── 路線①：匿名訪客 API ──────────────────────────
     async def _via_ajax(self, url: str) -> VideoInfo | None:
@@ -77,77 +85,109 @@ class WeiboResolver(YtDlpResolver):
             return mid or None
         return None
 
+    #: 微博的畫質欄位 → (標籤, 分數)。同一支影片常有多個欄位指向同一條 URL，
+    #: 所以最後會用「URL 去重、同名保留最高分」處理。
+    _QUALITY_KEYS: tuple[tuple[str, str, int], ...] = (
+        ("stream_url_hd", "高清", 95),
+        ("mp4_hd_url", "高清", 95),
+        ("mp4_720p_mp4", "720P", 85),
+        ("hevc_mp4_720p", "720P（HEVC）", 84),
+        ("stream_url", "原畫", 80),
+        ("mp4_sd_url", "標清", 70),
+        ("h265_mp4_hd", "高清（HEVC）", 94),
+        ("h265_mp4_ld", "標清（HEVC）", 69),
+        ("inch_4_mp4_hd", "高清", 90),
+        ("inch_5_mp4_hd", "高清", 90),
+        ("inch_5_5_mp4_hd", "高清", 90),
+    )
+
     def _build(self, url: str, d: dict) -> VideoInfo:
         page = d.get("page_info") or {}
         media = page.get("media_info") or {}
 
-        title = (d.get("text_raw") or "").strip() or "微博影片"
+        title = (d.get("text_raw") or "").strip() or (media.get("name") or "").strip() or "微博影片"
         title = re.sub(r"\s+", " ", title)[:120]
-        author = (d.get("user") or {}).get("screen_name")
-        cover = (
-            media.get("cover_image_url")
-            or media.get("page_pic")
-            or ((page.get("page_pic") or {}).get("url"))
-            or ""
+        author = (d.get("user") or {}).get("screen_name") or media.get("author_name")
+        cover = _first_str(
+            media.get("cover_image_url"),
+            media.get("big_pic_info"),
+            media.get("page_pic"),
+            page.get("page_pic"),
         )
+
         duration = None
-        if media.get("duration_time"):
-            try:
-                duration = int(float(media["duration_time"]))
-            except (TypeError, ValueError):
-                duration = None
-
-        candidates: list[tuple[str, str, int]] = []   # (url, label, score)
-
-        for key, label, score in (
-            ("stream_url_hd", "高清", 95),
-            ("stream_url", "原畫", 85),
-            ("mp4_hd_url", "高清", 95),
-            ("mp4_sd_url", "標清", 70),
-        ):
-            u = media.get(key)
-            if u:
-                candidates.append((u, label, score))
-
-        # 新版：variants / playback_list
-        for coll in (media.get("variants"), (media.get("playback_list") or [])):
-            for item in coll or []:
-                if not isinstance(item, dict):
-                    continue
-                u = item.get("url") or item.get("play_url") or ""
-                if not u:
-                    continue
-                h = item.get("height") or item.get("height_pixel") or 0
+        for key in ("duration", "duration_time", "video_duration"):
+            v = media.get(key) or page.get(key)
+            if v:
                 try:
-                    h = int(h)
+                    duration = int(float(v))
+                    break
                 except (TypeError, ValueError):
-                    h = 0
-                candidates.append((u, quality_label(h) if h else "原畫", h or 50))
+                    continue
 
-        fmts: list[Format] = []
-        seen: set[str] = set()
-        for u, label, score in candidates:
-            if u in seen:
+        # 收集所有畫質 URL（同一條 URL 只留分數最高的標籤）
+        best: dict[str, tuple[str, int]] = {}
+        for key, label, score in self._QUALITY_KEYS:
+            u = media.get(key)
+            if not isinstance(u, str) or not u.startswith("http"):
                 continue
-            seen.add(u)
-            fmts.append(
-                Format(
-                    id=f"wb{len(fmts)}",
-                    label=label,
-                    url=u,
-                    quality_score=score,
-                    mode="proxy",
-                    headers={"Referer": "https://weibo.com/"},
-                )
-            )
+            prev = best.get(u)
+            if prev is None or score > prev[1]:
+                best[u] = (label, score)
 
+        # 新版：playback_list（DASH）／variants
+        for item in (media.get("playback_list") or []):
+            if not isinstance(item, dict):
+                continue
+            for p in (item.get("play_info") or []):
+                if not isinstance(p, dict):
+                    continue
+                u = p.get("url")
+                if isinstance(u, str) and u.startswith("http"):
+                    h = int(p.get("height") or 0)
+                    label = quality_label(h) if h else (p.get("quality_label") or "原畫")
+                    best[u] = (label, h or 60)
+
+        # 後備：任何看起來是影片的欄位
+        if not best:
+            for k, v in media.items():
+                if isinstance(v, str) and v.startswith("http") and (
+                        "video" in v or "weibocdn" in v or ".mp4" in v):
+                    best[v] = ("原畫", 60)
+
+        fmts = [
+            Format(id=f"wb{i}", label=label, url=u, quality_score=score,
+                   mode="proxy", headers={"Referer": "https://weibo.com/"})
+            for i, (u, (label, score)) in enumerate(
+                sorted(best.items(), key=lambda kv: -kv[1][1]))
+        ]
         if not fmts:
-            # 這則貼文沒有直接可用的影片網址 → 換 yt-dlp 路線
-            return None
+            raise PlatformError("微博這則貼文沒有影片", platform=self.name)
 
-        fmts.sort(key=lambda f: -(f.quality_score or 0))
         return VideoInfo(
             platform=self.name, title=title, cover=cover, source_url=url,
             formats=fmts, duration=duration, author=author,
             extra={"route": "visitor-api"},
         )
+
+
+def _first_str(*vals) -> str:
+    """從一堆可能是 str / dict / list 的值裡，取出第一個看起來像網址的字串。
+
+    ⚠️ 微博的 `page_pic` 有時是字串、有時是 `{"url": ...}` —— 不能直接 .get()。
+    """
+    for v in vals:
+        if not v:
+            continue
+        if isinstance(v, str):
+            if v.startswith("http"):
+                return v
+        elif isinstance(v, dict):
+            u = v.get("url") or v.get("pic") or ""
+            if isinstance(u, str) and u.startswith("http"):
+                return u
+        elif isinstance(v, list) and v:
+            u = _first_str(v[0])
+            if u:
+                return u
+    return ""
