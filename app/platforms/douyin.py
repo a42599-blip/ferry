@@ -290,6 +290,7 @@ class DouyinResolver(YtDlpResolver):
 
         fmts: list[Format] = []
         seen: set[str] = set()
+        seen_h: set = set()
 
         # ① bit_rate[]（多畫質）
         for br in video.get("bit_rate") or []:
@@ -300,18 +301,27 @@ class DouyinResolver(YtDlpResolver):
             if u in seen:
                 continue
             seen.add(u)
-            h = br.get("height") or 0
+
+            h = int(br.get("height") or 0)
+            gear = br.get("gear_name") or ""
+            if not h:
+                # 抖音的 gear_name 例如 `normal_1080_0` / `adapt_lowest_1440_1`
+                m = re.search(r"(\d{3,4})", gear)
+                h = int(m.group(1)) if m else 0
+            key = h or gear
+            if key in seen_h:
+                continue
+            seen_h.add(key)
+
             fmts.append(
                 Format(
-                    id=f"v{h or len(fmts)}",
-                    label=quality_label(h or None) if h else (
-                        br.get("gear_name") or "原畫"
-                    ),
+                    id=f"v{h}" if h else f"br{len(fmts)}",
+                    label=quality_label(h) if h else (gear or "原畫"),
                     url=u,
                     height=h or None,
                     width=br.get("width") or None,
                     size=br.get("data_size") or None,
-                    quality_score=h or int(br.get("bit_rate") or 0) // 1000 or 50,
+                    quality_score=h or (int(br.get("bit_rate") or 0) // 1000) or 50,
                     mode="fetch",
                 )
             )
