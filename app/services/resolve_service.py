@@ -5,10 +5,12 @@
 """
 from __future__ import annotations
 
+import asyncio
 import time
 
 from ..core import registry
-from ..core.errors import PlatformDisabled, UnsupportedUrl
+from ..core.config import settings
+from ..core.errors import PlatformDisabled, PlatformTimeout, UnsupportedUrl
 from ..core.models import VideoInfo
 from . import flags
 
@@ -27,7 +29,15 @@ async def resolve(url: str) -> VideoInfo:
         raise PlatformDisabled(f"{resolver.label or resolver.name} 目前維護中，請稍後再試")
 
     started = time.perf_counter()
-    info = await resolver.resolve(url)
+    try:
+        info = await asyncio.wait_for(
+            resolver.resolve(url), timeout=settings.resolve_timeout
+        )
+    except asyncio.TimeoutError as exc:
+        raise PlatformTimeout(
+            f"{resolver.label or resolver.name} 解析逾時（{settings.resolve_timeout} 秒）",
+            platform=resolver.name,
+        ) from exc
     elapsed_ms = int((time.perf_counter() - started) * 1000)
 
     _validate(info)

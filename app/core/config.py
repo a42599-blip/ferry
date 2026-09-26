@@ -62,5 +62,8 @@ class Settings:
         default_factory=lambda: _env_int("PROXY_DOWNLOAD_TIMEOUT", 300)
     )
 
+    # 單次解析的「硬性」總逾時（秒）——保証不會卡死使用者
+    resolve_timeout: int = field(default_factory=lambda: _env_int("RESOLVE_TIMEOUT", 30))
+
 
 settings = Settings()
