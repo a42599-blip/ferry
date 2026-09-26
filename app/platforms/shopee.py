@@ -12,6 +12,7 @@ import re
 from ..core.errors import PlatformChanged
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
+from ._ssr import meta_content
 from .base import Resolver
 
 _URL_RE = re.compile(
@@ -81,9 +82,7 @@ class ShopeeResolver(Resolver):
                          cover=cover, source_url=url, formats=fmts)
 
 
+
 def _meta(page: str, prop: str) -> str:
-    m = re.search(
-        rf'<meta[^>]+(?:property|name)=["\']{re.escape(prop)}["\'][^>]+content=["\'](.*?)["\']',
-        page, re.I | re.S,
-    )
-    return html_mod.unescape(m.group(1)) if m else ""
+    """安全版 meta 讀取。"""
+    return meta_content(page, prop)

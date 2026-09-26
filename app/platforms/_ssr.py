@@ -88,3 +88,33 @@ async def _render(
             await asyncio.wait_for(page.close(), timeout=5)
         except Exception:  # noqa: BLE001
             pass
+
+
+# ── 安全的 HTML meta 解析（避免災難性回溯）──────────────
+# ⚠️ 教訓：`<meta[^>]+content=["'](.*?)["'][^>]+property=...` 這種寫法
+#    在幾百 KB 的頁面上會**災難性回溯**，把整個 event loop 卡死（連逾時都救不了）。
+#    正確做法：先把 <meta …> 標籤逐一切出來（[^>]* 線性），再從標籤內取屬性。
+_META_TAG = None
+
+
+def meta_content(html: str, prop: str, *, limit: int = 600_000) -> str:
+    """取 <meta property/name="prop" content="…"> 的值（安全版）。"""
+    if not html:
+        return ""
+    import html as _html
+
+    window = html[:limit]
+    for tag in _META_RE.findall(window):
+        attrs: dict[str, str] = {}
+        for k, v1, v2 in _ATTR_RE.findall(tag):
+            attrs[k.lower()] = v1 or v2
+        key = attrs.get("property") or attrs.get("name") or ""
+        if key.lower() == prop.lower():
+            return _html.unescape(attrs.get("content", ""))
+    return ""
+
+
+import re as _re  # noqa: E402  （放這裡讓上面的函式用到，避免循環匯入）
+
+_META_RE = _re.compile(r"<meta\b[^>]*>", _re.I)
+_ATTR_RE = _re.compile(r"""([a-zA-Z:_-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')""")

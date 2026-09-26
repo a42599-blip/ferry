@@ -16,7 +16,7 @@ import re
 from ..core.errors import PlatformChanged
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
-from ._ssr import render_html
+from ._ssr import meta_content, render_html
 from .base import Resolver
 
 _URL_RE = re.compile(r"https?://(?:www\.)?(?:threads\.net|threads\.com)/", re.I)
@@ -144,17 +144,10 @@ def _quality(h) -> str:
     return f"{h}P" if h else "原畫"
 
 
+
 def _meta(page: str, prop: str) -> str:
-    m = re.search(
-        rf'<meta[^>]+(?:property|name)=["\']{re.escape(prop)}["\'][^>]+content=["\'](.*?)["\']',
-        page, re.I | re.S,
-    )
-    if not m:
-        m = re.search(
-            rf'<meta[^>]+content=["\'](.*?)["\'][^>]+(?:property|name)=["\']{re.escape(prop)}["\']',
-            page, re.I | re.S,
-        )
-    return html_mod.unescape(m.group(1)) if m else ""
+    """安全版 meta 讀取（見 _ssr.meta_content 的說明）。"""
+    return meta_content(page, prop)
 
 
 def _search(pattern: str, text: str) -> str:
