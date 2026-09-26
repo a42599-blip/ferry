@@ -98,6 +98,16 @@ class DouyinResolver(YtDlpResolver):
 
         if not html or ("bitRateList" not in html and "playAddr" not in html):
             return None
+
+        # ⚠️ 關鍵：確認頁面資料真的屬於「我們要的那一支」。
+        #    抖音對無效 ID 會直接顯示推薦影片（會拿到錯的影片），必須擋掉。
+        if aweme_id:
+            ids = set(re.findall(r'"awemeId":"(\d{15,25})"', html))
+            if ids and aweme_id not in ids:
+                return None
+            if not ids:
+                return None
+
         return self._parse_ssr(url, html)
 
     # ── SSR HTML 解析（抖音把資料直接刻在頁面裡）──────

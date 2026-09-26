@@ -14,6 +14,9 @@ from typing import Iterable
 #: 預設最多等幾秒（0.4 秒一次）
 DEFAULT_TRIES = 50
 
+#: 整個渲染流程的硬性預算（秒）—— 超過就直接放棄，絕不卡死請求
+DEFAULT_BUDGET = 25.0
+
 
 async def render_html(
     url: str,
@@ -23,12 +26,41 @@ async def render_html(
     anchor: str | None = None,
     tries: int = DEFAULT_TRIES,
     goto_timeout: int = 15000,
+    budget: float = DEFAULT_BUDGET,
     user_agent: str | None = None,
 ) -> str:
     """開頁 → 等到 `wait_for` 其中一個字串出現（或 `anchor` 直達）→ 回傳 HTML。
 
     `anchor`：若提供，會直接導覽到這個網址（用於把短連結換成正式頁）。
+    `budget`：整個流程的硬性上限；超過回空字串（不要讓使用者卡住）。
     """
+    try:
+        return await asyncio.wait_for(
+            _render(
+                url,
+                context_key=context_key,
+                wait_for=wait_for,
+                anchor=anchor,
+                tries=tries,
+                goto_timeout=goto_timeout,
+                user_agent=user_agent,
+            ),
+            timeout=budget,
+        )
+    except asyncio.TimeoutError:
+        return ""
+
+
+async def _render(
+    url: str,
+    *,
+    context_key: str,
+    wait_for: Iterable[str],
+    anchor: str | None,
+    tries: int,
+    goto_timeout: int,
+    user_agent: str | None,
+) -> str:
     from ..services.browser import get_context
 
     kwargs = {"user_agent": user_agent} if user_agent else {}
@@ -53,6 +85,6 @@ async def render_html(
         return html
     finally:
         try:
-            await page.close()
+            await asyncio.wait_for(page.close(), timeout=5)
         except Exception:  # noqa: BLE001
             pass
