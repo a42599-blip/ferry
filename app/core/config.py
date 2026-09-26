@@ -63,7 +63,8 @@ class Settings:
     )
 
     # 單次解析的「硬性」總逾時（秒）——保証不會卡死使用者
-    resolve_timeout: int = field(default_factory=lambda: _env_int("RESOLVE_TIMEOUT", 30))
+    # （抖音要走真瀏覽器，約 10～25 秒，所以給到 60）
+    resolve_timeout: int = field(default_factory=lambda: _env_int("RESOLVE_TIMEOUT", 60))
 
 
 settings = Settings()

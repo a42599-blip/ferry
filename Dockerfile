@@ -8,7 +8,10 @@ RUN apt-get update \
  && find /var/lib/apt/lists -mindepth 1 -delete
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+ && playwright install --with-deps chromium \
+ && apt-get clean \
+ && find /var/lib/apt/lists -mindepth 1 -delete
 
 COPY app ./app
 COPY static ./static
