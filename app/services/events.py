@@ -408,3 +408,92 @@ def notify_recipients() -> list[str]:
     if isinstance(saved, list) and saved:
         return [str(x).strip() for x in saved if str(x).strip()]
     return [e.strip() for e in settings.notify_emails.split(",") if e.strip()]
+
+
+# ── 成長趨勢（後台「成長趨勢」頁）──────────────────────
+def _bucket_rows(days: int, kind: str | None = None) -> list[dict]:
+    """每日彙總（台北時間）。"""
+    sql = ("SELECT date(ts,'unixepoch','+8 hours') AS d,"
+           " COUNT(*) AS c,"
+           " COUNT(DISTINCT device_id) AS devices"
+           " FROM events WHERE ts>=?")
+    params: list = [_since(days)]
+    if kind:
+        sql += " AND kind=?"
+        params.append(kind)
+    sql += " GROUP BY d ORDER BY d"
+    return [dict(r) for r in db.query(sql, tuple(params))]
+
+
+def _sum_between(kind: str, start_days_ago: int, end_days_ago: int) -> int:
+    lo, hi = _since(start_days_ago), _since(end_days_ago)
+    return int(db.scalar(
+        "SELECT COUNT(*) FROM events WHERE kind=? AND ts>=? AND ts<?", (kind, lo, hi)))
+
+
+def _pct(cur: int, prev: int) -> float | None:
+    if prev <= 0:
+        return None if cur <= 0 else 100.0
+    return round((cur - prev) / prev * 100, 1)
+
+
+def growth(days: int = 90) -> dict:
+    """成長趨勢：本期 vs 前期、每日趨勢、留存、轉換。"""
+    half = max(1, days // 2)
+
+    def pair(kind: str) -> dict:
+        cur = _sum_between(kind, half, 0)
+        prev = _sum_between(kind, days, half)
+        return {"current": cur, "previous": prev, "change_pct": _pct(cur, prev)}
+
+    visitors_cur = int(db.scalar(
+        "SELECT COUNT(DISTINCT device_id) FROM events WHERE ts>=?", (_since(half),)))
+    visitors_prev = int(db.scalar(
+        "SELECT COUNT(DISTINCT device_id) FROM events WHERE ts>=? AND ts<?", (_since(days), _since(half))))
+
+    total_devices = int(db.scalar("SELECT COUNT(*) FROM devices"))
+    returning = int(db.scalar("SELECT COUNT(*) FROM devices WHERE visits >= 2"))
+    members_n = int(db.scalar("SELECT COUNT(*) FROM members"))
+    paid = int(db.scalar("SELECT COUNT(*) FROM members WHERE plan<>'free'"))
+    orders_paid = int(db.scalar("SELECT COUNT(*) FROM orders WHERE status='paid'"))
+    revenue_cur = float(db.scalar(
+        "SELECT COALESCE(SUM(amount),0) FROM orders WHERE status='paid' AND created_at>=?",
+        (_since(half),), default=0.0))
+    revenue_prev = float(db.scalar(
+        "SELECT COALESCE(SUM(amount),0) FROM orders WHERE status='paid' AND created_at>=? AND created_at<?",
+        (_since(days), _since(half)), default=0.0))
+
+    resolve_series = _bucket_rows(days, "resolve")
+    dl_series = _bucket_rows(days, "download")
+    pv_series = _bucket_rows(days, "page_view")
+
+    return {
+        "days": days,
+        "period_days": half,
+        "visitors": {"current": visitors_cur, "previous": visitors_prev,
+                     "change_pct": _pct(visitors_cur, visitors_prev)},
+        "resolve": pair("resolve"),
+        "download": pair("download"),
+        "transfer": pair("transfer_done"),
+        "page_view": pair("page_view"),
+        "revenue": {"current": round(revenue_cur, 2), "previous": round(revenue_prev, 2),
+                    "change_pct": _pct(int(revenue_cur * 100), int(revenue_prev * 100))},
+        "funnel": {
+            "visitors": visitors_cur,
+            "resolvers": int(db.scalar(
+                "SELECT COUNT(DISTINCT device_id) FROM events"
+                " WHERE kind='resolve' AND result='ok' AND ts>=?", (_since(half),))),
+            "downloaders": int(db.scalar(
+                "SELECT COUNT(DISTINCT device_id) FROM events WHERE kind='download' AND ts>=?",
+                (_since(half),))),
+            "members": members_n,
+            "paid": paid,
+            "orders": orders_paid,
+        },
+        "retention": {
+            "total_devices": total_devices,
+            "returning": returning,
+            "returning_pct": round(returning / total_devices * 100, 1) if total_devices else None,
+        },
+        "series": {"page_view": pv_series, "resolve": resolve_series, "download": dl_series},
+    }

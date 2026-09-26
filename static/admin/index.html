@@ -2,186 +2,188 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>轉運站 · 後台</title>
 <link rel="icon" href="/favicon.ico">
-<link rel="stylesheet" href="/admin/style.css?v=5">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/style.css?v=6">
 </head>
 <body>
 
 <!-- ── 登入 ── -->
-<main id="login" class="login-wrap">
-  <form class="login card" id="login-form">
-    <h1>轉運站 · 後台</h1>
-    <p class="muted" id="login-msg">請輸入帳號密碼</p>
-    <label>帳號<input type="text" id="l-user" autocomplete="username" required></label>
-    <label>密碼<input type="password" id="l-pass" autocomplete="current-password" required></label>
-    <label id="code-row" hidden>兩步驟驗證碼<input type="text" id="l-code" inputmode="numeric" maxlength="6" placeholder="6 位數字"></label>
-    <button class="primary" type="submit">登入</button>
+<main id="login" class="loginwrap">
+  <form class="login" id="login-form">
+    <div class="lg"><span class="logo-mark"></span><span class="br">轉運站 後台</span></div>
+    <p class="dim" id="login-msg">請輸入帳號密碼</p>
+    <input type="text" id="l-user" autocomplete="username" placeholder="帳號" required>
+    <input type="password" id="l-pass" autocomplete="current-password" placeholder="密碼" required>
+    <input type="text" id="l-code" inputmode="numeric" maxlength="6" placeholder="兩步驟驗證碼（若已啟用）" hidden>
+    <button class="big" type="submit">登入</button>
   </form>
 </main>
 
 <!-- ── 後台 ── -->
 <div id="app" hidden>
-  <header class="topbar">
-    <h1>轉運站 · 後台</h1>
-    <nav class="tabs" id="tabs">
-      <button class="tab active" data-tab="overview">總覽</button>
-      <button class="tab" data-tab="flags">功能與平台</button>
-      <button class="tab" data-tab="devices">會員與裝置</button>
-      <button class="tab" data-tab="revenue">收益</button>
-      <button class="tab" data-tab="errors">錯誤與告警</button>
-      <button class="tab" data-tab="notify">通知與監控</button>
-      <button class="tab" data-tab="system">系統</button>
-    </nav>
-    <div class="topbar-right">
-      <select id="days" title="統計區間">
+
+  <header class="dtop">
+    <span class="lg br">轉運站 後台</span>
+    <span class="tag warn" id="env-tag">PRODUCTION</span>
+    <div class="r">
+      <select id="days">
         <option value="1">今天</option>
-        <option value="7">7 天</option>
-        <option value="30" selected>30 天</option>
-        <option value="90">90 天</option>
-        <option value="365">1 年</option>
+        <option value="7">最近 7 天</option>
+        <option value="30" selected>最近 30 天</option>
+        <option value="90">最近 90 天</option>
+        <option value="365">最近 1 年</option>
       </select>
-      <button class="ghost" id="refresh">重新整理</button>
-      <button class="ghost" id="logout">登出</button>
+      <button class="gh" id="refresh">重新整理</button>
+      <button class="gh" id="logout">登出</button>
     </div>
   </header>
 
-  <main class="wrap">
-    <!-- 總覽 -->
-    <section class="panel active" id="panel-overview">
-      <div class="kpis" id="kpis"></div>
-      <div class="grid2">
-        <div class="card"><h2>每日趨勢</h2><div id="chart-series" class="chart"></div></div>
-        <div class="card"><h2>平台表現</h2><div id="chart-platforms" class="tbl-host"></div></div>
-        <div class="card"><h2>地區</h2><div id="chart-countries" class="tbl-host"></div></div>
-        <div class="card"><h2>裝置 / 系統</h2><div id="chart-os" class="tbl-host"></div></div>
-        <div class="card"><h2>來源</h2><div id="chart-sources" class="tbl-host"></div></div>
-        <div class="card"><h2>無損傳輸</h2><div id="chart-transfer" class="tbl-host"></div></div>
-      </div>
-    </section>
+  <div class="dmain">
+    <nav class="side" id="side">
+      <button data-p="overview" class="on">總覽</button>
+      <button data-p="growth">成長趨勢</button>
+      <button data-p="flags">平台開關</button>
+      <button data-p="devices">會員與裝置</button>
+      <button data-p="revenue">收益</button>
+      <button data-p="errors">錯誤與告警</button>
+      <button data-p="system">系統</button>
+    </nav>
 
-    <!-- 功能與平台 -->
-    <section class="panel" id="panel-flags">
-      <div class="card">
-        <div class="row-between">
-          <h2>功能模組開關</h2>
-          <div><button class="ghost" data-all="1">全部開啟</button>
-               <button class="ghost" data-all="0">全部關閉</button></div>
+    <div class="dbody" id="dbody">
+
+      <!-- 總覽 -->
+      <section class="pg on" id="pg-overview">
+        <div class="kpis" id="ov-kpis"></div>
+        <div class="rows">
+          <div class="pnl grow2"><div class="lbl">每日活躍（進站）</div><div class="chart" id="ov-chart"></div></div>
+          <div class="pnl"><div class="lbl">平台表現</div><div class="scroll" id="ov-plat"></div></div>
         </div>
-        <div id="feature-list" class="switch-list"></div>
-        <p class="muted">變更後 30 秒內全站生效（不需重新部署 → 不會換出口 IP）</p>
-      </div>
-      <div class="card">
-        <div class="row-between">
-          <h2>13 個平台開關</h2>
-          <label class="chk"><input type="checkbox" id="auto-off">成功率低於門檻自動關閉</label>
+        <div class="rows">
+          <div class="pnl"><div class="lbl">地區</div><div class="scroll" id="ov-country"></div></div>
+          <div class="pnl"><div class="lbl">裝置 / 系統</div><div class="scroll" id="ov-os"></div></div>
+          <div class="pnl"><div class="lbl">來源</div><div class="scroll" id="ov-src"></div></div>
         </div>
-        <div id="platform-list" class="tbl-host"></div>
-      </div>
-    </section>
+      </section>
 
-    <!-- 會員與裝置 -->
-    <section class="panel" id="panel-devices">
-      <div class="card"><h2>裝置 / 訪客</h2><div id="devices" class="tbl-host"></div></div>
-      <div class="card" id="trace-card" hidden>
-        <h2>裝置軌跡 <span class="muted" id="trace-id"></span></h2>
-        <div id="trace" class="tbl-host"></div>
-      </div>
-    </section>
+      <!-- 成長趨勢 -->
+      <section class="pg" id="pg-growth">
+        <div class="kpis" id="gr-kpis"></div>
+        <div class="rows">
+          <div class="pnl grow2"><div class="lbl">解析次數趨勢</div><div class="chart" id="gr-chart"></div></div>
+          <div class="pnl"><div class="lbl">轉換漏斗</div><div id="gr-funnel"></div></div>
+        </div>
+        <div class="rows">
+          <div class="pnl"><div class="lbl">期間比較</div><div id="gr-compare"></div></div>
+          <div class="pnl"><div class="lbl">回訪與留存</div><div id="gr-retention"></div></div>
+        </div>
+      </section>
 
-    <!-- 收益 -->
-    <section class="panel" id="panel-revenue">
-      <div class="kpis" id="rev-kpis"></div>
-      <div class="card"><h2>方案分佈</h2><div id="rev-plans" class="tbl-host"></div></div>
-      <div class="card"><h2>訂單列表</h2><div id="rev-orders" class="tbl-host"></div>
-        <p class="muted">金流（綠界／藍新／Stripe）為 P6 階段，目前尚無訂單。</p></div>
-    </section>
+      <!-- 平台開關 -->
+      <section class="pg" id="pg-flags">
+        <div class="pnl">
+          <div class="rowbetween">
+            <div class="lbl">功能模組開關</div>
+            <div><button class="gh" data-all="1">全部開啟</button>
+                 <button class="gh" data-all="0">全部關閉</button></div>
+          </div>
+          <div class="switches" id="feature-list"></div>
+          <p class="note">關掉的功能／分頁會<b>立即從前台消失</b>；平台關掉，前台圖示也跟著消失。不需重新部署（不會換出口 IP）。</p>
+        </div>
+        <div class="pnl">
+          <div class="rowbetween">
+            <div class="lbl">13 個平台開關</div>
+            <label class="chk"><input type="checkbox" id="auto-off"> 成功率低於門檻自動關閉</label>
+          </div>
+          <div class="scroll" id="platform-list"></div>
+        </div>
+      </section>
 
-    <!-- 錯誤與告警 -->
-    <section class="panel" id="panel-errors">
-      <div class="card"><h2>失敗原因排行</h2><div id="err-top" class="tbl-host"></div></div>
-      <div class="card"><h2>平台健康</h2><div id="err-plat" class="tbl-host"></div></div>
-      <div class="card"><h2>傳輸失敗分析</h2><div id="err-transfer" class="tbl-host"></div></div>
-    </section>
+      <!-- 會員與裝置 -->
+      <section class="pg" id="pg-devices">
+        <div class="pnl">
+          <div class="lbl">裝置 / 訪客 <span class="dim" id="dev-count"></span></div>
+          <div class="scroll" id="devices"></div>
+        </div>
+        <div class="pnl" id="trace-card" hidden>
+          <div class="lbl">裝置軌跡 <span class="dim" id="trace-id"></span></div>
+          <div class="scroll" id="trace"></div>
+        </div>
+      </section>
 
-    <!-- 通知與監控 -->
-    <section class="panel" id="panel-notify">
-      <div class="card">
-        <div class="row-between">
-          <h2>寄送管道</h2>
-          <div class="input-row">
-            <button class="ghost" id="n-test">寄測試信</button>
-            <button class="ghost" id="n-digest">寄每日摘要（現在）</button>
-            <button class="ghost" id="n-run">立刻跑一次監控</button>
+      <!-- 收益 -->
+      <section class="pg" id="pg-revenue">
+        <div class="kpis" id="rev-kpis"></div>
+        <div class="rows">
+          <div class="pnl"><div class="lbl">方案分佈</div><div id="rev-plans"></div></div>
+          <div class="pnl grow2"><div class="lbl">訂單列表</div><div class="scroll" id="rev-orders"></div>
+            <p class="note">金流為 P6 階段：程式與訂單流程已完成，設定金鑰後即可收款。</p></div>
+        </div>
+      </section>
+
+      <!-- 錯誤與告警 -->
+      <section class="pg" id="pg-errors">
+        <div class="rows">
+          <div class="pnl"><div class="lbl">失敗原因排行</div><div class="scroll" id="err-top"></div></div>
+          <div class="pnl"><div class="lbl">平台健康</div><div class="scroll" id="err-plat"></div></div>
+        </div>
+        <div class="rows">
+          <div class="pnl"><div class="lbl">傳輸失敗分析</div><div id="err-transfer"></div></div>
+          <div class="pnl"><div class="lbl">系統監控</div><div id="n-monitor"></div></div>
+        </div>
+        <div class="pnl">
+          <div class="rowbetween">
+            <div class="lbl">通知事件開關</div>
+            <div><button class="gh" id="n-test">寄測試信</button>
+                 <button class="gh" id="n-digest">寄每日摘要</button>
+                 <button class="gh" id="n-run">立刻跑監控</button></div>
+          </div>
+          <div class="switches" id="n-events"></div>
+        </div>
+        <div class="pnl"><div class="lbl">最近通知紀錄</div><div class="scroll" id="n-recent"></div></div>
+      </section>
+
+      <!-- 系統 -->
+      <section class="pg" id="pg-system">
+        <div class="rows">
+          <div class="pnl"><div class="lbl">系統資訊</div><div id="sys-info"></div></div>
+          <div class="pnl"><div class="lbl">通知收件人（Email）</div>
+            <div class="inrow"><input type="text" id="notify-input" placeholder="a@b.com, c@d.com">
+              <button class="big sm" id="notify-save">儲存</button></div>
+            <div class="lbl" style="margin-top:18px">兩步驟驗證（TOTP）</div>
+            <p class="note" id="totp-msg">未啟用。</p>
+            <div class="inrow"><button class="big sm" id="totp-on">啟用</button>
+              <button class="big sm gh" id="totp-off">停用</button></div>
+            <div id="totp-box" hidden><p class="note">用 Google Authenticator 掃描：</p><code id="totp-secret"></code></div>
           </div>
         </div>
-        <div id="n-transport" class="tbl-host"></div>
-        <p class="muted">支援 Resend（`RESEND_API_KEY`）／SMTP（`SMTP_*`）／Webhook（`NOTIFY_WEBHOOK`）。
-        都還沒設定時，通知會記錄在這裡不會遺失。</p>
-      </div>
-
-      <div class="card">
-        <h2>事件開關（嚴重事件不可關）</h2>
-        <div id="n-events" class="switch-list"></div>
-      </div>
-
-      <div class="card">
-        <h2>系統監控</h2>
-        <div id="n-monitor" class="tbl-host"></div>
-      </div>
-
-      <div class="card">
-        <h2>最近通知紀錄</h2>
-        <div id="n-recent" class="tbl-host"></div>
-      </div>
-    </section>
-
-    <!-- 系統 -->
-    <section class="panel" id="panel-system">
-      <div class="card"><h2>系統資訊</h2><div id="sys-info" class="tbl-host"></div></div>
-      <div class="card">
-        <h2>通知收件人（Email）</h2>
-        <p class="muted">告警與每日摘要會寄到這裡，可新增多個。</p>
-        <div class="input-row"><input type="text" id="notify-input" placeholder="a@b.com, c@d.com">
-        <button class="primary" id="notify-save">儲存</button></div>
-      </div>
-      <div class="card">
-        <h2>兩步驟驗證（TOTP）</h2>
-        <p class="muted" id="totp-msg">未啟用。</p>
-        <div class="input-row"><button class="primary" id="totp-on">啟用</button>
-          <button class="ghost" id="totp-off">停用</button></div>
-        <div id="totp-box" hidden>
-          <p class="muted">用 Google Authenticator / Authy 掃描這個連結（或手動輸入密鑰）：</p>
-          <code id="totp-secret"></code>
-          <p><a id="totp-link" target="_blank" rel="noreferrer">開啟 otpauth 連結</a></p>
-        </div>
-      </div>
-      <div class="card">
-        <h2>資料管理</h2>
-        <p class="muted">我們**不存任何檔案**；這裡管的是匿名統計事件。</p>
-        <div class="input-row">
-          <label class="chk">刪除
-            <select id="clean-days">
-              <option value="180">半年以前</option>
-              <option value="365">一年以前</option>
+        <div class="pnl">
+          <div class="lbl">資料管理</div>
+          <p class="note">我們不存任何檔案；這裡管的是匿名統計事件。</p>
+          <div class="inrow">
+            <label class="chk">刪除 <select id="clean-days">
               <option value="90">三個月以前</option>
-            </select>
-          </label>
-          <button class="ghost" id="clean-preview">預覽筆數</button>
-          <button class="ghost" id="export">匯出 CSV</button>
+              <option value="180" selected>半年以前</option>
+              <option value="365">一年以前</option></select></label>
+            <button class="big sm gh" id="clean-preview">預覽筆數</button>
+            <button class="big sm gh" id="export">匯出 CSV</button>
+            <button class="big sm gh" id="quota-reset">清空今日次數</button>
+          </div>
+          <p class="note" id="clean-msg"></p>
+          <button class="big sm gh" id="clean-run" disabled>確認刪除</button>
         </div>
-        <p class="muted" id="clean-msg"></p>
-        <div class="input-row"><button class="danger" id="clean-run" disabled>確認刪除</button></div>
-      </div>
-      <div class="card">
-        <h2>次數計數</h2>
-        <div class="input-row"><button class="ghost" id="quota-reset">清空所有使用者今日次數</button></div>
-      </div>
-    </section>
-  </main>
+      </section>
+
+    </div>
+  </div>
+
+  <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=5"></script>
+<script src="/admin/app.js?v=6"></script>
 </body>
 </html>

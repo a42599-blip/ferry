@@ -360,3 +360,9 @@ async def get_members(_: dict = Depends(require_admin)) -> dict:
     from ..services import members
 
     return {"ok": True, "members": members.list_members()}
+
+
+# ── 成長趨勢 ─────────────────────────────────────────
+@router.get("/growth")
+async def growth(days: int = Query(90, ge=7, le=730), _: dict = Depends(require_admin)) -> dict:
+    return {"ok": True, **events.growth(days)}
