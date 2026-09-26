@@ -32,9 +32,13 @@ function applyLang() {
   });
   $$('#lang button').forEach((b) => b.classList.toggle('on', b.dataset.lang === state.lang));
   $$('#lang button').forEach((b) => {
-    const name = state.lang === 'en'
-      ? { 'zh-Hant': 'CHT', 'zh-Hans': 'CHS', en: 'EN' }[b.dataset.lang]
-      : { 'zh-Hant': '繁', 'zh-Hans': '简', en: 'EN' }[b.dataset.lang];
+    // 語言鈕用「各語言自己的寫法」：繁中版顯示「簡」、簡中版顯示「简」、英文版用 CHT/CHS
+    const NAME = {
+      'zh-Hant': { 'zh-Hant': '繁', 'zh-Hans': '簡', en: 'EN' },
+      'zh-Hans': { 'zh-Hant': '繁', 'zh-Hans': '简', en: 'EN' },
+      en: { 'zh-Hant': 'CHT', 'zh-Hans': 'CHS', en: 'EN' },
+    };
+    const name = NAME[state.lang][b.dataset.lang];
     b.textContent = name;
     b.title = { 'zh-Hant': '繁體中文', 'zh-Hans': '简体中文', en: 'English' }[b.dataset.lang];
   });
