@@ -5,11 +5,15 @@
    - API（/api、/admin）：永不快取（一律走網路，資料必須即時） */
 'use strict';
 
-const CACHE = 'ferry-v1';
+const CACHE = 'ferry-v2';
 const STATIC_ASSETS = [
   '/style.css', '/app.js', '/transfer.js', '/sha256.js',
   '/icon.svg', '/favicon.ico', '/manifest.webmanifest',
   '/locales/zh-Hant.json', '/locales/zh-Hans.json', '/locales/en.json',
+  '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',
+  '/logos/xigua.png', '/logos/weibo.png', '/logos/toutiao.png',
+  '/logos/tiktok.png', '/logos/instagram.png', '/logos/facebook.png',
+  '/logos/x.png', '/logos/youtube.png', '/logos/threads.png', '/logos/shopee.png',
 ];
 
 self.addEventListener('install', (e) => {

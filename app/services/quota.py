@@ -105,10 +105,23 @@ def reset_all() -> None:
 
 
 def status(subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
+    dk = _date_key(tz_name)
+    parts = dk.split("-")
+    hint = f"{parts[1]}-{parts[2]} 00:00"        # 例：09-27 00:00
+    unlimited = not settings.free_limit_enabled or _is_paid(subject)
     return {
-        "download": {"limit": daily_limit("download"), "used": used("download", subject, tz_name=tz_name),
-                     "remaining": remaining("download", subject, tz_name=tz_name)},
-        "transfer": {"limit": daily_limit("transfer"), "used": used("transfer", subject, tz_name=tz_name),
-                     "remaining": remaining("transfer", subject, tz_name=tz_name)},
-        "unlimited": not settings.free_limit_enabled,
+        "download": {
+            "limit": daily_limit("download"),
+            "used": used("download", subject, tz_name=tz_name),
+            "remaining": remaining("download", subject, tz_name=tz_name),
+            "reset_hint": hint,
+        },
+        "transfer": {
+            "limit": daily_limit("transfer"),
+            "used": used("transfer", subject, tz_name=tz_name),
+            "remaining": remaining("transfer", subject, tz_name=tz_name),
+            "reset_hint": hint,
+        },
+        "timezone": tz_name,
+        "unlimited": unlimited,
     }

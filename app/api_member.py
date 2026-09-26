@@ -102,3 +102,14 @@ async def report(request: Request, body: dict = Body(...)) -> dict:
                         f"內容：{msg}\n裝置：{_device(request)}\n"
                         f"聯絡：{body.get('contact') or '（未提供）'}")
     return {"ok": True, "message": "已收到，謝謝你！我們會盡快處理。"}
+
+
+# ── 下載事件（前端下載完成後回報，用於後台統計）──────
+@router.post("/api/track/download")
+async def track_download(request: Request, body: dict = Body(...)) -> dict:
+    from .services import events
+
+    events.track("download", device_id=auth.current_subject(request),
+                 platform=body.get("platform"), quality=body.get("quality"),
+                 size=body.get("size"), mode=body.get("mode"), result="ok")
+    return {"ok": True}
