@@ -21,5 +21,14 @@ class YoutubeResolver(YtDlpResolver):
     hosts = ("youtube.com", "youtu.be", "youtube-nocookie.com")
     default_mode = "proxy"
 
+    # ⚠️ YouTube 是 **IP 敏感** 平台（規格書第 7 章）。
+    #    實測：本機（住宅 IP）用 android／web_safari 可下載；資料中心 IP 可能被 CDN 403。
+    #    用多個 client 輪流嘗試，提高命中率。
+    ytdlp_extra = {
+        "extractor_args": {
+            "youtube": {"player_client": ["web_safari", "android", "tv", "mweb"]}
+        },
+    }
+
     async def match(self, url: str) -> bool:
         return bool(_URL_RE.search(url))

@@ -74,6 +74,10 @@ class YtDlpResolver(Resolver):
     #: 預設下載模式（見 models.Format.mode）
     default_mode: str = "proxy"
 
+    def ytdlp_opts(self) -> dict[str, Any]:
+        """解析與下載共用的 yt-dlp 參數（子類可覆寫）。"""
+        return dict(self.ytdlp_extra)
+
     # ── 解析 ────────────────────────────────────────
     async def resolve(self, url: str) -> VideoInfo:
         info = await self._extract(url)
@@ -81,7 +85,7 @@ class YtDlpResolver(Resolver):
 
     async def _extract(self, url: str) -> dict:
         opts = dict(_BASE_OPTS)
-        opts.update(self.ytdlp_extra)
+        opts.update(self.ytdlp_opts())
 
         # 有準備 cookie 檔就帶上（IG／FB／X／微博／頭條… 需要）
         from ..services.cookies import cookiefile_for

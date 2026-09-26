@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
 from .core.errors import AppError
+from .core.http import HttpClient
 from .core import timezone as tz_util
 from .services import auth, downloader, flags, quota, resolve_service
 from .services.transfer import router as transfer_router
@@ -47,6 +48,17 @@ class ResolveIn(BaseModel):
 @app.get("/api/health")
 async def health():
     return {"ok": True, "service": "ferry"}
+
+
+@app.get("/api/debug/ip")
+async def debug_ip():
+    """出口 IP（維運用）：判斷平台是不是因為 IP 而被擋。"""
+    try:
+        async with HttpClient() as http:
+            data = await http.get_json("https://api.ipify.org?format=json")
+        return {"ok": True, "egress_ip": data.get("ip")}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "message": str(exc)[:120]}
 
 
 @app.get("/api/config")

@@ -69,6 +69,11 @@ async def fetch_to_temp(
     if cf:
         opts["cookiefile"] = cf
 
+    # 平台自己的 yt-dlp 參數（例如 YouTube 的 player_client）
+    extra = getattr(resolver, "ytdlp_opts", None)
+    if callable(extra):
+        opts.update(extra())
+
     def run() -> str:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(src, download=True)
