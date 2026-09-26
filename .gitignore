@@ -4,3 +4,6 @@ __pycache__/
 .env
 .pytest_cache/
 *.log
+
+# 本機資料庫（Railway 上用 Volume，不進版控）
+data/
