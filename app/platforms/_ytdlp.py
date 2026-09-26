@@ -75,8 +75,15 @@ class YtDlpResolver(Resolver):
     default_mode: str = "proxy"
 
     def ytdlp_opts(self) -> dict[str, Any]:
-        """解析與下載共用的 yt-dlp 參數（子類可覆寫）。"""
+        """解析用的 yt-dlp 參數（子類可覆寫）。"""
         return dict(self.ytdlp_extra)
+
+    def download_opts(self) -> dict[str, Any]:
+        """下載用的 yt-dlp 參數（預設跟解析一樣；子類可覆寫）。
+
+        會分開是因為：有些平台「列清單」和「真的抓檔」要用的 client 不一樣。
+        """
+        return self.ytdlp_opts()
 
     # ── 解析 ────────────────────────────────────────
     async def resolve(self, url: str) -> VideoInfo:
