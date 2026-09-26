@@ -294,8 +294,7 @@ function renderResult(info) {
   list.forEach((f, i) => {
     const el = document.createElement('div');
     el.className = 'q';
-    const tag = f.audio ? `<span class="tag">${t('tag_audio')}</span>` : '';
-    el.innerHTML = `<span class="lb">${tag}${esc(qlabel(f.label))}</span><span class="s">${f.size ? fmtSize(f.size) : ''} ${f.ext || ''}</span>`;
+    el.innerHTML = `<span class="lb">${esc(qlabel(f.label))}</span><span class="s">${f.size ? fmtSize(f.size) : ''} ${f.ext || ''}</span>`;
     el.addEventListener('click', () => selectFormat(i));
     el.dataset.i = i;
     box.appendChild(el);
