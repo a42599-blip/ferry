@@ -201,15 +201,33 @@ async def debug_youtube(v: str = Query("mw-kKYRSEOU")):
     """
     import yt_dlp
 
-    clients = ["all", "web_embedded", "tv_embedded", "android_vr", "web_safari",
-               "mweb", "tv", "ios", "android"]
+    # (標籤, player_client, player_skip, 額外參數)
+    combos = [
+        ("all", "all", None, None),
+        ("web_embedded", "web_embedded", None, None),
+        ("tv_embedded", "tv_embedded", None, None),
+        # 跳過網頁請求，只打 Google 的內部 API（繞過網頁層的機器人檢查）
+        ("all+skip_webpage", "all", "webpage", None),
+        ("all+skip_webpage_configs", "all", "webpage,configs", None),
+        ("android+skip_webpage", "android", "webpage", None),
+        ("ios+skip_webpage", "ios", "webpage", None),
+        ("tv_embedded+skip", "tv_embedded", "webpage,configs", None),
+        ("web_embedded+skip", "web_embedded", "webpage,configs", None),
+        # 試帶 visitor data / 不同 player 路徑
+        ("all+skip_js", "all", "webpage,js", None),
+        ("mweb+skip", "mweb", "webpage,configs", None),
+        ("android_producer", "android_producer", "webpage", None),
+    ]
     out = []
 
-    def probe(client: str) -> dict:
+    def probe(label: str, client: str, skip: str | None, _extra) -> dict:
+        ea: dict = {"player_client": [client]}
+        if skip:
+            ea["player_skip"] = skip.split(",")
         opts = {
             "quiet": True, "no_warnings": True, "skip_download": True, "cachedir": False,
             "socket_timeout": 15, "retries": 0, "extractor_retries": 0,
-            "extractor_args": {"youtube": {"player_client": [client]}},
+            "extractor_args": {"youtube": ea},
             "js_runtimes": {"deno": {}},
             "http_headers": {"User-Agent": _YT_UA},
         }
@@ -218,13 +236,15 @@ async def debug_youtube(v: str = Query("mw-kKYRSEOU")):
                 info = y.extract_info(f"https://www.youtube.com/watch?v={v}", download=False)
             hs = sorted({f.get("height") for f in (info.get("formats") or []) if f.get("height")},
                         reverse=True)
-            return {"client": client, "ok": True, "formats": len(info.get("formats") or []),
+            return {"client": label, "ok": True, "formats": len(info.get("formats") or []),
                     "heights": hs[:5]}
         except Exception as exc:  # noqa: BLE001
-            return {"client": client, "ok": False, "error": str(exc)[:120]}
+            e = str(exc)
+            return {"client": label, "ok": False,
+                    "error": "需要登入/機器人判定" if ("Sign in" in e or "bot" in e) else e[:100]}
 
-    for c in clients:
-        out.append(await asyncio.to_thread(probe, c))
+    for label, c, sk, ex in combos:
+        out.append(await asyncio.to_thread(probe, label, c, sk, ex))
     return {"ok": True, "video": v, "results": out}
 
 
