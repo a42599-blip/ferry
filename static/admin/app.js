@@ -16,7 +16,9 @@ const FEATURE_LABELS = {
   'feature.quality': '畫質選擇',
   'feature.audio_only': '純音訊輸出',
   'feature.history': '歷史記錄',
-  'feature.free_limit': '免費次數限制',
+  // 免費次數限制（小羅要求：下載與傳輸**分開**開關；關掉＝該模組無限使用）
+  'feature.free_limit_download': '免費次數限制 ── 無水印下載',
+  'feature.free_limit_transfer': '免費次數限制 ── 無損傳輸',
   'feature.maintenance': '全站維護模式',
   'feature.auth': '會員登入（預留）',
   'feature.billing': '付費／訂閱（預留）',
