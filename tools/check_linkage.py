@@ -151,12 +151,15 @@ def main() -> int:
                 good(f"剩餘天數已變成 {card['remaining_days']} 天")
             else:
                 bad("加天數後剩餘天數沒有變化")
-            # ⚠️ remaining 上限就是 limit（5），所以要用「已用」來判斷有沒有補回
+            # ⚠️ 加次數＝把「已用」減掉，可以變負數（贈送），所以剩餘會**超過**上限。
+            #    小羅 2026-09-27：「我加 2 次他應該要有 7 次。」
             qd = (card.get("quota") or {}).get("download") or {}
-            if (qd.get("used") or 0) == 0 and (qd.get("remaining") or 0) >= (qd.get("limit") or 0):
-                good(f"次數已補回（已用 {qd.get('used')} / 上限 {qd.get('limit')}）")
+            used, lim = qd.get("used") or 0, qd.get("limit") or 0
+            if used < 0 or (qd.get("remaining") or 0) > lim:
+                good(f"次數已補回並超過上限（已用 {used} / 上限 {lim}，剩 "
+                     f"{qd.get('remaining')}）")
             else:
-                bad(f"加次數後沒有補回（已用 {qd.get('used')} / 上限 {qd.get('limit')}）")
+                bad(f"加次數後沒有補回（已用 {used} / 上限 {lim}）")
         else:
             bad(f"後台調整失敗：{str(r)[:110]}")
 
