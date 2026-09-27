@@ -189,3 +189,15 @@ git add -A && git commit -m "..." && git push origin main
 
 ### 鐵律四：刪除一律丟資源回收筒
 見上方「過渡檔鐵律 〇」——`bash "D:/pi-agent/_工具/回收筒.sh" "<路徑>"`，永久刪除權只在小羅手上。
+
+### 鐵律五：兩個實際踩過的技術陷阱（2026-09-27）
+
+**① yt-dlp 不要用手機 User-Agent**
+   手機 UA 會讓 Facebook／TikTok／微博／今日頭條 回「沒有影片資料」的頁面（畫質 0 種）。
+   → 一律用桌面 Chrome UA（`app/platforms/_ytdlp.py` 的 `_DESKTOP_UA`）。
+   實測：FB 手機 UA 0 種 / 桌面 UA 1080P；TikTok 手機 UA 失敗 / 桌面 UA 1920。
+
+**② 不要回 5xx 狀態碼**
+   本站前面有 Cloudflare，它會**攔截 origin 的 5xx**，換成自己的純文字錯誤頁
+   （使用者只看到 `error code: 502`，看不到我們的說明）。
+   → 平台錯誤用 **422**（`app/core/errors.py` 的 `PlatformError.http_status`）。
