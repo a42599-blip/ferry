@@ -47,6 +47,7 @@ class DouyinResolver(YtDlpResolver):
 
     # ── 主流程：官方 API → 真瀏覽器 → tikwm → yt-dlp ──
     async def resolve(self, url: str) -> VideoInfo:
+        url = await self._normalize(url)      # iesdouyin 分享頁 → 標準 douyin 網址
         for route in (self._via_official, self._via_browser, self._via_tikwm):
             try:
                 info = await route(url)
@@ -63,6 +64,21 @@ class DouyinResolver(YtDlpResolver):
             raise
         except Exception as exc:  # noqa: BLE001
             raise PlatformTimeout(f"抖音解析失敗：{exc}", platform=self.name) from exc
+
+    @staticmethod
+    async def _normalize(url: str) -> str:
+        """把 iesdouyin 分享頁轉成標準 douyin 網址。
+
+        ⚠️ 為什麼要轉（2026-09-27 從 v8i8 學到）：
+            `www.iesdouyin.com/share/video/<id>` 對後備路線（tikwm／yt-dlp）
+            是「Unsupported URL」→ 第一條路一失敗，後面全部跟著掛，
+            使用者只會看到「這個連結解析不到影片」。
+            轉成 `www.douyin.com/video/<id>` 後每條路都認得。
+        """
+        if "iesdouyin.com" not in url:
+            return url
+        m = re.search(r"/(?:xg/)?(?:share/)?video/(\d{15,25})", url)
+        return f"https://www.douyin.com/video/{m.group(1)}" if m else url
 
     # ── 路線②：真瀏覽器（新版無頭）讀 SSR 資料 ───────────
     async def _via_browser(self, url: str) -> VideoInfo | None:

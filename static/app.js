@@ -51,7 +51,6 @@ function applyLang() {
   renderQuota(state.quota);
   renderHistory();
   // ⚠️ 動態訊息不會被 data-i18n 涵蓋 → 語言切換時必須重新產生
-  updateGoLabel();
   renderPayStatus();
   $('.msg:not([hidden])') && clearTransient();
   if (state.info) renderResult(state.info);
@@ -299,14 +298,22 @@ async function loadQuota() {
 
 // ── 解析 ─────────────────────────────────────────
 $('#go').addEventListener('click', () => doResolve());
+
+// 📋 貼上：讀剪貼簿 → 填入輸入框（照 v8i8 的 pasteAndParse 邏輯）
+$('#paste').addEventListener('click', async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text || !text.trim()) { msg('#status', t('paste_empty'), 'err'); return; }
+    $('#url').value = extractUrl(text);       // 支援整段分享文字
+    msg('#status', '');
+    $('#url').focus();
+  } catch {
+    // 剪貼簿被拒（iOS Safari 有時要使用者手勢）→ 聚焦讓使用者自己長按貼上
+    $('#url').focus();
+    msg('#status', t('paste_denied'), 'err');
+  }
+});
 $('#url').addEventListener('keydown', (e) => { if (e.key === 'Enter') doResolve(); });
-// 輸入框有內容 → 按鈕顯示「解析」；空的 → 顯示「貼上並解析」（小羅要求：一進頁面就能一鍵貼上解析）
-const updateGoLabel = () => {
-  const has = $('#url').value.trim().length > 0;
-  $('#go').textContent = has ? t('btn_parse') : t('btn_paste');
-};
-$('#url').addEventListener('input', updateGoLabel);
-window._updateGoLabel = updateGoLabel;
 
 // 參考 v8i8：使用者在輸入框「手動貼上」時自動解析（不用再按按鈕）
 let _autoPasteTimer = null;
@@ -373,7 +380,6 @@ async function doResolve() {
     }
     url = extractUrl(text);
     $('#url').value = url;
-    updateGoLabel();
   }
   $('#go').disabled = true;
   startResolveProgress();
@@ -394,6 +400,8 @@ async function doResolve() {
 
 function renderResult(info) {
   msg('#status', '');
+  const v = $('#pvid');
+  v.hidden = true; v.removeAttribute('src'); v.dataset.src = '';   // 清掉上一支
   const cover = $('#cover');
   cover.onerror = () => { cover.hidden = true; $('#shade').hidden = true; };
   if (info.cover) { cover.src = info.cover; cover.hidden = false; $('#shade').hidden = false; }
@@ -415,7 +423,10 @@ function renderResult(info) {
     box.appendChild(el);
   });
   if (!list.length) box.innerHTML = `<div class="q"><span class="lb">${t('no_formats')}</span></div>`;
-  if (list.length === 1) selectFormat(0);
+  // 自動選最高畫質（可播放的優先）→ 使用者解析完立刻就能按播放／下載
+  const best = list.findIndex((f) => playUrl(f));
+  const pick = best >= 0 ? best : (list.length ? 0 : -1);
+  if (pick >= 0) selectFormat(pick);
   else { $('#download').disabled = true; $('#download').textContent = t('btn_choose_quality'); }
 }
 // 後端回傳的畫質名稱（中文）→ 依語言顯示
@@ -430,11 +441,49 @@ function qlabel(label) {
   return label;
 }
 
+/**
+ * 這個格式「在站內播放」要用的網址。
+ * 優先順序：relay（伺服器轉發，Referer 一定對）> 直連 > 代理。
+ * 純音訊不回傳（用播放器播聲音沒意義，讓使用者直接下載）。
+ */
+function playUrl(f) {
+  if (!f || f.audio) return '';
+  if (f.mode === 'relay' && f.relay_key) return '/api/proxy-video?k=' + encodeURIComponent(f.relay_key);
+  if (f.url && /^https?:/i.test(f.url)) return f.url;
+  return '';
+}
+
+/** 設定播放器來源；播不出來就退回封面（不要讓使用者看到黑色破圖） */
+function setPlayer(f) {
+  const v = $('#pvid'), cover = $('#cover');
+  const src = playUrl(f);
+  if (!src) {
+    v.hidden = true;
+    v.removeAttribute('src');
+    return;
+  }
+  const wasHidden = v.hidden;
+  if (v.dataset.src !== src) {
+    v.dataset.src = src;
+    v.src = src;
+    v.hidden = false;
+    v.load();
+  }
+  v.onerror = () => {                 // 平台擋掉 → 退回封面
+    v.hidden = true;
+    cover.hidden = false;
+    $('#shade').hidden = false;
+  };
+  // 第一次顯示時把封面收起來（影片本身有畫面）
+  if (wasHidden) { cover.hidden = true; $('#shade').hidden = true; }
+}
+
 function selectFormat(i) {
   state.selected = i;
   $$('#qs .q').forEach((el) => el.classList.toggle('on', Number(el.dataset.i) === i));
   $('#download').disabled = false;
   $('#download').textContent = t('btn_download');
+  setPlayer(state.info?.formats?.[i]);      // 點畫質 → 播放器跟著換
 }
 
 // ── 下載（跨平台：iOS 存相簿／Android 下載／桌機選路徑）──
@@ -500,7 +549,6 @@ $('#download').addEventListener('click', async () => {
     const isTouch = window.FY?.env ? (window.FY.env.isIOS || window.FY.env.isAndroid) : false;
     setTimeout(() => {
       $('#url').value = '';
-      updateGoLabel();
       if (!isTouch) $('#url').focus();
     }, isTouch ? 400 : 1600);
   } catch (err) {
@@ -615,7 +663,6 @@ async function loadPlans() {
       if (el) el.textContent = p.price;
     });
     payReady = Object.values(j.providers || {}).filter((p) => p.ready).length > 0;
-    updateGoLabel();
   renderPayStatus();
   } catch { /* 忽略 */ }
 }

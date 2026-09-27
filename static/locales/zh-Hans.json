@@ -10,7 +10,6 @@
   "dl_title": "贴上链接，原文件到手。",
   "dl_lede": "不重新压缩、不转码，画质只列这支视频真的有的选项。",
   "dl_placeholder": "请贴上视频网址",
-  "btn_parse": "解析",
   "parsing": "解析中…",
   "quota_left": "今日剩余",
   "quota_used": "今日已使用",
@@ -244,12 +243,15 @@
   "resolve_s2": "解析中…",
   "resolve_s3": "还在处理，有些平台本来就比较慢…",
   "resolve_elapsed": "已等待",
-  "btn_paste": "粘贴并解析",
   "paste_denied": "无法读取剪贴板，请长按输入框粘贴",
   "err_HTTP_502": "服务器繁忙，请再试一次",
   "err_HTTP_524": "平台响应太慢，请再试一次",
   "err_HTTP_500": "服务器发生错误，请再试一次",
   "err_TIMEOUT": "等太久了，请再试一次",
   "err_HTTP_503": "服务暂时不可用，请稍后再试",
-  "quota_beta": "目前为公测期间，暂不收费"
+  "quota_beta": "目前为公测期间，暂不收费",
+  "pv_play": "播放",
+  "btn_paste_only": "📋 贴上",
+  "btn_parse_only": "🔍 开始解析",
+  "paste_empty": "剪贴板是空的"
 }

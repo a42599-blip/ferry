@@ -163,3 +163,14 @@ textarea:focus{border-color:var(--acc)}
 .insight .row.warn b{color:var(--err)}
 .rank1{color:var(--acc);font-weight:600}
 .bar-mini{display:inline-block;height:6px;background:rgba(217,192,140,.5);vertical-align:middle;margin-right:6px}
+
+/* ── 畫質佔比長條 ── */
+.bar{display:inline-block;width:70px;height:6px;background:rgba(255,255,255,.08);
+  border-radius:3px;overflow:hidden;vertical-align:middle;margin-right:6px}
+.bar i{display:block;height:100%;background:var(--acc);border-radius:3px}
+/* ── 24 小時時段分佈 ── */
+.hours{display:flex;align-items:flex-end;gap:3px;height:110px;padding:4px 2px}
+.hours .hb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.hours .hb i{width:100%;background:linear-gradient(180deg,var(--acc),rgba(217,192,140,.25));
+  border-radius:2px;min-height:2px}
+.hours .hb span{font-size:9px;color:var(--dim);margin-top:3px}

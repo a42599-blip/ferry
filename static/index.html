@@ -11,7 +11,20 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=6">
+<link rel="stylesheet" href="/style.css?v=7">
+<style>
+/* ⚠️ 手機導覽的「關鍵樣式」內嵌在這裡（小羅 2026-09-27）。
+   原因：他的手機卡在舊的 style.css 快取（舊版 .tabs 是 display:none），
+   而底部導航已移除 → 變成兩邊都看不到、完全找不到入口。
+   內嵌後就不再受外部 CSS 快取影響。 */
+@media (max-width:899px){
+  .top{flex-wrap:wrap;padding:14px 16px 0;gap:0}
+  .tabs{display:flex;order:3;width:100%;gap:20px;overflow-x:auto;white-space:nowrap;
+    padding:12px 0 1px;font-size:13.5px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs button{flex:0 0 auto;padding:2px 0}
+}
+</style>
 </head>
 <body>
 
@@ -50,7 +63,10 @@
       </div>
       <div class="inbar o-in">
         <input id="url" type="url" inputmode="url" autocomplete="off" data-i18n-ph="dl_placeholder" placeholder="請貼上影片網址">
-        <button class="go" id="go">貼上並解析</button>
+        <!-- 兩顆固定按鈕（照 v8i8）：使用者永遠看得到「貼上」，
+             不用先清空舊連結再想辦法。 -->
+        <button class="go paste" id="paste" data-i18n="btn_paste_only">📋 貼上</button>
+        <button class="go" id="go" data-i18n="btn_parse_only">🔍 開始解析</button>
       </div>
       <div class="quota o-quota">
         <span data-i18n="quota_left">今日剩餘</span> <b class="num" id="q-left">–</b>
@@ -70,6 +86,10 @@
     <div class="col">
       <div class="pv o-pv" id="pv">
         <span class="t" data-i18n="pv_result">解析結果</span>
+        <!-- 播放器：解析完可直接在站內播放（跟 v8i8 一樣，不下載也能看）
+             src 指向 /api/proxy-video（伺服器補 Referer／合併影音） -->
+        <video class="pvid" id="pvid" controls playsinline preload="metadata" hidden
+               data-i18n-title="pv_play"></video>
         <img class="cover" id="cover" alt="" hidden>
         <div class="shade" id="shade" hidden></div>
         <div class="c"><span class="ttl" id="pv-title" data-i18n="pv_empty">貼上連結後按「解析」</span>
@@ -225,10 +245,10 @@
 
 <!-- 底部導航已移除（小羅 2026-09-27：手機版也把選項提到上面那一行） -->
 
-<script src="/sha256.js?v=6"></script>
-<script src="/save.js?v=6"></script>
-<script src="/app.js?v=6"></script>
-<script src="/transfer.js?v=6"></script>
+<script src="/sha256.js?v=7"></script>
+<script src="/save.js?v=7"></script>
+<script src="/app.js?v=7"></script>
+<script src="/transfer.js?v=7"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）
 (function () {

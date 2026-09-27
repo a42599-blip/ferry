@@ -152,20 +152,25 @@ async def audit_functional(pg, base: str) -> list[dict]:
     await pg.wait_for_timeout(1800)
 
     # 1) 語言切換真的換字
-    #    ⚠️ 「解析」按鈕會依輸入框是否有內容而變身（空白＝貼上並解析）→ 兩種都接受
+    #    ⚠️ 2026-09-27 起改成兩顆固定按鈕（照 v8i8）：
+    #       「📋 貼上」＋「🔍 開始解析」→ 兩顆都要翻譯到、且英文版不得有中文
     ALLOW = {
-        "en": {"Parse", "Paste & parse"},
-        "zh-Hans": {"解析", "粘贴并解析"},
-        "zh-Hant": {"解析", "貼上並解析"},
+        "en": ({"📋 Paste", "Paste"}, {"🔍 Parse", "Parse"}),
+        "zh-Hans": ({"📋 贴上", "贴上"}, {"🔍 开始解析", "开始解析"}),
+        "zh-Hant": ({"📋 貼上", "貼上"}, {"🔍 開始解析", "開始解析"}),
     }
-    for lang, expects in ALLOW.items():
+    for lang, (ok_paste, ok_parse) in ALLOW.items():
         await pg.locator(f'#lang button[data-lang="{lang}"]:visible').first.click()
         await pg.wait_for_timeout(600)
-        got = (await pg.inner_text("#go")).strip()
-        if got not in expects:
-            bad("語言切換", f"{lang} 期望 {sorted(expects)} 得到「{got}」")
+        got_paste = (await pg.inner_text("#paste")).strip()
+        got_parse = (await pg.inner_text("#go")).strip()
+        if got_paste not in ok_paste or got_parse not in ok_parse:
+            bad("語言切換", f"{lang} 期望「貼上」∈{sorted(ok_paste)}、「解析」∈{sorted(ok_parse)}"
+                            f" 得到「{got_paste}」／「{got_parse}」")
+        elif lang == "en" and re.search(r"[一-鿿]", got_paste + got_parse):
+            bad("語言切換", f"英文版不該出現中文：「{got_paste}」／「{got_parse}」")
         else:
-            good(f"語言切換 → {lang}（{got}）")
+            good(f"語言切換 → {lang}（{got_paste} ／ {got_parse}）")
 
     # 2) 解析 ＋ 3) 選畫質後下載鈕可用
     await pg.locator('[data-tab="download"]:visible').first.click()

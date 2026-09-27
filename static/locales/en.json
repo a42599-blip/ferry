@@ -10,7 +10,6 @@
   "dl_title": "Paste a link. Get the original file.",
   "dl_lede": "No re-encoding, no transcoding — only the qualities this video actually has.",
   "dl_placeholder": "Paste a video URL",
-  "btn_parse": "Parse",
   "parsing": "Parsing…",
   "quota_left": "Left today",
   "quota_used": "Used today",
@@ -244,12 +243,15 @@
   "resolve_s2": "Parsing…",
   "resolve_s3": "Still working — some platforms are just slow…",
   "resolve_elapsed": "Waiting",
-  "btn_paste": "Paste & parse",
   "paste_denied": "Can't read the clipboard — long-press the box to paste",
   "err_HTTP_502": "The server is busy. Please try again.",
   "err_HTTP_524": "The platform took too long. Please try again.",
   "err_HTTP_500": "Server error. Please try again.",
   "err_TIMEOUT": "Timed out. Please try again.",
   "err_HTTP_503": "Service temporarily unavailable. Please try againlater.",
-  "quota_beta": "Free during public beta — no charges"
+  "quota_beta": "Free during public beta — no charges",
+  "pv_play": "Play",
+  "btn_paste_only": "📋 Paste",
+  "btn_parse_only": "🔍 Parse",
+  "paste_empty": "Clipboard is empty"
 }

@@ -176,8 +176,6 @@ async def errors(days: int = Query(7, ge=1, le=365), _: dict = Depends(require_a
 # ── 系統 ──────────────────────────────────────────────
 @router.get("/system")
 async def system(_: dict = Depends(require_admin)) -> dict:
-    from ..services import cookies
-
     egress = None
     try:
         from ..core.http import HttpClient
@@ -194,7 +192,6 @@ async def system(_: dict = Depends(require_admin)) -> dict:
         "db_size": db.db_size_bytes(),
         "events": events.count_events(),
         "platforms_total": len(registry.all_platforms()),
-        "cookies": cookies.available(),
         "notify_emails": events.notify_recipients(),
         "totp_enabled": security.totp_enabled(),
         "data_dir": settings.data_dir or "(預設 ./data)",
@@ -366,33 +363,6 @@ async def get_members(_: dict = Depends(require_admin)) -> dict:
 @router.get("/growth")
 async def growth(days: int = Query(90, ge=7, le=730), _: dict = Depends(require_admin)) -> dict:
     return {"ok": True, **events.growth(days)}
-
-
-# ── Cookies 管理（IG／FB／西瓜／頭條 需要）──────────────
-@router.get("/cookies")
-async def get_cookies(_: dict = Depends(require_admin)) -> dict:
-    from ..services import cookies
-
-    return {"ok": True, "dir": cookies.target_dir(), "platforms": cookies.overview()}
-
-
-@router.post("/cookies/{platform}")
-async def post_cookies(platform: str, body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
-    from ..services import cookies
-
-    try:
-        info = cookies.save(platform, body.get("content") or "")
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"ok": True, "saved": info, "platforms": cookies.overview()}
-
-
-@router.delete("/cookies/{platform}")
-async def delete_cookies(platform: str, _: dict = Depends(require_admin)) -> dict:
-    from ..services import cookies
-
-    ok = cookies.remove(platform)
-    return {"ok": True, "removed": ok, "platforms": cookies.overview()}
 
 
 # ── 測試帳號清理（審核工具用；避免測試資料污染）────────

@@ -10,7 +10,6 @@
   "dl_title": "貼上連結，原檔到手。",
   "dl_lede": "不重新壓縮、不轉檔，畫質只列這支影片真的有的選項。",
   "dl_placeholder": "請貼上影片網址",
-  "btn_parse": "解析",
   "parsing": "解析中…",
   "quota_left": "今日剩餘",
   "quota_used": "今日已使用",
@@ -244,12 +243,15 @@
   "resolve_s2": "解析中…",
   "resolve_s3": "還在處理，有些平台本來就比較慢…",
   "resolve_elapsed": "已等待",
-  "btn_paste": "貼上並解析",
   "paste_denied": "無法讀取剪貼簿，請長按輸入框貼上",
   "err_HTTP_502": "伺服器忙碌中，請再試一次",
   "err_HTTP_524": "平台回應太慢，請再試一次",
   "err_HTTP_500": "伺服器發生錯誤，請再試一次",
   "err_TIMEOUT": "等太久了，請再試一次",
   "err_HTTP_503": "服務暫時無法使用，請稍後再試",
-  "quota_beta": "目前為公測期間，暫不收費"
+  "quota_beta": "目前為公測期間，暫不收費",
+  "pv_play": "播放",
+  "btn_paste_only": "📋 貼上",
+  "btn_parse_only": "🔍 開始解析",
+  "paste_empty": "剪貼簿是空的"
 }

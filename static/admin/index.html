@@ -68,6 +68,10 @@
           <div class="pnl"><div class="lbl">平台表現</div><div class="scroll" id="ov-plat"></div></div>
         </div>
         <div class="rows">
+          <div class="pnl"><div class="lbl">使用者偏好的畫質</div><div class="scroll" id="ov-quality"></div></div>
+          <div class="pnl"><div class="lbl">近 24 小時時段分佈</div><div class="hours" id="ov-hourly"></div></div>
+        </div>
+        <div class="rows">
           <div class="pnl"><div class="lbl">地區</div><div class="scroll" id="ov-country"></div></div>
           <div class="pnl"><div class="lbl">裝置 / 系統</div><div class="scroll" id="ov-os"></div></div>
           <div class="pnl"><div class="lbl">來源</div><div class="scroll" id="ov-src"></div></div>
@@ -105,24 +109,6 @@
           </div>
           <div class="switches" id="feature-list"></div>
           <p class="note">關掉的功能／分頁會<b>立即從前台消失</b>；平台關掉，前台圖示也跟著消失。不需重新部署（不會換出口 IP）。</p>
-        </div>
-        <div class="pnl">
-          <div class="lbl">Facebook cookies（<span style="color:var(--warn)">只有 Facebook 可能需要</span>）</div>
-          <p class="note">
-            <b>其他 12 個平台都不需要 cookies</b> —— 抖音／西瓜／TikTok／B站／微博／X／YouTube／Instagram／
-            今日頭條／小紅書／蝦皮／Threads 都是免登入解析。<br>
-            只有 Facebook 因為官方限制，部分公開影片需要 cookies 才解得到。
-            要用的話，貼上瀏覽器外掛匯出的 <b>Netscape 格式</b>（或 <code>name=value; name2=value2</code>），
-            存在 Railway Volume，重啟不會消失。<br>
-            <span class="dim">如果 Facebook 不是重點，這個欄位可以完全不用理它。</span>
-          </p>
-          <div class="inrow">
-            <select id="ck-plat"></select>
-            <button class="big sm" id="ck-save">儲存</button>
-            <button class="big sm gh" id="ck-del">刪除</button>
-          </div>
-          <textarea id="ck-text" rows="5" placeholder="貼上 cookie 內容…"></textarea>
-          <div id="ck-list" style="margin-top:12px"></div>
         </div>
         <div class="pnl">
           <div class="rowbetween">

@@ -163,6 +163,36 @@ def overview(days: int = 30) -> dict:
     errors = db.scalar(
         "SELECT COUNT(*) FROM events WHERE kind='resolve' AND result='fail' AND ts>=?", (since,))
 
+    # ── 更細的下載／解析數值（小羅 2026-09-27 要求）─────────
+    dl_ok = db.scalar(
+        "SELECT COUNT(*) FROM events WHERE kind='download' AND ts>=?"
+        " AND (result IS NULL OR result='ok')", (since,))
+    dl_fail = max(0, downloads - dl_ok)
+    #: 解析平均耗時（毫秒）——後端在 resolve 事件記 elapsed_ms
+    resolve_avg_ms = db.scalar(
+        "SELECT AVG(latency_ms) FROM events WHERE kind='resolve' AND result='ok'"
+        " AND latency_ms IS NOT NULL AND ts>=?", (since,))
+    #: 下載平均檔案大小
+    dl_avg_bytes = db.scalar(
+        "SELECT AVG(size) FROM events WHERE kind='download' AND size>0 AND ts>=?", (since,))
+    #: 今日（近 24 小時）即時數字
+    day = _since(1)
+    dl_today = db.scalar("SELECT COUNT(*) FROM events WHERE kind='download' AND ts>=?", (day,))
+    dl_today_bytes = db.scalar(
+        "SELECT COALESCE(SUM(size),0) FROM events WHERE kind='download' AND ts>=?", (day,))
+    rs_today = db.scalar("SELECT COUNT(*) FROM events WHERE kind='resolve' AND ts>=?", (day,))
+    rs_today_ok = db.scalar(
+        "SELECT COUNT(*) FROM events WHERE kind='resolve' AND result='ok' AND ts>=?", (day,))
+    #: 使用者最常選的畫質（下載事件有記 quality）
+    q_rows = [dict(r) for r in db.query(
+        "SELECT quality AS name, COUNT(*) AS n FROM events"
+        " WHERE kind='download' AND ts>=? AND quality IS NOT NULL AND quality<>''"
+        " GROUP BY quality ORDER BY n DESC LIMIT 8", (since,))]
+    #: 逐時分佈（近 24 小時）——看得出哪個時段人最多
+    hourly = [dict(r) for r in db.query(
+        "SELECT CAST((ts - ?) / 3600 AS INTEGER) AS h, COUNT(*) AS n FROM events"
+        " WHERE kind='page_view' AND ts>=? GROUP BY h ORDER BY h", (day, day))]
+
     # 訪客 vs 會員（以裝置為單位）
     member_devices = int(db.scalar(
         "SELECT COUNT(DISTINCT e.device_id) FROM events e"
@@ -194,7 +224,22 @@ def overview(days: int = 30) -> dict:
         "transfer_bytes": tr_bytes,
         "revenue": round(float(revenue), 2),
         "errors": errors,
-        "download_only_ratio": None,
+        # ── 下載 ──
+        "download_ok": dl_ok,
+        "download_fail": dl_fail,
+        "download_rate": round(dl_ok / downloads * 100, 1) if downloads else None,
+        "download_avg_bytes": int(dl_avg_bytes or 0),
+        "download_today": dl_today,
+        "download_today_bytes": dl_today_bytes,
+        # ── 解析 ──
+        "resolve_avg_ms": int(resolve_avg_ms or 0),
+        "resolve_today": rs_today,
+        "resolve_today_ok": rs_today_ok,
+        # ── 其他 ──
+        "top_qualities": q_rows,
+        "hourly": hourly,
+        "download_only_ratio": (round((downloads / (resolve_ok or 1)) * 100, 1)
+                                if downloads and resolve_ok else None),
     }
 
 

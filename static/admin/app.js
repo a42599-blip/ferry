@@ -203,12 +203,39 @@ async function render() {
 async function pgOverview() {
   const d = await api('/overview?days=' + days());
   const s = d.summary, t = d.transfer;
+  const sec = (ms) => ms ? (ms / 1000).toFixed(1) + 's' : '–';
   $('#ov-kpis').innerHTML = [
     kpi('進站瀏覽', fmtN(s.page_views), `不重複訪客 ${fmtN(s.visitors)}（新 ${fmtN(s.new_visitors)} / 回訪 ${fmtN(s.returning_visitors)}）`),
-    kpi('解析次數', fmtN(s.resolve_total), `成功 ${fmtN(s.resolve_ok)} · 失敗 ${fmtN(s.resolve_fail)}　成功率 ${s.success_rate ?? '–'}%`),
-    kpi('下載次數', fmtN(s.downloads), fmtBytes(s.download_bytes)),
+    // ── 解析：成功率、平均耗時、今日即時 ──
+    kpi('解析次數', fmtN(s.resolve_total),
+      `成功 ${fmtN(s.resolve_ok)} · 失敗 ${fmtN(s.resolve_fail)}　成功率 <b>${s.success_rate ?? '–'}%</b>`
+      + `　平均耗時 <b>${sec(s.resolve_avg_ms)}</b><br>今日 ${fmtN(s.resolve_today)} 次（成功 ${fmtN(s.resolve_today_ok)}）`),
+    // ── 下載：成功率、平均大小、今日即時、解析→下載轉換率 ──
+    kpi('下載次數', fmtN(s.downloads),
+      `成功 ${fmtN(s.download_ok)} · 失敗 ${fmtN(s.download_fail)}　成功率 <b>${s.download_rate ?? '–'}%</b>`
+      + `　總量 ${fmtBytes(s.download_bytes)}　平均 ${fmtBytes(s.download_avg_bytes)}<br>`
+      + `今日 ${fmtN(s.download_today)} 次 / ${fmtBytes(s.download_today_bytes)}　`
+      + `解析→下載 <b>${s.download_only_ratio ?? '–'}%</b>`),
     kpi('傳輸次數 / 總量', fmtN(s.transfers), `${fmtBytes(s.transfer_bytes)}　成功率 ${t.success_rate ?? '–'}%`),
   ].join('');
+  // 畫質偏好：知道使用者都選哪個畫質，決定要不要優化那條線路
+  const q = s.top_qualities || [];
+  if (q.length) {
+    $('#ov-quality').innerHTML = table([
+      { t: '畫質', v: (r) => esc(r.name) },
+      { t: '次數', v: (r) => fmtN(r.n), num: true },
+      { t: '佔比', v: (r) => {
+          const sum = q.reduce((a, b) => a + b.n, 0) || 1;
+          const p = (r.n / sum * 100).toFixed(1);
+          return `<div class="bar"><i style="width:${p}%"></i></div> ${p}%`;
+        }, html: true },
+    ], q);
+  } else { $('#ov-quality').innerHTML = '<div class="dim">尚無資料</div>'; }
+  // 逐時分佈（近 24 小時）
+  const hr = s.hourly || [];
+  $('#ov-hourly').innerHTML = hr.length
+    ? hr.map((r) => `<div class="hb"><i style="height:${Math.min(100, r.n / Math.max(...hr.map(x => x.n)) * 100)}%" title="${r.h} 小時前：${r.n} 次"></i><span>${r.h}h</span></div>`).join('')
+    : '<div class="dim">尚無資料</div>';
   const aud = d.summary.audience || {};
   $('#ov-chart').innerHTML = chart(d.series.page_view || [], '人次',
     `訪客 ${fmtN(aud.visitors)} 人　會員 ${fmtN(aud.members)} 人${aud.paid_members ? '（付費 ' + fmtN(aud.paid_members) + '）' : ''}`);
@@ -342,45 +369,12 @@ async function pgFlags() {
     await api('/flags', { method: 'PUT', body: JSON.stringify({ platforms, auto_off: $('#auto-off').checked }) });
     queue('已儲存平台開關（前台圖示會跟著消失／出現）');
   }));
-  await renderCookies();
   $$('[data-all]').forEach((b) => b.addEventListener('click', async () => {
     await api('/flags/all?on=' + b.dataset.all, { method: 'POST' });
     pgFlags();
   }));
   queue(`功能 ${Object.keys(d.features).length} 項　平台 ${d.platforms.length} 個　自動關閉：${d.auto_off ? '開' : '關'}`);
 }
-
-// ── Cookies ──────────────────────────────────────
-async function renderCookies() {
-  const d = await api('/cookies');
-  const sel = $('#ck-plat');
-  sel.innerHTML = d.platforms.map((p) =>
-    `<option value="${esc(p.platform)}">${esc(p.platform)}${p.present ? ' ✅' : ''}</option>`).join('');
-  $('#ck-list').innerHTML = table([
-    { t: '平台', v: 'platform' },
-    { t: '狀態', v: (r) => r.present ? '<span class="badge ok">已設定</span>' : '<span class="badge">未設定</span>', html: true },
-    { t: '筆數', v: (r) => r.cookies ?? '–', num: true },
-    { t: '更新時間', v: (r) => r.updated_at || '–' },
-  ], d.platforms);
-  $('#ck-text').placeholder = `貼上 cookie 內容…（目錄：${d.dir}）`;
-}
-$('#ck-save').addEventListener('click', async () => {
-  const platform = $('#ck-plat').value, content = $('#ck-text').value;
-  if (!content.trim()) return alert('請先貼上 cookie 內容');
-  try {
-    await api('/cookies/' + encodeURIComponent(platform), { method: 'POST', body: JSON.stringify({ content }) });
-    $('#ck-text').value = '';
-    await renderCookies();
-    queue(`已儲存 ${platform} 的 cookies`);
-  } catch (e) { alert('儲存失敗：' + e.message); }
-});
-$('#ck-del').addEventListener('click', async () => {
-  const platform = $('#ck-plat').value;
-  if (!confirm(`刪除 ${platform} 的 cookies？（會丟資源回收筒）`)) return;
-  await api('/cookies/' + encodeURIComponent(platform), { method: 'DELETE' });
-  await renderCookies();
-  queue(`已刪除 ${platform} 的 cookies`);
-});
 
 // ── 會員與裝置 ───────────────────────────────────
 async function pgDevices() {
@@ -516,8 +510,7 @@ async function pgSystem() {
     ['平台數（總）', d.platforms_total],
     ['兩步驟驗證', d.totp_enabled ? '已啟用 ✅' : '未啟用'],
     ['資料目錄設定', d.data_dir],
-  ].map(([k, v]) => `<div class="metric"><span>${k}</span><span>${esc(v)}</span></div>`).join('') +
-    `<p class="note">已提供 cookies 的平台：${Object.entries(d.cookies || {}).filter(([, v]) => v).map(([k]) => k).join(', ') || '（尚無）'}</p>`;
+  ].map(([k, v]) => `<div class="metric"><span>${k}</span><span>${esc(v)}</span></div>`).join('');
   $('#notify-input').value = (d.notify_emails || []).join(', ');
   $('#totp-msg').textContent = d.totp_enabled ? '已啟用 ✅' : '未啟用。';
   queue(`出口 IP ${d.egress_ip || '–'}　事件 ${fmtN(d.events)} 筆　DB ${fmtBytes(d.db_size)}`);
