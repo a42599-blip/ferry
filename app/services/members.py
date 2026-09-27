@@ -121,7 +121,7 @@ def get(member_id: str) -> dict | None:
     row = db.one(
         "SELECT id, email, plan, tz, device_id, created_at, expires_at, country,"
         " plan_started_at, COALESCE(status,'active') AS status, deleted_at,"
-        " last_login_at, COALESCE(login_count,0) AS login_count,"
+        " last_login_at, last_seen_at, COALESCE(login_count,0) AS login_count,"
         " COALESCE(marketing_opt_in,0) AS marketing_opt_in"
         " FROM members WHERE id=?", (member_id,))
     if not row:
@@ -154,9 +154,11 @@ SESSION_GAP = 1800
 
 def touch_login(member_id: str) -> None:
     """記錄最後登入時間與次數（明確按下登入時用）。"""
+    now = time.time()
     db.execute(
-        "UPDATE members SET last_login_at=?, login_count=COALESCE(login_count,0)+1"
-        " WHERE id=?", (time.time(), member_id))
+        "UPDATE members SET last_login_at=?, last_seen_at=?,"
+        " login_count=COALESCE(login_count,0)+1 WHERE id=?",
+        (now, now, member_id))
 
 
 def touch_session(member_id: str, *, device_id: str | None = None,
@@ -170,12 +172,19 @@ def touch_session(member_id: str, *, device_id: str | None = None,
 
     回傳 True＝這次算「新的一次登入」（順便寫一筆事件，讓登入歷史看得到）。
     """
-    m = get(member_id) or {}
-    last = float(m.get("last_login_at") or 0)
     now = time.time()
-    if now - last < SESSION_GAP:
-        return False                     # 同一工作階段，不重複計數
-    touch_login(member_id)
+    row = db.one("SELECT last_seen_at, last_login_at FROM members WHERE id=?", (member_id,))
+    if not row:
+        return False
+    # 用「最後有動作的時間」判斷：只要他一直在用，就不算新的一次登入
+    #   10:00 用到 12:00（中間都有動作）→ 一次
+    #   休息後 14:00 再來（中間超過 30 分鐘沒動作）→ 又一次
+    last_seen = float(row["last_seen_at"] or row["last_login_at"] or 0)
+    if now - last_seen < SESSION_GAP:
+        db.execute("UPDATE members SET last_seen_at=? WHERE id=?", (now, member_id))
+        return False                     # 同一工作階段，只更新「最後活動」
+    db.execute("UPDATE members SET last_seen_at=? WHERE id=?", (now, member_id))
+    touch_login(member_id)               # 新的工作階段 → 登入次數 +1
     try:
         from . import events
 
@@ -636,7 +645,7 @@ def page(q: str = "", plan: str = "", sort: str = "created_desc",
     rows = db.query(
         "SELECT id, email, plan, device_id, tz, created_at, expires_at, country,"
         " plan_started_at, COALESCE(status,'active') AS status,"
-        " last_login_at, COALESCE(login_count,0) AS login_count"
+        " last_login_at, last_seen_at, COALESCE(login_count,0) AS login_count"
         " FROM members" + sql_where + " ORDER BY " + order + " LIMIT ? OFFSET ?",
         tuple(params + [size, offset]))
     plans = billing.PLANS

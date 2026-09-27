@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS members (
     status      TEXT DEFAULT 'active',     -- active / deleted（軟刪除）
     deleted_at  REAL,
     last_login_at REAL,
+    last_seen_at  REAL,                    -- 最後有動作的時間（工作階段判斷）
     login_count INTEGER DEFAULT 0,
     marketing_opt_in INTEGER DEFAULT 0     -- 行銷信同意（合規：預設不同意）
 );
@@ -216,6 +217,7 @@ def _migrate(c: sqlite3.Connection) -> None:
             "status": "TEXT",
             "deleted_at": "REAL",
             "last_login_at": "REAL",
+            "last_seen_at": "REAL",       # 最後「有動作」的時間（判斷工作階段用）
             "login_count": "INTEGER",
             # 願不願意收行銷信（合規：預設不收，要他自己同意）
             "marketing_opt_in": "INTEGER",

@@ -646,7 +646,9 @@ async function pgDevices() {
             <div><span>付費起始</span>${m.plan_started_at ? fmtTime(m.plan_started_at) : '–'}</div>
             <div><span>到期時間</span>${m.expires_at ? fmtTime(m.expires_at) : '永久／無'}</div>
             <div><span>剩餘</span>${leftTxt}</div>
-            <div><span>最後登入</span>${m.last_login_at ? fmtTime(m.last_login_at) : '–'}</div>
+            <div><span>最後登入</span>${m.last_login_at ? fmtTime(m.last_login_at) : '–'}
+        <span class="dim" title="每次「隔 30 分鐘以上再進來」才算新的一次登入">（${fmtN(m.login_count)} 次）</span></div>
+      <div><span>最後活動</span>${m.last_seen_at ? fmtTime(m.last_seen_at) : '–'}</div>
             <div><span>登入次數</span>${fmtN(m.login_count)} 次</div>
             <div><span>地區</span>${esc(m.country || '–')}</div>
             <div><span>裝置</span>${esc(String(m.device_id || '–').slice(0, 20))}</div>
@@ -1100,8 +1102,9 @@ async function loadMemberList() {
         ? (r.plan === 'lifetime' ? '<b>永久</b>' : '<span class="dim">免費方案</span>')
         : (r.remaining_days <= 0 ? '<span class="badge err">已到期</span>'
           : `<b>${r.remaining_days}</b> 天`)), html: true },
-    { t: '登入', v: (r) => `${fmtN(r.login_count)} 次<br><span class="dim">`
-        + `${r.last_login_at ? fmtTime(r.last_login_at) : '–'}</span>`, html: true },
+    { t: '登入 / 最後活動', v: (r) => `${fmtN(r.login_count)} 次<br>`
+        + `<span class="dim">登入 ${r.last_login_at ? fmtTime(r.last_login_at) : '–'}</span><br>`
+        + `<span class="dim">活動 ${r.last_seen_at ? fmtTime(r.last_seen_at) : '–'}</span>`, html: true },
     { t: '地區', v: (r) => esc(r.country || '–') },
     { t: '', v: (r) => `<button class="gh" data-open="${esc(r.id)}">資料卡</button>`, html: true },
   ], d.rows, '沒有符合的會員') : '<div class="dim">沒有符合的會員</div>';
@@ -1160,8 +1163,9 @@ async function openMemberCard(mid) {
       <div><span>剩餘天數</span>${m.remaining_days === null
           ? (m.plan === 'lifetime' ? '<b>永久</b>' : '免費方案無期限')
           : (m.remaining_days <= 0 ? '<b>已到期</b>' : `<b>${m.remaining_days}</b> 天`)}</div>
-      <div><span>最後登入</span>${m.last_login_at ? fmtTime(m.last_login_at) : '–'}</div>
-      <div><span>登入次數</span>${fmtN(m.login_count)} 次</div>
+      <div><span>最後登入</span>${m.last_login_at ? fmtTime(m.last_login_at) : '–'}
+        <span class="dim" title="每次「隔 30 分鐘以上再進來」才算新的一次登入">（${fmtN(m.login_count)} 次）</span></div>
+      <div><span>最後活動</span>${m.last_seen_at ? fmtTime(m.last_seen_at) : '–'}</div>
       <div><span>地區</span>${esc(m.country || '–')}</div>
       <div><span>今日下載</span>已用 ${fmtN(q.download?.used)} / ${fmtN(q.download?.limit)}</div>
       <div><span>今日傳輸</span>已用 ${fmtN(q.transfer?.used)} / ${fmtN(q.transfer?.limit)}</div>
