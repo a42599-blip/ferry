@@ -166,6 +166,10 @@ class ResolveIn(BaseModel):
 
 
 # ── API ─────────────────────────────────────────────
+_YT_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+          "(KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36")
+
+
 @app.get("/api/health")
 async def health():
     return {"ok": True, "service": "ferry"}
@@ -186,6 +190,42 @@ async def debug_ip():
 async def get_config():
     """前端啟動時讀這個：功能開關、平台開關、次數規則。"""
     return {"ok": True, **flags.snapshot()}
+
+
+@app.get("/api/debug/youtube")
+async def debug_youtube(v: str = Query("mw-kKYRSEOU")):
+    """診斷：從本伺服器的 IP 逐一試 YouTube 的各個 player_client。
+
+    ⚠️ YouTube 會依「IP 信譽」決定要不要給資料（雲端 IP 常被判機器人）。
+    本機測試沒用（住宅 IP 都會過），一定要從部署環境測。
+    """
+    import yt_dlp
+
+    clients = ["all", "web_embedded", "tv_embedded", "android_vr", "web_safari",
+               "mweb", "tv", "ios", "android"]
+    out = []
+
+    def probe(client: str) -> dict:
+        opts = {
+            "quiet": True, "no_warnings": True, "skip_download": True, "cachedir": False,
+            "socket_timeout": 15, "retries": 0, "extractor_retries": 0,
+            "extractor_args": {"youtube": {"player_client": [client]}},
+            "js_runtimes": {"deno": {}},
+            "http_headers": {"User-Agent": _YT_UA},
+        }
+        try:
+            with yt_dlp.YoutubeDL(opts) as y:
+                info = y.extract_info(f"https://www.youtube.com/watch?v={v}", download=False)
+            hs = sorted({f.get("height") for f in (info.get("formats") or []) if f.get("height")},
+                        reverse=True)
+            return {"client": client, "ok": True, "formats": len(info.get("formats") or []),
+                    "heights": hs[:5]}
+        except Exception as exc:  # noqa: BLE001
+            return {"client": client, "ok": False, "error": str(exc)[:120]}
+
+    for c in clients:
+        out.append(await asyncio.to_thread(probe, c))
+    return {"ok": True, "video": v, "results": out}
 
 
 @app.get("/api/platforms")
