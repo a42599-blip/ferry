@@ -532,4 +532,76 @@ def growth(days: int = 90) -> dict:
             "returning_pct": round(returning / total_devices * 100, 1) if total_devices else None,
         },
         "series": {"page_view": pv_series, "resolve": resolve_series, "download": dl_series},
+        "platform_ranking": platform_ranking(days),
     }
+
+
+# ── 平台排行榜（成長趨勢頁）────────────────────────────
+def platform_ranking(days: int = 30, limit: int = 30) -> list[dict]:
+    """各平台的排行 ＋ 可交叉比對的指標。
+
+    小羅 2026-09-27：要看得出「客戶比較常去哪邊下載」，
+    所以要能**交叉比對**，不是只有單一數字：
+
+      解析次數 / 佔比   → 用戶最想用哪個平台
+      解析成功率        → 這個平台的解析穩不穩（低 = 要修）
+      下載轉換率        → 解析成功後真的下載的比例
+                          （偏低 = 解析到了卻下載不了 → 下載體驗要加強）
+      成長率            → 本期 vs 前一期（看趨勢）
+    """
+    half = max(1, days // 2)
+    cur_lo, cur_hi = _since(half), _since(0)
+    prev_lo, prev_hi = _since(days), _since(half)
+
+    # 重新用兩段時間分別查（比較好懂也比較準）
+    def _bucket(lo: float, hi: float) -> dict[str, dict]:
+        out: dict[str, dict] = {}
+        for r in db.query(
+            "SELECT platform, kind, result, COUNT(*) AS c FROM events"
+            " WHERE kind IN ('resolve','download') AND platform IS NOT NULL AND platform <> ''"
+            "   AND ts>=? AND ts<? GROUP BY platform, kind, result",
+            (lo, hi),
+        ):
+            p = out.setdefault(r["platform"], {"resolve_ok": 0, "resolve_fail": 0,
+                                               "download_ok": 0, "download_fail": 0})
+            if r["kind"] == "resolve":
+                p["resolve_ok" if r["result"] == "ok" else "resolve_fail"] = r["c"]
+            else:
+                p["download_ok" if r["result"] == "ok" else "download_fail"] = r["c"]
+        return out
+
+    cur = _bucket(cur_lo, cur_hi)
+    prev = _bucket(prev_lo, prev_hi)
+
+    ms_rows = {
+        r["platform"]: r["ms"] for r in db.query(
+            "SELECT platform, AVG(latency_ms) AS ms FROM events"
+            " WHERE kind='resolve' AND result='ok' AND latency_ms IS NOT NULL AND ts>=?"
+            " GROUP BY platform", (cur_lo,))
+    }
+
+    names = set(cur) | set(prev)
+    total_resolve = sum(v["resolve_ok"] + v["resolve_fail"] for v in cur.values()) or 1
+
+    out: list[dict] = []
+    for name in names:
+        c = cur.get(name, {"resolve_ok": 0, "resolve_fail": 0, "download_ok": 0, "download_fail": 0})
+        p = prev.get(name, {"resolve_ok": 0, "resolve_fail": 0, "download_ok": 0, "download_fail": 0})
+        rt = c["resolve_ok"] + c["resolve_fail"]
+        dt = c["download_ok"] + c["download_fail"]
+        prev_rt = p["resolve_ok"] + p["resolve_fail"]
+        out.append({
+            "platform": name,
+            "resolve_ok": c["resolve_ok"], "resolve_fail": c["resolve_fail"],
+            "resolve_total": rt,
+            "resolve_rate": round(c["resolve_ok"] / rt * 100, 1) if rt else None,
+            "download_ok": c["download_ok"], "download_fail": c["download_fail"],
+            "download_total": dt,
+            "download_rate": round(c["download_ok"] / dt * 100, 1) if dt else None,
+            # 交叉比對：解析成功後真的下載的比例
+            "download_per_resolve": round(dt / c["resolve_ok"] * 100, 1) if c["resolve_ok"] else None,
+            "share": round(rt / total_resolve * 100, 1) if rt else 0.0,
+            "growth_pct": _pct(rt, prev_rt),
+            "avg_ms": int(ms_rows[name]) if ms_rows.get(name) else None,
+        })
+    return sorted(out, key=lambda x: -x["resolve_total"])[:limit]

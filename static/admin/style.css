@@ -155,3 +155,11 @@ textarea:focus{border-color:var(--acc)}
 }
 
 .chart-legend{position:absolute;bottom:-40px;left:0;font-size:11px;color:var(--dim);white-space:nowrap}
+
+/* ── 自動洞察（排行榜用）── */
+.insight{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.insight .row{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;line-height:1.7}
+.insight .row b{color:var(--acc);font-weight:500}
+.insight .row.warn b{color:var(--err)}
+.rank1{color:var(--acc);font-weight:600}
+.bar-mini{display:inline-block;height:6px;background:rgba(217,192,140,.5);vertical-align:middle;margin-right:6px}

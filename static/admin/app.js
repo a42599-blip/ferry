@@ -257,6 +257,45 @@ async function pgGrowth() {
       .map(([n, o]) => `<div class="metric"><span>${n}</span>
         <span>${fmtN(o.current)} <span class="dim">/ ${fmtN(o.previous)}</span> ${pct(o.change_pct)}</span></div>`).join('') +
     `<div class="metric"><span>收益</span><span>US$ ${fmtN(d.revenue.current)} <span class="dim">/ ${fmtN(d.revenue.previous)}</span> ${pct(d.revenue.change_pct)}</span></div>`;
+  // ── 平台排行榜（可交叉比對）──
+  const rank = d.platform_ranking || [];
+  if (rank.length) {
+    const maxR = Math.max(1, ...rank.map((x) => x.resolve_total));
+    $('#gr-rank').innerHTML = table([
+      { t: '#', v: (r) => { const i = rank.indexOf(r); return i === 0 ? '<span class="rank1">1</span>' : (i + 1); }, html: true },
+      { t: '平台', v: (r) => esc(r.platform) },
+      { t: '解析次數', v: (r) => `<span class="bar-mini" style="width:${Math.round(r.resolve_total / maxR * 46)}px"></span><b>${fmtN(r.resolve_total)}</b><br><small class="dim">佔 ${r.share}%</small>`, html: true },
+      { t: '成長', v: (r) => pct(r.growth_pct), html: true },
+      { t: '解析成功率', v: (r) => rateBadge(r.resolve_rate), html: true },
+      { t: '解析失敗', v: 'resolve_fail', num: true },
+      { t: '下載次數', v: 'download_total', num: true },
+      { t: '下載轉換率', v: (r) => {
+          const v = r.download_per_resolve;
+          if (v === null) return '<span class="dim">–</span>';
+          const cls = v >= 60 ? 'ok' : v >= 25 ? 'warn' : 'err';
+          return `<span class="badge ${cls}">${v}%</span>`;
+        }, html: true },
+      { t: '下載成功率', v: (r) => rateBadge(r.download_rate), html: true },
+      { t: '平均耗時', v: (r) => r.avg_ms ? (r.avg_ms / 1000).toFixed(1) + 's' : '–', num: true },
+    ], rank);
+
+    // 自動洞察：直接指出「哪個平台要修 / 哪個下載體驗要加強」
+    const ins = [];
+    const weakResolve = rank.filter((r) => r.resolve_total >= 5 && r.resolve_rate !== null && r.resolve_rate < 80);
+    const weakDownload = rank.filter((r) => r.resolve_ok >= 5 && r.download_per_resolve !== null && r.download_per_resolve < 25);
+    const growing = rank.filter((r) => r.growth_pct !== null && r.growth_pct > 30 && r.resolve_total >= 3);
+    const top = rank[0];
+    if (top) ins.push(`<div class="row">🔥 <span>最熱門：<b>${esc(top.platform)}</b>（${fmtN(top.resolve_total)} 次，佔 ${top.share}%）</span></div>`);
+    if (weakResolve.length) ins.push(`<div class="row warn">⚠️ <span>解析成功率偏低（需修復）：<b>${weakResolve.map((r) => esc(r.platform) + ' ' + r.resolve_rate + '%').join('、')}</b></span></div>`);
+    if (weakDownload.length) ins.push(`<div class="row warn">⚠️ <span>解析得到但很少下載（下載體驗待加強）：<b>${weakDownload.map((r) => esc(r.platform) + ' ' + r.download_per_resolve + '%').join('、')}</b></span></div>`);
+    if (growing.length) ins.push(`<div class="row">📈 <span>成長最快：<b>${growing.map((r) => esc(r.platform) + ' ▲' + r.growth_pct + '%').join('、')}</b></span></div>`);
+    if (!ins.length) ins.push('<div class="row dim">目前資料還少，等累積多一點就會自動指出要加強的平台。</div>');
+    $('#gr-insight').innerHTML = ins.join('');
+  } else {
+    $('#gr-rank').innerHTML = '<p class="note">還沒有解析紀錄</p>';
+    $('#gr-insight').innerHTML = '';
+  }
+
   $('#gr-retention').innerHTML = `<div class="metric"><span>總裝置數</span><span>${fmtN(d.retention.total_devices)}</span></div>
     <div class="metric"><span>回訪裝置</span><span>${fmtN(d.retention.returning)}</span></div>
     <div class="metric"><span>回訪率</span><span>${d.retention.returning_pct ?? '–'}%</span></div>
