@@ -393,3 +393,11 @@ async def delete_cookies(platform: str, _: dict = Depends(require_admin)) -> dic
 
     ok = cookies.remove(platform)
     return {"ok": True, "removed": ok, "platforms": cookies.overview()}
+
+
+# ── 測試帳號清理（審核工具用；避免測試資料污染）────────
+@router.post("/members/cleanup-test")
+async def cleanup_test_members(_: dict = Depends(require_admin)) -> dict:
+    n = int(db.scalar("SELECT COUNT(*) FROM members WHERE email LIKE 'audit%@ferry.local'"))
+    db.execute("DELETE FROM members WHERE email LIKE 'audit%@ferry.local'")
+    return {"ok": True, "deleted": n}
