@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=10">
+<link rel="stylesheet" href="/style.css?v=11">
 <style>
 /* ⚠️ 手機導覽的「關鍵樣式」內嵌在這裡（小羅 2026-09-27）。
    原因：他的手機卡在舊的 style.css 快取（舊版 .tabs 是 display:none），
@@ -66,7 +66,11 @@
         <p class="lede" data-i18n="dl_lede">不重新壓縮、不轉檔，畫質只列這支影片真的有的選項。</p>
       </div>
       <div class="inbar o-in">
-        <input id="url" type="url" inputmode="url" autocomplete="off" data-i18n-ph="dl_placeholder" placeholder="請貼上影片網址">
+        <!-- ⚠️ autocomplete / name / aria 都要設好，否則瀏覽器會把這欄當成「帳號」，
+         自動填入密碼管理員的資料（小羅實際遇到：框裡一直出現 admin） -->
+        <input id="url" type="text" inputmode="url" name="video-url" autocomplete="off"
+               autocorrect="off" autocapitalize="off" spellcheck="false"
+               aria-label="影片網址" data-i18n-ph="dl_placeholder" placeholder="請貼上影片網址">
         <!-- 小羅 2026-09-27 定案流程：
              ① 點網址欄 → 自動清空舊連結 → 出現「📋 貼上」
              ② 按「貼上」→ 自動解析（不必再按任何按鈕）
@@ -290,10 +294,10 @@
 
 <!-- 底部導航已移除（小羅 2026-09-27：手機版也把選項提到上面那一行） -->
 
-<script src="/sha256.js?v=10"></script>
-<script src="/save.js?v=10"></script>
-<script src="/app.js?v=10"></script>
-<script src="/transfer.js?v=10"></script>
+<script src="/sha256.js?v=11"></script>
+<script src="/save.js?v=11"></script>
+<script src="/app.js?v=11"></script>
+<script src="/transfer.js?v=11"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）
 (function () {

@@ -356,14 +356,16 @@ function revealPaste(show) {
 $('#url').addEventListener('focus', () => {
   if ($('#url').value) $('#url').value = '';
   revealPaste(true);
-});
-$('#url').addEventListener('blur', () => {
-  // 延遲收起，否則點「貼上」按鈕會先觸發 blur 而按不到
-  setTimeout(() => { if (document.activeElement !== $('#url')) revealPaste(false); }, 220);
+  // ⚠️ 不要用 blur 隱藏按鈕！（2026-09-27 實際踩到）
+  //    點「貼上」時輸入框會先失焦 → 按鈕被隱藏 → click 根本來不及觸發
+  //    → 使用者看到「按了沒反應」。按鈕就讓它一直顯示，解析完成後自然不需要。
 });
 
 // ② 📋 貼上：讀剪貼簿 → 填入 → 自動解析
-$('#paste').addEventListener('click', async () => {
+//    ⚠️ 用 pointerdown（手機/電腦都通）而不是 click：
+//       pointerdown 比 blur 更早發生，不會被任何隱藏邏輯吃掉。
+async function doPaste() {
+  $('#paste').disabled = true;
   try {
     const text = await navigator.clipboard.readText();
     if (!text || !text.trim()) { msg('#status', t('paste_empty'), 'err'); return; }
@@ -371,11 +373,15 @@ $('#paste').addEventListener('click', async () => {
     msg('#status', '');
     doResolve();
   } catch {
-    // 剪貼簿被拒（iOS 有時要使用者手勢）→ 聚焦讓使用者自己長按貼上
+    // 剪貼簿被拒（iOS／瀏覽器限制）→ 聚焦讓使用者自己長按貼上
     $('#url').focus();
     msg('#status', t('paste_denied'), 'err');
+  } finally {
+    $('#paste').disabled = false;
   }
-});
+}
+$('#paste').addEventListener('click', doPaste);
+$('#paste').addEventListener('pointerdown', (e) => e.preventDefault());   // 不要讓輸入框失焦
 
 // ③ 手機原生貼上（長按→貼上／Ctrl+V）：讓瀏覽器正常貼上，完成後自動解析
 $('#url').addEventListener('paste', () => {
