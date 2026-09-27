@@ -1215,8 +1215,7 @@ function bindMemberPage() {
   $('#ml-next').onclick = () => { if (ML.page < ML.pages) { ML.page++; loadMemberList(); } };
   $('#ml-cardclose').onclick = () => { $('#ml-cardbox').hidden = true; };
   $('#ml-restore').onclick = async () => {
-    if (!confirm('從「方案歷史」把以前被刪掉的會員重建回來？
-（不會動到現有會員）')) return;
+    if (!confirm('從「方案歷史」把以前被刪掉的會員重建回來？\n（不會動到現有會員）')) return;
     try {
       const r = await api('/members/restore', { method: 'POST', body: '{}' });
       queue(`已復原 ${r.rebuilt} 位會員`);
