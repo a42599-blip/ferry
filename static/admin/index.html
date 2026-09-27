@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/admin/style.css?v=15">
+<link rel="stylesheet" href="/admin/style.css?v=16">
 </head>
 <body>
 
@@ -55,7 +55,8 @@
       <button data-p="members">會員資料</button>
       <button data-p="devices">會員與裝置</button>
       <button data-p="revenue">收益</button>
-      <button data-p="inbox">回報與額度</button>
+      <button data-p="reports">客戶回報</button>
+      <button data-p="quotas">次數管理</button>
       <button data-p="errors">錯誤與告警</button>
       <button data-p="system">系統</button>
     </nav>
@@ -292,27 +293,43 @@
       </section>
 
       <!-- 回報與額度 -->
-      <section class="pg" id="pg-inbox">
-        <div class="kpis" id="ib-kpis"></div>
-        <div class="pnl">
-          <div class="rowbetween">
-            <div class="lbl">使用者回報（任何人都能送，不限會員）</div>
-            <label class="chk"><input type="checkbox" id="ib-onlynew"> 只看未處理</label>
-          </div>
-          <p class="note">送出時會自動附帶「平台」與「輸入框連結」方便重現。
-            信件是<b>彙總</b>寄送（30 分鐘冷卻），不是一則回報寄一封。</p>
-          <div class="scroll" id="ib-list"></div>
+      <!-- 模塊①：客戶回報（客戶在首頁填的問題都進來這裡）-->
+      <section class="pg" id="pg-reports">
+        <div class="pghint">
+          <b>這一頁是什麼？</b>
+          客戶在<b>網站首頁最下方</b>按「回報問題」填的內容，全部會出現在這裡。<br>
+          你可以標記「已處理」把它清掉。要主動通知會員（例：某平台故障）請到
+          <b>「會員資料」→ 寄 Email</b>。
         </div>
+        <div class="kpis" id="rp-kpis"></div>
         <div class="pnl">
           <div class="rowbetween">
-            <div class="lbl">免費次數（今日用量）</div>
-            <div><button class="gh" id="ib-reset-all">今日全部歸零</button></div>
+            <div class="lbl">回報清單</div>
+            <label class="chk"><input type="checkbox" id="rp-onlynew"> 只看未處理</label>
           </div>
-          <p class="note">解析<b>失敗不會扣次數</b>（扣次數在解析成功之後）。
-            若遇到例外狀況（逾時、平台風控）可在這裡<b>還他一次</b>。</p>
-          <div class="scroll" id="ib-quota"></div>
+          <div class="scroll" id="rp-list"></div>
         </div>
       </section>
+
+      <!-- 模塊②：次數管理（誰快用完、幫他加次數）-->
+      <section class="pg" id="pg-quotas">
+        <div class="pghint">
+          <b>這一頁是什麼？</b>
+          看今天<b>誰用了幾次免費額度</b>。<br>
+          免費方案每天下載 5 次、傳輸 5 次（<b>兩者分開算</b>）。<br>
+          客人抱怨「明明失敗還扣我次數」時，可以在這裡幫他 <b>＋1</b> 補回來。<br>
+          <span class="dim">（單一會員要加很多次數／加天數，請到「會員資料」→ 他的資料卡）</span>
+        </div>
+        <div class="kpis" id="qt-kpis"></div>
+        <div class="pnl">
+          <div class="rowbetween">
+            <div class="lbl">今日用量（依對象）</div>
+            <div><button class="gh" id="qt-reset-all">今日全部歸零</button></div>
+          </div>
+          <div class="scroll" id="qt-list"></div>
+        </div>
+      </section>
+
 
       <!-- 錯誤與告警 -->
       <section class="pg" id="pg-errors">
@@ -373,6 +390,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=15"></script>
+<script src="/admin/app.js?v=16"></script>
 </body>
 </html>

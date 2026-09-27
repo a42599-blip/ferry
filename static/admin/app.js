@@ -205,7 +205,8 @@ async function render() {
     else if (curPage === 'members') await pgMembers();
     else if (curPage === 'devices') await pgDevices();
     else if (curPage === 'revenue') await pgRevenue();
-    else if (curPage === 'inbox') await pgInbox();
+    else if (curPage === 'reports') await pgReports();
+    else if (curPage === 'quotas') await pgQuotas();
     else if (curPage === 'errors') await pgErrors();
     else if (curPage === 'system') await pgSystem();
   } catch (e) {
@@ -214,60 +215,77 @@ async function render() {
 }
 
 // ── 回報與額度 ───────────────────────────────────
-async function pgInbox() {
-  const onlyNew = $('#ib-onlynew').checked;
+// ══ 模塊①：客戶回報 ══════════════════════════════════
+//    客戶在首頁「回報問題」填的內容（任何人都能送，不限會員）
+async function pgReports() {
+  const onlyNew = $('#rp-onlynew').checked;
   const d = await api('/feedback?days=' + days() + '&only_new=' + onlyNew);
   const c = d.counts;
-  $('#ib-kpis').innerHTML = [
+  $('#rp-kpis').innerHTML = [
     kpi('回報總數', fmtN(c.total), `近 ${days()} 天`),
-    kpi('未處理', fmtN(c.new), '建議每天清一次'),
+    kpi('未處理', fmtN(c.new), '處理完記得標記'),
     kpi('已處理', fmtN(c.handled), ''),
   ].join('');
   const rows = d.rows || [];
-  $('#ib-list').innerHTML = rows.length ? table([
+  $('#rp-list').innerHTML = rows.length ? table([
     { t: '時間', v: (r) => esc(r.when) },
-    { t: '平台', v: (r) => esc(r.platform || '–') },
-    { t: '內容', v: (r) => esc(r.message), html: false },
-    { t: '聯絡', v: (r) => esc(r.contact || '–') },
-    { t: '連結', v: (r) => r.url ? '<span class="dim">' + esc(r.url.slice(0, 46)) + '</span>' : '–', html: true },
-    { t: '狀態', v: (r) => r.handled ? '<span class="badge ok">已處理</span>'
-        : '<button class="gh" data-fb="' + r.id + '">標記已處理</button>', html: true },
+    { t: '平台', v: (r) => esc(r.platform || '（未指定）') },
+    { t: '客戶寫的內容', v: (r) => esc(r.message) },
+    { t: '聯絡方式', v: (r) => esc(r.contact || '未留') },
+    { t: '當時的連結', v: (r) => (r.url
+        ? '<span class="dim">' + esc(r.url.slice(0, 44)) + '</span>' : '–'), html: true },
+    { t: '狀態', v: (r) => (r.handled ? '<span class="badge ok">已處理</span>'
+        : '<button class="gh" data-fb="' + r.id + '">標記已處理</button>'), html: true },
   ], rows) : '<div class="dim">目前沒有回報 🎉</div>';
-  $$('#ib-list [data-fb]').forEach((b) => b.addEventListener('click', async () => {
+  $$('#rp-list [data-fb]').forEach((b) => b.addEventListener('click', async () => {
     await api('/feedback/' + b.dataset.fb + '/handled', { method: 'POST', body: '{}' });
     queue('已標記回報 #' + b.dataset.fb + ' 為已處理');
-    pgInbox();
+    pgReports();
   }));
+  queue(`客戶回報 ${fmtN(c.total)} 則（未處理 ${fmtN(c.new)}）`);
+}
+$('#rp-onlynew').addEventListener('change', () => { if (curPage === 'reports') pgReports(); });
 
+// ══ 模塊②：次數管理 ══════════════════════════════════
+//    今天誰用了幾次免費額度；可幫他補回來（＋1）
+async function pgQuotas() {
   const q = await api('/quota');
-  $('#ib-quota').innerHTML = (q.rows || []).length ? table([
+  const lim = q.limits || {};
+  $('#qt-kpis').innerHTML = [
+    kpi('免費額度（每日）', `${fmtN(lim.download)} / ${fmtN(lim.transfer)}`,
+        '下載次數 / 傳輸次數（分開計算）'),
+    kpi('今天使用的對象', fmtN((q.rows || []).length), '有動用免費次數的裝置／會員'),
+    kpi('免費次數限制', q.enabled ? '開啟中' : '已關閉',
+        q.enabled ? '超過就必須等隔天或付費' : '所有人都無限使用'),
+  ].join('');
+  $('#qt-list').innerHTML = (q.rows || []).length ? table([
     { t: '對象', v: (r) => esc(r.subject) },
-    { t: '用途', v: (r) => esc(r.kind === 'transfer' ? '無損傳輸' : '下載／解析') },
-    { t: '今日用掉', v: (r) => `<b>${fmtN(r.count)}</b> / ${fmtN(r.limit)}`, html: true },
+    { t: '用途', v: (r) => esc(r.kind === 'transfer' ? '無損傳輸' : '無水印下載') },
+    { t: '今日已用', v: (r) => `<b>${fmtN(r.count)}</b> / ${fmtN(r.limit)}`, html: true },
     { t: '剩餘', v: (r) => fmtN(Math.max(0, r.limit - r.count)), num: true },
-    { t: '還他一次', v: (r) => `<button class="gh" data-grant="${esc(r.subject)}" data-kind="${esc(r.kind)}">＋1</button>`, html: true },
-    { t: '歸零', v: (r) => `<button class="gh" data-reset="${esc(r.subject)}">歸零</button>`, html: true },
-  ], q.rows) : '<div class="dim">今天還沒有人使用</div>';
-  $$('#ib-quota [data-grant]').forEach((b) => b.addEventListener('click', async () => {
+    { t: '幫他 ＋1', v: (r) => `<button class="gh" data-grant="${esc(r.subject)}" data-kind="${esc(r.kind)}">補回一次</button>`, html: true },
+    { t: '歸零', v: (r) => `<button class="gh" data-reset="${esc(r.subject)}" data-kind="${esc(r.kind)}">清除</button>`, html: true },
+  ], q.rows) : '<div class="dim">今天還沒有人使用免費次數</div>';
+  $$('#qt-list [data-grant]').forEach((b) => b.addEventListener('click', async () => {
     await api('/quota/grant', { method: 'POST', body: JSON.stringify({
       subject: b.dataset.grant, kind: b.dataset.kind, n: 1 }) });
-    queue('已還 ' + b.dataset.grant + ' 一次');
-    pgInbox();
+    queue('已補回一次給 ' + b.dataset.grant);
+    pgQuotas();
   }));
-  $$('#ib-quota [data-reset]').forEach((b) => b.addEventListener('click', async () => {
-    await api('/quota/reset', { method: 'POST', body: JSON.stringify({ subject: b.dataset.reset }) });
-    queue('已歸零 ' + b.dataset.reset);
-    pgInbox();
+  $$('#qt-list [data-reset]').forEach((b) => b.addEventListener('click', async () => {
+    await api('/quota/reset', { method: 'POST', body: JSON.stringify({
+      subject: b.dataset.reset, kind: b.dataset.kind }) });
+    queue('已清除 ' + b.dataset.reset);
+    pgQuotas();
   }));
-  $('#ib-reset-all').onclick = async () => {
+  $('#qt-reset-all').onclick = async () => {
     if (!confirm('把今天所有人的用量歸零？')) return;
     await api('/quota/reset', { method: 'POST', body: '{}' });
     queue('今日用量已全部歸零');
-    pgInbox();
+    pgQuotas();
   };
-  queue(`回報 ${fmtN(c.total)} 則（未處理 ${fmtN(c.new)}）`);
+  queue(`今日 ${(q.rows || []).length} 個對象使用過免費次數`);
 }
-$('#ib-onlynew').addEventListener('change', () => { if (curPage === 'inbox') pgInbox(); });
 
 // ── 總覽 ─────────────────────────────────────────
 async function pgOverview() {
