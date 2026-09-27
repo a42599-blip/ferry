@@ -226,7 +226,7 @@ async def debug_youtube(v: str = Query("mw-kKYRSEOU")):
             ea["player_skip"] = skip.split(",")
         opts = {
             "quiet": True, "no_warnings": True, "skip_download": True, "cachedir": False,
-            "socket_timeout": 15, "retries": 0, "extractor_retries": 0,
+            "socket_timeout": 20,
             "extractor_args": {"youtube": ea},
             "js_runtimes": {"deno": {}},
             "http_headers": {"User-Agent": _YT_UA},

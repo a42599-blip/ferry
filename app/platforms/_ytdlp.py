@@ -75,8 +75,12 @@ _BASE_OPTS: dict[str, Any] = {
     "noplaylist": True,
     "skip_download": True,
     "socket_timeout": 20,
-    "extractor_retries": 1,
-    "retries": 2,
+    # ⚠️ 不要自己調低重試次數！（2026-09-27 從 v8i8 對照出來的關鍵）
+    #    v8i8 用預設的 extractor_retries（3）＋ retry_sleep 指數退避，
+    #    YouTube 的機器人判定是「間歇性」的 —— 多試幾次就會過。
+    #    我原本寫 extractor_retries: 1（試一次就放棄）→ YouTube 常常失敗。
+    "retry_sleep": "extractor:exp=1:20",
+    "fragment_retries": 10,
     "nocheckcertificate": True,
     # ⚠️ 一定要留快取！（2026-09-27 從 v8i8 對照出來的關鍵）
     #    yt-dlp 會把 YouTube 的 player JS／PO token 存在快取裡；
