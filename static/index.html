@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=14">
+<link rel="stylesheet" href="/style.css?v=15">
 <style>
 /* ⚠️ 手機導覽的「關鍵樣式」內嵌在這裡（小羅 2026-09-27）。
    原因：他的手機卡在舊的 style.css 快取（舊版 .tabs 是 display:none），
@@ -253,6 +253,7 @@
         <div class="payways" id="pay-ways"></div>
         <div class="payqr" id="pay-qr" hidden></div>
       </div>
+      <div class="offbox" id="pay-off" hidden data-i18n="billing_off">目前為公測期間，暫不收費，所有功能都可以免費使用。</div>
       <div class="msg" id="pay-status" hidden></div>
     </div>
   </section>
@@ -261,6 +262,9 @@
   <section class="panel one" id="p-member">
     <div class="col">
       <h1 style="margin-top:0" data-i18n="member_title">會員</h1>
+      <!-- 會員登入開關（feature.auth）關掉時，整個模塊收起來、只顯示下面的籌備中提示 -->
+      <div class="offbox" id="m-off" hidden data-i18n="auth_off">會員功能正在籌備中，敬請期待。</div>
+      <div id="m-auth">
       <div id="m-guest">
         <p class="lede" data-i18n="member_lede">登入後免費次數綁帳號（換裝置也保留）；付費後下載與傳輸不限次數。</p>
         <div class="inbar" style="margin-top:14px"><input id="m-email" type="email" data-i18n-ph="member_email" placeholder="Email"></div>
@@ -272,7 +276,7 @@
         <div class="msg" id="m-msg" hidden></div>
       </div>
       <div id="m-info" hidden>
-        <div class="kv" id="m-detail"></div>
+      <div class="kv" id="m-detail"></div>
         <button class="big gh sm" id="m-logout" style="margin-top:14px" data-i18n="btn_logout">登出</button>
         <!-- 註銷帳號（小羅 2026-09-27：使用者自己註銷，並要講清楚後果）-->
         <div class="dangerbox">
@@ -280,12 +284,14 @@
           <p class="dnote" data-i18n="delete_note">註銷後你的帳號資料會被刪除，這個動作無法復原。</p>
         </div>
       </div>
+      </div><!-- /m-auth -->
 
       <div id="history-box">
         <h2 class="sec" data-i18n="history_title">歷史記錄</h2>
         <p class="note" data-i18n="history_note">只記錄你曾下載過的影片，存在你自己的裝置。</p>
         <div class="hlist" id="h-list"></div>
         <button class="big gh sm" id="h-clear" style="margin-top:10px" data-i18n="btn_clear">清空歷史</button>
+      </div>
       </div>
     </div>
   </section>
@@ -294,10 +300,10 @@
 
 <!-- 底部導航已移除（小羅 2026-09-27：手機版也把選項提到上面那一行） -->
 
-<script src="/sha256.js?v=14"></script>
-<script src="/save.js?v=14"></script>
-<script src="/app.js?v=14"></script>
-<script src="/transfer.js?v=14"></script>
+<script src="/sha256.js?v=15"></script>
+<script src="/save.js?v=15"></script>
+<script src="/app.js?v=15"></script>
+<script src="/transfer.js?v=15"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）
 (function () {

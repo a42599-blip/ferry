@@ -320,3 +320,7 @@ input:focus{outline:none;border-color:var(--acc)}
 .ann.lv-warn{background:rgba(217,182,74,.1);border-color:rgba(217,182,74,.32)}
 .ann.lv-critical{background:rgba(217,106,106,.12);border-color:rgba(217,106,106,.4)}
 @media (min-width:900px){ .annbar{padding:10px 26px 0} }
+
+/* ── 模塊被關掉時的提示（會員登入／付費訂閱）── */
+.offbox{padding:14px 16px;border-radius:10px;font-size:13px;line-height:1.8;
+  background:rgba(110,168,220,.08);border:1px solid rgba(110,168,220,.28);color:var(--text)}

@@ -278,5 +278,7 @@
   "delete_warn_paid": "You are currently a paid member. After deleting:\n\n• No refund will be issued\n• Your membership ends immediately\n• Your quota returns to the free tier\n\nContinue?",
   "delete_warn_free": "After deleting your account:\n\n• Your account data will be removed\n• To use member features again you must sign up again\n\nContinue?",
   "delete_confirm_final": "Final check: really delete your account?\n(This cannot be undone)",
-  "delete_done": "Account deleted. Thanks for using our service."
+  "delete_done": "Account deleted. Thanks for using our service.",
+  "auth_off": "Member features are coming soon.",
+  "billing_off": "Free during beta — all features are free to use for now."
 }

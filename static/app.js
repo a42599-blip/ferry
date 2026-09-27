@@ -148,6 +148,9 @@ const FEATURE_TAB = {
 };
 const AVAILABLE_TABS = ['download', 'transfer', 'teach', 'plans', 'member'];
 
+// 付費訂閱是否開啟（feature.billing 沒設 → 當成開啟，維持原本行為）
+const billingOn = (f) => (f || {})['feature.billing'] !== false;
+
 function applyFlags(cfg) {
   const f = cfg.features || {};
   // 分頁／面板
@@ -163,6 +166,19 @@ function applyFlags(cfg) {
   if ($('#history-box')) $('#history-box').hidden = f['feature.history'] === false;
   if ($('#go')) $('#go').disabled = f['feature.maintenance'] === true;
   if ($('#url')) $('#url').disabled = f['feature.maintenance'] === true;
+
+  // ── 會員登入開關（feature.auth）─────────────────────────
+  //   關掉 → 會員頁只顯示「籌備中」，登入／註冊表單整個收起來。
+  //   （小羅 2026-09-27：之前切這個開關前台完全沒反應 → 這裡補上聯動）
+  const authOn = f['feature.auth'] !== false;
+  if ($('#m-auth')) $('#m-auth').hidden = !authOn;
+  if ($('#m-off')) $('#m-off').hidden = authOn;
+
+  // ── 付費訂閱開關（feature.billing）───────────────────────
+  //   關掉 → 方案頁的「立即開通」按鈕收起來，改成「公測期間暫不收費」。
+  $$('[data-buy]').forEach((b) => { b.hidden = !billingOn(f); });
+  if ($('#paybox')) $('#paybox').hidden = !billingOn(f);
+  if ($('#pay-off')) $('#pay-off').hidden = billingOn(f);
 
   if (f['feature.maintenance']) {
     msg('#status', t('maintenance'), 'err');
