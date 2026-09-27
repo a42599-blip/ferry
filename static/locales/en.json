@@ -16,7 +16,7 @@
   "quota_times": "",
   "quota_reset_pre": "Resets at",
   "quota_reset_suf": "(your local time)",
-  "quota_unlimited": "(paid member: unlimited)",
+  "quota_unlimited": "(Paid members: unlimited)",
   "pv_result": "Result",
   "pv_empty": "Video info and available qualities will appear here after parsing",
   "pv_notitle": "(untitled)",
@@ -255,5 +255,14 @@
   "btn_parse_only": "🔍 Parse",
   "paste_empty": "Clipboard is empty",
   "report_note": "Any platform not working? Tell us (no sign-up needed). We review and fix quickly.",
-  "report_short": "Please describe a bit more (min 4 chars)"
+  "report_short": "Please describe a bit more (min 4 chars)",
+  "tr_howto": "Only ONE device needs to generate a code — the other just types those 6 digits.",
+  "tr_this_device": "This device",
+  "tr_other_device": "Other device",
+  "tr_pairing": "Pairing…",
+  "tr_none_yet": "not paired",
+  "tr_quota_label": "Lossless transfer",
+  "tr_failed_hint": "Could not connect. Make sure both devices are on the same WiFi, or pair again.",
+  "tr_timeout_hint": "Not connected yet. If the devices are on different networks, a firewall may block it — try the same WiFi.",
+  "quota_vip": "Paid members: unlimited"
 }

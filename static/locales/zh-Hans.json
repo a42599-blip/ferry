@@ -255,5 +255,14 @@
   "btn_parse_only": "🔍 开始解析",
   "paste_empty": "剪贴板是空的",
   "report_note": "任何平台下载不了都可以告诉我们（不用注册）。我们会汇总后尽快处理。",
-  "report_short": "请多描述一点（至少 4 个字）"
+  "report_short": "请多描述一点（至少 4 个字）",
+  "tr_howto": "两台装置只要「一台」按产生配对码，另一台输入那 6 码就好，两边不用都产生。",
+  "tr_this_device": "这台装置",
+  "tr_other_device": "对方装置",
+  "tr_pairing": "配对中…",
+  "tr_none_yet": "尚未配对",
+  "tr_quota_label": "无损传输",
+  "tr_failed_hint": "连不上对方。请确认两台装置在同一个 WiFi，或重新配对一次。",
+  "tr_timeout_hint": "还没连上。若两台不在同一个网络，可能被防火墙挡住；请改连同一个 WiFi 再试。",
+  "quota_vip": "付费会员：不限次数"
 }

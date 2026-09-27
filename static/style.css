@@ -265,3 +265,12 @@ button.mini{min-height:32px}
 .o-report summary::-webkit-details-marker{display:none}
 .o-report summary::before{content:"＋";font-size:12px;color:var(--dim)}
 .o-report[open] summary::before{content:"－"}
+
+/* ── 無損傳輸：配對雙方的裝置顯示（讓使用者知道接對了沒）── */
+.peerbox{margin-top:12px;border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px;
+  font-size:12.5px;background:rgba(255,255,255,.02)}
+.peerbox .pv-line{display:flex;align-items:center;gap:6px;line-height:1.9;flex-wrap:wrap}
+.peerbox b{color:var(--text);font-weight:600}
+.peerbox .dot{width:7px;height:7px;border-radius:50%;background:var(--dim);display:inline-block}
+.peerbox .dot.on{background:#3fbf7f;box-shadow:0 0 6px #3fbf7f}
+.t-howto{margin:0 0 10px}

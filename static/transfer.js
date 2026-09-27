@@ -8,10 +8,16 @@
   if (!$('#p-transfer')) return;
   const t = (k, d) => (window.FY?.t ? window.FY.t(k, d) : d) || d || k;
 
+  // ⚠️ 只有 STUN 的話，遇到手機電信網路（CGNAT）或不同網路時常常連不上，
+  //    使用者看到的就是「配對成功但一直沒傳」。所以一定要有 TURN 中繼。
   const ICE = { iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-  ] };
+    // 免費公開 TURN（Metered OpenRelay）—— 連不上時的最後手段
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  ], iceCandidatePoolSize: 4 };
   const CHUNK = 64 * 1024;
   const HIGH_WATER = 8 * 1024 * 1024;
   const LOW_WATER = 1 * 1024 * 1024;
@@ -19,6 +25,8 @@
   const S = {
     files: [], code: null, peer: null, pc: null, dc: null, poll: null,
     sending: false, receiving: null, speed: { bytes: 0, at: 0, timer: null }, known: [],
+    //: 收到但還沒辦法加入的 ICE 候選（要等 setRemoteDescription 之後才加）
+    pendingIce: [], connectTimer: null,
   };
 
   const deviceId = () => {
@@ -110,8 +118,11 @@
 
   // ── signaling ────────────────────────────────────
   const api = async (path, opt = {}) => {
+    // ⚠️ 一定要帶裝置 ID／時區（跟 app.js 同一組），否則伺服器會當成另一台裝置
+    //    → 免費次數會扣錯人、時區也會算錯（2026-09-27 實際踩到）
+    const base = window.FY_HEADERS ? window.FY_HEADERS() : { 'Content-Type': 'application/json' };
     const r = await fetch('/api/signal' + path, {
-      ...opt, headers: { 'Content-Type': 'application/json', ...(opt.headers || {}) },
+      ...opt, headers: { ...base, ...(opt.headers || {}) },
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || j.ok === false) throw new Error(j.message || j.detail || `HTTP ${r.status}`);
@@ -154,6 +165,19 @@
   });
   $('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#tr-join').click(); });
 
+  /** 顯示「這台裝置／對方裝置」與連線狀態（使用者才知道接對了沒） */
+  function renderPeers(state) {
+    const box = $('#peerbox');
+    if (!box) return;
+    box.hidden = !(S.peerId || S.peer);
+    $('#pv-me').textContent = (S.myName || S.peerId || '–').slice(0, 24);
+    $('#pv-other').textContent = S.peer ? String(S.peer).slice(0, 24) : t('tr_none_yet');
+    if (state) {
+      $('#pv-state').textContent = state;
+      $('#pv-dot').classList.toggle('on', state === t('tr_connected'));
+    }
+  }
+
   function startPoll() {
     stopPoll();
     S.poll = setInterval(async () => {
@@ -180,13 +204,31 @@
     if (!S.pc) return;
     if (p.type === 'offer') {
       await S.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));
+      await flushIce();
       const ans = await S.pc.createAnswer();
       await S.pc.setLocalDescription(ans);
       await sendSignal({ type: 'answer', sdp: S.pc.localDescription });
     } else if (p.type === 'answer') {
       if (S.pc.signalingState !== 'stable') await S.pc.setRemoteDescription(new RTCSessionDescription(p.sdp));
+      await flushIce();
     } else if (p.type === 'ice' && p.candidate) {
-      try { await S.pc.addIceCandidate(p.candidate); } catch { /* 忽略 */ }
+      // ⚠️ 關鍵：setRemoteDescription 之前呼叫 addIceCandidate 會失敗，
+      //    而 ICE 候選是「邊收集邊送」→ 常常比 offer/answer 更早到。
+      //    直接丟掉就永遠連不上（這正是「配對成功卻傳不動」的主因）。
+      const ready = S.pc.remoteDescription && S.pc.remoteDescription.type;
+      if (ready) {
+        try { await S.pc.addIceCandidate(p.candidate); } catch { /* 重複或過期，忽略 */ }
+      } else {
+        S.pendingIce.push(p.candidate);       // 先排隊，等 remoteDescription 設好再一起加
+      }
+    }
+  }
+
+  /** 把排隊中的 ICE 候選補進連線（remoteDescription 設好後才能加） */
+  async function flushIce() {
+    const list = S.pendingIce.splice(0);
+    for (const c of list) {
+      try { await S.pc.addIceCandidate(c); } catch { /* 重複或過期 */ }
     }
   }
 
@@ -195,6 +237,7 @@
     stopPoll();
     status(t('tr_found'));
     startPoll();
+    renderPeers(t('tr_pairing'));
     if (S.peerId < S.peer) { if (!S.pc) await createPeer(true); }
     else if (!S.pc) await createPeer(false);
   }
@@ -206,11 +249,24 @@
     };
     S.pc.onconnectionstatechange = () => {
       const st = S.pc.connectionState;
-      if (st === 'connected') { status(t('tr_connected'), 'ok'); $('#tr-send').disabled = !S.files.length; }
-      else if (st === 'failed' || st === 'disconnected')
-        status(t('tr_broken'), 'err');
+      if (st === 'connected') {
+      clearTimeout(S.connectTimer);
+      status(t('tr_connected'), 'ok');
+      renderPeers(t('tr_connected'));
+      $('#tr-send').disabled = !S.files.length;
+    } else if (st === 'failed') {
+      clearTimeout(S.connectTimer);
+      status(t('tr_failed_hint'), 'err');
+    } else if (st === 'disconnected') {
+      status(t('tr_broken'), 'err');
+    }
     };
     S.pc.ondatachannel = (e) => bindChannel(e.channel);
+    // 逾時提示：兩台裝置若不在同一個網路，或防火牆擋住，就不會連上
+    clearTimeout(S.connectTimer);
+    S.connectTimer = setTimeout(() => {
+      if (S.pc && S.pc.connectionState !== 'connected') status(t('tr_timeout_hint'), 'err');
+    }, 20000);
     if (offerer) {
       bindChannel(S.pc.createDataChannel('ferry', { ordered: true }));
       const offer = await S.pc.createOffer();
@@ -236,6 +292,16 @@
 
   async function startSend() {
     if (S.sending || !S.dc || S.dc.readyState !== 'open') return;
+    // 先扣一次「無損傳輸」免費次數（與無水印下載分開計算；會員無限制）
+    try {
+      await api('/claim', { method: 'POST', body: JSON.stringify({
+        peer_id: S.peerId, files: S.files.length }) });
+      // claim 回的是單一 kind 的結果；重新抓完整狀態才能同時更新下載／傳輸兩個面板
+      window._loadQuota?.();
+    } catch (e) {
+      status(e.message, 'err');
+      return;
+    }
     S.sending = true; $('#tr-send').disabled = true;
     const list = S.files.slice();
     const started = performance.now();

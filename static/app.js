@@ -221,6 +221,15 @@ const deviceId = () => {
 const MKEY = 'fy_member_token';
 const memberToken = () => localStorage.getItem(MKEY) || '';
 
+// ⚠️ 其他模組（transfer.js）也要用同一組標頭 —— 否則裝置身份不一致，
+//    免費次數會扣到「不存在的裝置」上（2026-09-27 實際踩到）
+window.FY_HEADERS = () => ({
+  'Content-Type': 'application/json',
+  'X-Device-Id': deviceId(),
+  'X-Timezone': state.tz,
+  ...(memberToken() ? { 'X-Member-Token': memberToken() } : {}),
+});
+
 const api = async (url, opt = {}) => {
   // 伺服器若掛住，最久等 90 秒就放棄（避免使用者一直看轉圈）
   const ctl = new AbortController();
@@ -282,19 +291,30 @@ function renderQuota(q) {
   if (!q) return;
   state.quota = q;
   const unlimited = q.unlimited || (q.download?.remaining ?? 0) >= 9999;
-  if (unlimited) {
-    $('#q-left').textContent = '∞';
-    $('#q-used').textContent = '–';
-    $('#q-reset').textContent = t('quota_unlimited');
-  } else {
-    $('#q-left').textContent = q.download?.remaining ?? '–';
-    $('#q-used').textContent = q.download?.used ?? '–';
-    $('#q-reset').textContent = t('quota_reset_pre') + ' ' + (q.download?.reset_hint || '00:00') + ' ' + t('quota_reset_suf');
-  }
+  const fill = (left, used, reset, part) => {
+    if (!left) return;
+    if (unlimited) {
+      left.textContent = '∞'; used.textContent = '–';
+      if (reset) reset.textContent = t('quota_unlimited');
+    } else {
+      left.textContent = part?.remaining ?? '–';
+      used.textContent = part?.used ?? '–';
+      if (reset) {
+        reset.textContent = t('quota_reset_pre') + ' ' + (part?.reset_hint || '00:00') + ' '
+          + t('quota_reset_suf');
+      }
+    }
+  };
+  // 下載頁的面板
+  fill($('#q-left'), $('#q-used'), $('#q-reset'), q.download);
+  // 傳輸頁的面板（與下載**分開**計算，各自 5 次／日）
+  fill($('#t-left'), $('#t-used'), $('#t-reset'), q.transfer);
 }
 async function loadQuota() {
   try { renderQuota((await api('/api/quota')).quota); } catch { /* 忽略 */ }
 }
+// 無損傳輸扣完次數後也要更新面板 → 讓 transfer.js 也能呼叫
+window._loadQuota = loadQuota;
 
 // ── 解析 ─────────────────────────────────────────
 $('#go').addEventListener('click', () => doResolve());

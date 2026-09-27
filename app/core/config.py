@@ -40,7 +40,8 @@ class Settings:
     )
 
     # 功能開關的預設值（真正的值由後台設定決定，見 services/flags.py）
-    free_limit_enabled: bool = field(default_factory=lambda: _env_bool("FREE_LIMIT_ENABLED", False))
+    # 小羅 2026-09-27：免費每日 5 次；下載與傳輸**分開各 5 次**；會員全站無限制
+    free_limit_enabled: bool = field(default_factory=lambda: _env_bool("FREE_LIMIT_ENABLED", True))
     # 🆕 2026-09-26 小羅定案：免費次數改為每日 5 次（原 3 次）
     free_download_per_day: int = field(default_factory=lambda: _env_int("FREE_DOWNLOAD_PER_DAY", 5))
     free_transfer_per_day: int = field(default_factory=lambda: _env_int("FREE_TRANSFER_PER_DAY", 5))

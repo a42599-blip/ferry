@@ -16,12 +16,13 @@ import string
 import time
 from dataclasses import dataclass, field
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from ..core import db
+from ..core import timezone as tz_util
 from ..core.errors import BadRequest
-from ..services import events
+from ..services import auth, events, quota
 
 router = APIRouter()
 
@@ -176,6 +177,26 @@ async def pair(body: PairIn):
                  meta={"with": body.target})
     return {"ok": True, "code": room.code,
             "peers": [p for p in room.peers if p != body.peer_id]}
+
+
+class ClaimIn(BaseModel):
+    peer_id: str
+    files: int = 1
+
+
+@router.post("/claim")
+async def claim(body: ClaimIn, request: Request):
+    """開始傳送前先扣一次「無損傳輸」免費次數。
+
+    ⚠️ 小羅 2026-09-27：
+      - 無損傳輸的免費次數與無水印下載**分開計算**（各自 5 次／日）
+      - 會員（已購買任一方案）→ 全站無限制（下載、傳輸都是）
+      - 每日依裝置所在地時區歸零
+    """
+    subject = auth.current_subject(request)
+    tz = tz_util.from_request(request)
+    used = quota.consume("transfer", subject, tz_name=tz)   # 用完會丟 QuotaExceeded
+    return {"ok": True, "quota": used}
 
 
 @router.post("/send")
