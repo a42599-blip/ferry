@@ -298,6 +298,24 @@ async def members_backfill(_: dict = Depends(require_admin)) -> dict:
             "stats": members.stats()}
 
 
+@router.delete("/members-test/{member_id}")
+async def delete_test_member(member_id: str, _: dict = Depends(require_admin)) -> dict:
+    """刪除「測試帳號」（只允許 @example.com / @ferry.local / @test 結尾）。
+
+    ⚠️ 安全設計：不開放刪除一般會員，避免誤刪真人帳號。
+    小羅 2026-09-27：「這個 email 我看起來不一樣啊」→ 測試帳號沒清掉污染數據。
+    """
+    from ..services import members
+
+    m = members.get(member_id) or {}
+    email = (m.get("email") or "").lower()
+    if not email.endswith(("@example.com", "@ferry.local", "@test", "@test.com")):
+        raise HTTPException(status_code=400,
+                            detail="只允許刪除測試帳號（@example.com 等），避免誤刪真人")
+    members.delete(member_id)
+    return {"ok": True, "deleted": email}
+
+
 @router.get("/members/search")
 async def search_members(q: str = Query(""), _: dict = Depends(require_admin)) -> dict:
     """用 Email 或會員 ID 查會員（附方案歷史）。"""

@@ -145,11 +145,45 @@ def list_members(limit: int = 200) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+#: 同一「工作階段」的判定門檻（秒）。超過就當成新的一次登入。
+#  小羅 2026-09-27：「他沒有被登出的情況下關掉螢幕，重新再上來，
+#                     那應該算第二次吧。」
+#  → 用時間間隔判斷：30 分鐘內連續操作算同一次，隔開就 +1。
+SESSION_GAP = 1800
+
+
 def touch_login(member_id: str) -> None:
-    """記錄最後登入時間與次數。"""
+    """記錄最後登入時間與次數（明確按下登入時用）。"""
     db.execute(
         "UPDATE members SET last_login_at=?, login_count=COALESCE(login_count,0)+1"
         " WHERE id=?", (time.time(), member_id))
+
+
+def touch_session(member_id: str, *, device_id: str | None = None,
+                  country: str | None = None) -> bool:
+    """每次「帶著登入狀態進站」時呼叫。
+
+    ⚠️ 為什麼需要（小羅 2026-09-27 抓到）：
+       原本只有「按下登入按鈕」才算一次，所以會員關掉螢幕再回來、
+       或換裝置開網站（token 自動登入）→ 完全不會增加，
+       後台的「登入次數」看起來永遠是 1，資料就不準。
+
+    回傳 True＝這次算「新的一次登入」（順便寫一筆事件，讓登入歷史看得到）。
+    """
+    m = get(member_id) or {}
+    last = float(m.get("last_login_at") or 0)
+    now = time.time()
+    if now - last < SESSION_GAP:
+        return False                     # 同一工作階段，不重複計數
+    touch_login(member_id)
+    try:
+        from . import events
+
+        events.track("login", device_id=device_id, country=country,
+                     meta={"method": "session", "member_id": member_id})
+    except Exception:  # noqa: BLE001
+        pass
+    return True
 
 
 def log_plan(member_id: str, email: str | None, from_plan: str | None, to_plan: str,

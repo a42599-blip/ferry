@@ -53,6 +53,9 @@ async def me(request: Request) -> dict:
     if not mid:
         return {"ok": True, "logged_in": False, "plan": "free",
                 "unlimited": billing.is_unlimited(auth.current_subject(request))}
+    # 帶著登入狀態進站 → 記一次「上線」（同一工作階段不重複計數）
+    members.touch_session(mid, device_id=_device(request),
+                          country=request.headers.get("cf-ipcountry"))
     m = members.get(mid) or {}
     return {"ok": True, "logged_in": True, "member": m,
             "plan": m.get("plan", "free"),
