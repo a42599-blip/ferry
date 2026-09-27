@@ -66,7 +66,6 @@ h1{font-size:22px;font-weight:500;line-height:1.5;margin-top:16px}
 .inbar input::placeholder{color:var(--lab)}
 .inbar .go{background:var(--acc);color:var(--ink);font-size:14px;font-weight:500;padding:0 18px;
   display:grid;place-items:center;white-space:nowrap}
-.inbar .go.paste{background:transparent;color:var(--acc);border-left:1px solid var(--inp);font-size:13px;padding:0 12px}
 .inbar .go:disabled{opacity:.5}
 
 /* 次數列 */

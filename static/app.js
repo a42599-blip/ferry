@@ -317,16 +317,18 @@ async function loadQuota() {
 window._loadQuota = loadQuota;
 
 // ── 解析 ─────────────────────────────────────────
-$('#go').addEventListener('click', () => doResolve());
-
-// 📋 貼上：讀剪貼簿 → **整欄覆蓋** → **立刻自動解析**（完全照 v8i8 的 pasteAndParse）
-$('#paste').addEventListener('click', async () => {
+// ── 唯一的一顆按鈕：「📋 貼上並解析」（小羅 2026-09-27 定案）──────
+//   輸入框空著 → 先讀剪貼簿填入，然後解析
+//   輸入框有東西 → 直接解析（不用先清空）
+//   手動貼上（長按貼上／Ctrl+V）→ 也會自動解析，完全不用再按按鈕
+$('#go').addEventListener('click', async () => {
+  if ($('#url').value.trim()) { doResolve(); return; }
   try {
     const text = await navigator.clipboard.readText();
     if (!text || !text.trim()) { msg('#status', t('paste_empty'), 'err'); return; }
     $('#url').value = extractUrl(text);       // 覆蓋舊連結；支援整段分享文字
     msg('#status', '');
-    doResolve();                              // 使用者不必再按「開始解析」
+    doResolve();                              // 自動解析，不必再按第二次
   } catch {
     // 剪貼簿被拒（iOS Safari 有時要使用者手勢）→ 聚焦讓使用者自己長按貼上
     $('#url').focus();

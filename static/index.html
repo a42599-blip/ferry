@@ -63,10 +63,9 @@
       </div>
       <div class="inbar o-in">
         <input id="url" type="url" inputmode="url" autocomplete="off" data-i18n-ph="dl_placeholder" placeholder="請貼上影片網址">
-        <!-- 兩顆固定按鈕（照 v8i8）：使用者永遠看得到「貼上」，
-             不用先清空舊連結再想辦法。 -->
-        <button class="go paste" id="paste" data-i18n="btn_paste_only">📋 貼上</button>
-        <button class="go" id="go" data-i18n="btn_parse_only">🔍 開始解析</button>
+        <!-- 小羅 2026-09-27 定案：**一個網址列 ＋ 一顆按鈕**就好。
+             點網址欄就出現「貼上並解析」；貼上後**自動解析**，不必再按第二次。 -->
+        <button class="go" id="go" data-i18n="btn_paste_parse">📋 貼上並解析</button>
       </div>
       <div class="quota o-quota">
         <span data-i18n="quota_left">今日剩餘</span> <b class="num" id="q-left">–</b>

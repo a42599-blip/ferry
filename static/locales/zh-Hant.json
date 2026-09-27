@@ -251,8 +251,6 @@
   "err_HTTP_503": "服務暫時無法使用，請稍後再試",
   "quota_beta": "目前為公測期間，暫不收費",
   "pv_play": "播放",
-  "btn_paste_only": "📋 貼上",
-  "btn_parse_only": "🔍 開始解析",
   "paste_empty": "剪貼簿是空的",
   "report_note": "任何平台下載不了都可以告訴我們（不用註冊）。我們會彙總後盡快處理。",
   "report_short": "請多描述一點（至少 4 個字）",
@@ -264,5 +262,6 @@
   "tr_quota_label": "無損傳輸",
   "tr_failed_hint": "連不上對方。請確認兩台裝置在同一個 WiFi，或重新配對一次。",
   "tr_timeout_hint": "還沒連上。若兩台不在同一個網路，可能被防火牆擋住；請改連同一個 WiFi 再試。",
-  "quota_vip": "付費會員：不限次數"
+  "quota_vip": "付費會員：不限次數",
+  "btn_paste_parse": "📋 貼上並解析"
 }

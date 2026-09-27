@@ -251,8 +251,6 @@
   "err_HTTP_503": "Service temporarily unavailable. Please try againlater.",
   "quota_beta": "Free during public beta — no charges",
   "pv_play": "Play",
-  "btn_paste_only": "📋 Paste",
-  "btn_parse_only": "🔍 Parse",
   "paste_empty": "Clipboard is empty",
   "report_note": "Any platform not working? Tell us (no sign-up needed). We review and fix quickly.",
   "report_short": "Please describe a bit more (min 4 chars)",
@@ -264,5 +262,6 @@
   "tr_quota_label": "Lossless transfer",
   "tr_failed_hint": "Could not connect. Make sure both devices are on the same WiFi, or pair again.",
   "tr_timeout_hint": "Not connected yet. If the devices are on different networks, a firewall may block it — try the same WiFi.",
-  "quota_vip": "Paid members: unlimited"
+  "quota_vip": "Paid members: unlimited",
+  "btn_paste_parse": "📋 Paste & Parse"
 }
