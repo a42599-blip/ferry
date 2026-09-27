@@ -345,27 +345,65 @@ async function loadAnnouncements() {
   bar.hidden = false;
 }
 
-// ── 客服給我的回覆（小羅 2026-09-27：我回了客戶，客戶要看得到）──
+// ── 客服給我的回覆（固定在畫面底部、可收合、可滾動）──────────
+//   小羅 2026-09-27：
+//   「框框做小一點，要可以收起來、可以上下滑動，
+//     固定在下面客戶回報那個地方，不然頁面一直被拖下去。」
+let _replyItems = [];
+let _replyPending = 0;
+const REPLY_OPEN_KEY = 'fy_reply_open';
+
+function renderReplyBar() {
+  const bar = document.getElementById('replybar');
+  if (!bar) return;
+  if (!_replyItems.length) {
+    if (_replyPending) {                       // 沒有回覆但還有處理中的回報 → 細提示
+      bar.hidden = false;
+      bar.innerHTML = '<div class="repbar mini"><span class="ri">⏳</span>'
+        + '<span class="rt">' + t('reply_pending') + '（' + _replyPending + '）</span></div>';
+      return;
+    }
+    bar.hidden = true;
+    bar.innerHTML = '';
+    return;
+  }
+  const open = localStorage.getItem(REPLY_OPEN_KEY) !== '0';
+  const items = _replyItems.map((x) => {
+    const when = x.replied_at ? new Date(x.replied_at * 1000).toLocaleString() : '';
+    return '<div class="ritem">'
+      + '<div class="rr">' + esc(x.reply) + '</div>'
+      + (x.action ? '<div class="ra">' + t('reply_action') + '：' + esc(x.action) + '</div>' : '')
+      + (when ? '<div class="rd">' + esc(when) + '</div>' : '')
+      + '</div>';
+  }).join('');
+  bar.hidden = false;
+  bar.innerHTML = '<div class="repbar ' + (open ? 'open' : 'closed') + '">'
+    + '<button class="rhead" type="button">'
+    + '<span class="ri">💬</span>'
+    + '<span class="rt">' + t('reply_title') + '</span>'
+    + '<span class="rn">' + _replyItems.length + '</span>'
+    + '<span class="rx">' + (open ? '▾' : '▸') + '</span>'
+    + '</button>'
+    + '<div class="rbody">' + items + '</div>'
+    + '</div>';
+  const head = bar.querySelector('.rhead');
+  if (head) {
+    head.addEventListener('click', () => {
+      const nowOpen = localStorage.getItem(REPLY_OPEN_KEY) !== '0';
+      localStorage.setItem(REPLY_OPEN_KEY, nowOpen ? '0' : '1');
+      renderReplyBar();
+    });
+  }
+}
+
 async function loadMyReplies() {
-  const bar = $('#replybar');
+  const bar = document.getElementById('replybar');
   if (!bar) return;
   let j;
-  try { j = await api('/api/my-replies'); } catch { return; }
-  const items = j.items || [];
-  if (!items.length && !j.pending) { bar.hidden = true; return; }
-  bar.innerHTML = items.slice(0, 3).map((x) => `
-    <div class="rep">
-      <span class="ri">💬</span>
-      <div>
-        <b>${t('reply_title')}</b>
-        <div class="rr">${esc(x.reply)}</div>
-        ${x.action ? `<div class="ra">${t('reply_action')}：${esc(x.action)}</div>` : ''}
-      </div>
-    </div>`).join('')
-    + (j.pending ? `<div class="rep pend"><span class="ri">⏳</span><div>`
-        + `<b>${t('reply_pending')}</b><div class="rr">已收到你的回報（共 ${j.pending} 則），`
-        + `我們會盡快處理並在這裡回覆你。</div></div></div>` : '');
-  bar.hidden = false;
+  try { j = await api('/api/my-replies'); } catch (err) { return; }
+  _replyItems = (j.items || []).slice(0, 20);
+  _replyPending = j.pending || 0;
+  renderReplyBar();
 }
 
 async function loadQuota() {

@@ -772,7 +772,14 @@ async def handle_feedback(fid: int, body: dict = Body(...),
                     dev = cand
                     break
     mid = m.get("id")
-    subject = f"user:{mid}" if mid else (f"dev:{dev}" if dev else "")
+    # ⚠️ 裝置 ID 本身已經是 dev:xxx / ip:xxx 格式（auth._device_id 就加了前綴），
+    #    不要再補一次 dev: 否則會變成 dev:dev:xxx → 加到錯的地方，前台看不到。
+    if mid:
+        subject = f"user:{mid}"
+    elif dev:
+        subject = dev if dev.startswith(("dev:", "ip:")) else f"dev:{dev}"
+    else:
+        subject = ""
 
     dl = int(body.get("download") or 0)
     tr = int(body.get("transfer") or 0)
