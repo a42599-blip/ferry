@@ -259,3 +259,80 @@ async def send_digest(days: int = 1) -> dict:
     ok, note = await asyncio.to_thread(_send_sync, subject, body)
     _log(subject, body, ok, note, "digest")
     return {"ok": ok, "note": note, "to": _recipients(), "transport": transport()}
+
+
+# ══════════════════════════════════════════════════════════════════
+#  對「全體會員」發通知（小羅 2026-09-27 要求）
+#  「如果平台有問題、要關掉、要更新，我們可以用郵件通知會員。」
+#
+#  ⚠️ 一次一封一封寄（不是同一封密件多收件人）：
+#     避免收件人彼此看到對方 Email（隱私），也避免被判垃圾信。
+#     每位收件人之間間隔 0.4 秒，避免被金流／郵件商限流。
+# ══════════════════════════════════════════════════════════════════
+
+def _send_one(to: str, subject: str, body: str) -> tuple[bool, str]:
+    """寄給單一收件人（沿用既有的寄送方式）。"""
+    if transport() == "none":
+        return False, "未設定寄送方式"
+    if transport() == "resend":
+        import json as _json
+        import urllib.request as _rq
+
+        key = os.getenv("RESEND_API_KEY", "")
+        frm = os.getenv("NOTIFY_FROM") or "onboarding@resend.dev"
+        data = _json.dumps({"from": frm, "to": [to], "subject": subject, "text": body}).encode()
+        req = _rq.Request("https://api.resend.com/emails", data=data,
+                          headers={"Authorization": f"Bearer {key}",
+                                   "Content-Type": "application/json"})
+        try:
+            with _rq.urlopen(req, timeout=25) as r:
+                return 200 <= r.status < 300, f"HTTP {r.status}"
+        except Exception as exc:  # noqa: BLE001
+            return False, str(exc)[:120]
+    # SMTP
+    import smtplib
+    from email.message import EmailMessage
+
+    try:
+        host = os.getenv("SMTP_HOST", "")
+        port = int(os.getenv("SMTP_PORT") or 587)
+        user = os.getenv("SMTP_USER", "")
+        pwd = os.getenv("SMTP_PASS", "")
+        frm = os.getenv("SMTP_FROM") or user
+        msg = EmailMessage()
+        msg["From"] = frm
+        msg["To"] = to
+        msg["Subject"] = subject
+        msg.set_content(body)
+        with smtplib.SMTP(host, port, timeout=25) as sv:
+            sv.starttls()
+            if user:
+                sv.login(user, pwd)
+            sv.send_message(msg)
+        return True, "sent"
+    except Exception as exc:  # noqa: BLE001
+        return False, str(exc)[:120]
+
+
+async def broadcast(subject: str, body: str, *, only: str = "all") -> dict:
+    """對會員發送通知（背景執行，回傳預估結果）。"""
+    from . import members
+
+    targets = members.emails(only)
+    if not targets:
+        return {"ok": False, "reason": "沒有會員 Email", "sent": 0, "total": 0}
+    sent = failed = 0
+    failures: list[str] = []
+    for i, to in enumerate(targets):
+        ok, note = await asyncio.to_thread(_send_one, to, subject, body)
+        if ok:
+            sent += 1
+        else:
+            failed += 1
+            if len(failures) < 5:
+                failures.append(f"{to}: {note}")
+        if i < len(targets) - 1:
+            await asyncio.sleep(0.4)      # 避免被限流
+    _log(subject, f"廣播給 {len(targets)} 人", sent > 0, f"成功 {sent}／失敗 {failed}", "broadcast")
+    return {"ok": True, "sent": sent, "failed": failed, "total": len(targets),
+            "transport": transport(), "failures": failures}

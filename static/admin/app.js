@@ -458,6 +458,69 @@ async function pgFlags() {
 
 // ── 會員與裝置 ───────────────────────────────────
 async function pgDevices() {
+  // ── 會員統計（註冊／付費／訪客，小羅 2026-09-27 要求）──
+  const ms = await api('/members');
+  const st = ms.stats;
+  $('#mem-kpis').innerHTML = [
+    kpi('註冊會員', fmtN(st.total),
+      `今天新增 <b>${fmtN(st.today_new)}</b>　近 7 天 ${fmtN(st.week_new)}`),
+    kpi('付費會員', fmtN(st.paid),
+      `轉換率 ${st.conversion}%　免費會員 ${fmtN(st.free)}`),
+    kpi('訪客（未註冊裝置）', fmtN(st.visitor_devices), '有活動紀錄但沒有帳號'),
+    kpi('付費方案數', fmtN((st.plans || []).filter((p) => p.count > 0).length),
+      (st.plans || []).map((p) => `${p.name} ${p.count}`).join('　') || '尚無'),
+  ].join('');
+  $('#mem-plans').innerHTML = (st.plans || []).length ? table([
+    { t: '方案', v: (r) => esc(r.name) },
+    { t: '價格', v: (r) => 'US$ ' + fmtN(r.price), num: true },
+    { t: '人數', v: (r) => `<b>${fmtN(r.count)}</b>`, html: true },
+    { t: '佔比', v: (r) => {
+        const total = st.total || 1;
+        const pctv = (r.count / total * 100).toFixed(1);
+        return `<span class="bar"><i style="width:${pctv}%"></i></span> ${pctv}%`;
+      }, html: true },
+  ], st.plans, '還沒有付費會員') : '<div class="dim">還沒有付費會員</div>';
+  $('#mem-list').innerHTML = (ms.members || []).length ? table([
+    { t: '註冊時間', v: (r) => fmtTime(r.created_at) },
+    { t: 'Email', v: (r) => esc(r.email || '–') },
+    { t: '方案', v: (r) => r.paid
+        ? `<span class="badge ok">${esc(r.plan_name)}</span>`
+        : `<span class="badge">${esc(r.plan_name)}</span>`, html: true },
+    { t: '到期', v: (r) => r.expires_at ? fmtTime(r.expires_at) : '永久／無' },
+    { t: '綁定裝置', v: (r) => esc(String(r.device_id || '–').slice(0, 20)) },
+  ], ms.members, '目前還沒有註冊會員') : '<div class="dim">目前還沒有註冊會員</div>';
+
+  // ── 對會員發 Email（小羅 2026-09-27）──
+  const me = await api('/members/emails');
+  $('#mem-mailcount').textContent =
+    `全部 ${me.all} 人　付費 ${me.paid}　免費 ${me.free}`;
+  $('#mb-send').onclick = async () => {
+    const subject = $('#mb-subject').value.trim();
+    const content = $('#mb-body').value.trim();
+    if (!subject || content.length < 5) return alert('主旨與內容都要填');
+    const only = $('#mb-only').value;
+    const n = only === 'paid' ? me.paid : only === 'free' ? me.free : me.all;
+    if (!n) return alert('這個群組目前沒有會員 Email');
+    if (!confirm(`確定要寄給 ${n} 位會員？
+
+主旨：${subject}`)) return;
+    $('#mb-send').disabled = true;
+    $('#mb-status').textContent = '寄送中…（一位一封，需要一點時間）';
+    try {
+      const r = await api('/members/broadcast', { method: 'POST', body: JSON.stringify({
+        subject, body: content, only }) });
+      const x = r.result || {};
+      $('#mb-status').textContent = x.total
+        ? `✅ 已寄送 ${x.sent} 封（失敗 ${x.failed}／共 ${x.total}）`
+          + (x.transport === 'none' ? '　⚠️ 尚未設定寄送方式' : '')
+        : `⚠️ ${x.reason || '沒有可寄送的對象'}`;
+      if (x.failures && x.failures.length) {
+        $('#mb-status').textContent += `　失敗範例：${x.failures[0].slice(0, 60)}`;
+      }
+    } catch (e) { $('#mb-status').textContent = '❌ ' + e.message; }
+    finally { $('#mb-send').disabled = false; }
+  };
+
   const d = await api('/devices?days=' + days());
   $('#dev-count').textContent = `共 ${d.devices.length} 台`;
   $('#devices').innerHTML = table([
@@ -478,7 +541,8 @@ async function pgDevices() {
     { t: '最後活動', v: (r) => fmtTime(r.last_seen) },
   ], d.devices);
   $$('#devices .rowlink').forEach((el) => el.addEventListener('click', () => loadTrace(el.dataset.dev)));
-  queue(`裝置 ${d.devices.length} 台　（區間：最近 ${days()} 天）`);
+  queue(`會員 ${fmtN(st.total)} 人（付費 ${fmtN(st.paid)}／今天新增 ${fmtN(st.today_new)}）　`
+        + `訪客 ${fmtN(st.visitor_devices)} 台　裝置表 ${d.devices.length} 台`);
 }
 
 async function loadTrace(dev) {

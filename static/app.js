@@ -692,6 +692,27 @@ $('#m-register').addEventListener('click', async () => {
 $('#m-logout').addEventListener('click', async () => {
   localStorage.removeItem(MKEY); await refreshMember(); await loadQuota();
 });
+
+// ── 註銷帳號（使用者自己註銷；小羅 2026-09-27 要求警語要講清楚）──
+$('#m-delete').addEventListener('click', async () => {
+  const m = state.member || {};
+  const paid = m.plan && m.plan !== 'free';
+  // 依「有沒有付費」給不同的警告（付費的講不退費；沒付費的講要重新申請）
+  const warn = paid
+    ? t('delete_warn_paid')      // 你目前是付費會員：註銷後費用不退、資格立即失效
+    : t('delete_warn_free');     // 註銷後要再用會員功能必須重新申請
+  const step1 = confirm(warn);
+  if (!step1) return;
+  const step2 = confirm(t('delete_confirm_final'));
+  if (!step2) return;
+  try {
+    const j = await api('/api/member/me', { method: 'DELETE' });
+    localStorage.removeItem(MKEY);
+    msg('#m-msg', j.message || t('delete_done'), 'ok');
+    await refreshMember();
+    await loadQuota();
+  } catch (e) { msg('#m-msg', e.message, 'err'); }
+});
 // 回報問題（任何人都能送）→ 自動附帶「目前平台」與「輸入框連結」方便重現
 $('#rp-send').addEventListener('click', async () => {
   const text = $('#rp-msg').value.trim();

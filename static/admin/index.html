@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/admin/style.css?v=8">
+<link rel="stylesheet" href="/admin/style.css?v=9">
 </head>
 <body>
 
@@ -122,6 +122,37 @@
 
       <!-- 會員與裝置 -->
       <section class="pg" id="pg-devices">
+        <!-- 會員統計（小羅 2026-09-27：這些數字都要留）-->
+        <div class="kpis" id="mem-kpis"></div>
+        <div class="rows">
+          <div class="pnl"><div class="lbl">付費方案分佈</div><div id="mem-plans"></div>
+            <p class="note">付費等級不同會分開列（月會員／終身會員…）。</p></div>
+          <div class="pnl grow2"><div class="lbl">會員名單</div><div class="scroll" id="mem-list"></div></div>
+        </div>
+        <!-- 對會員發 Email 通知（小羅 2026-09-27 要求）-->
+        <div class="pnl">
+          <div class="rowbetween">
+            <div class="lbl">寄 Email 給會員</div>
+            <div class="dim" id="mem-mailcount" style="font-size:11.5px"></div>
+          </div>
+          <p class="note">平台有問題、要關掉、要更新時，可以直接在這裡通知會員。
+            寄送方式是<b>一人一封</b>（不會讓會員看到彼此的 Email）。
+            寄送方式要在 Railway 設定：<code>RESEND_API_KEY</code>（推薦）或
+            <code>SMTP_HOST</code>／<code>SMTP_USER</code>／<code>SMTP_PASS</code>。</p>
+          <div class="inrow">
+            <select id="mb-only">
+              <option value="all">全部會員</option>
+              <option value="paid">只付費會員</option>
+              <option value="free">只免費會員</option>
+            </select>
+            <input id="mb-subject" placeholder="主旨（例：系統維護通知）">
+          </div>
+          <textarea id="mb-body" rows="5" placeholder="內容（例：今晚 02:00-03:00 會進行維護，期間可能無法解析影片，造成不便請見諒。）"></textarea>
+          <div class="inrow">
+            <button class="big sm" id="mb-send">寄送給會員</button>
+            <span class="dim" id="mb-status" style="font-size:11.5px"></span>
+          </div>
+        </div>
         <div class="pnl">
           <div class="lbl">裝置 / 訪客 <span class="dim" id="dev-count"></span></div>
           <div class="scroll" id="devices"></div>
@@ -249,6 +280,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=8"></script>
+<script src="/admin/app.js?v=9"></script>
 </body>
 </html>

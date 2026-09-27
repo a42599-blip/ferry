@@ -44,6 +44,16 @@ def current_subject(request=None) -> str:
     return _device_id(request)
 
 
+def current_member_id(request=None) -> str | None:
+    """目前登入的會員 ID（沒登入回 None）。
+
+    給「註銷帳號」這種需要知道是誰的端點用。
+    """
+    if not enabled():
+        return _member_from_request(request)
+    return _member_from_request(request)
+
+
 def _member_from_request(request=None) -> str | None:
     if request is None:
         return None

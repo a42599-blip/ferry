@@ -272,5 +272,11 @@
   "pay_qr_ready": "Payment QR code ready — please scan",
   "tr_joined_note": "✅ Connected with the other device's code — no need to generate your own.",
   "tr_connected_send": "Connected. Press “Start sending” below — the other device receives automatically.",
-  "tr_connected_recv": "Connected. The file will download automatically once the other device starts sending."
+  "tr_connected_recv": "Connected. The file will download automatically once the other device starts sending.",
+  "btn_delete_account": "Delete account",
+  "delete_note": "Deleting your account removes your data permanently. This cannot be undone.",
+  "delete_warn_paid": "You are currently a paid member. After deleting:\n\n• No refund will be issued\n• Your membership ends immediately\n• Your quota returns to the free tier\n\nContinue?",
+  "delete_warn_free": "After deleting your account:\n\n• Your account data will be removed\n• To use member features again you must sign up again\n\nContinue?",
+  "delete_confirm_final": "Final check: really delete your account?\n(This cannot be undone)",
+  "delete_done": "Account deleted. Thanks for using our service."
 }

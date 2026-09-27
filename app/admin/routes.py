@@ -150,6 +150,37 @@ async def devices(days: int = Query(30, ge=1, le=365), _: dict = Depends(require
     return {"ok": True, "devices": events.list_devices(days=days)}
 
 
+@router.get("/members")
+async def members_list(_: dict = Depends(require_admin)) -> dict:
+    """會員統計 ＋ 名單（小羅 2026-09-27：這些數字都要留）。"""
+    from ..services import members
+
+    return {"ok": True, "stats": members.stats(), "members": members.list_full()}
+
+
+@router.get("/members/emails")
+async def members_emails(_: dict = Depends(require_admin)) -> dict:
+    """會員 Email 名單（寄通知用）。"""
+    from ..services import members
+
+    return {"ok": True, "all": members.counts_by("all"),
+            "paid": members.counts_by("paid"), "free": members.counts_by("free"),
+            "sample": members.emails("all")[:50]}
+
+
+@router.post("/members/broadcast")
+async def members_broadcast(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
+    """對會員發通知（平台有問題／要關掉／要更新時用）。"""
+    from ..services import notify
+
+    subject = (body.get("subject") or "").strip()
+    content = (body.get("body") or "").strip()
+    if not subject or len(content) < 5:
+        raise HTTPException(status_code=400, detail="主旨與內容都要填")
+    r = await notify.broadcast(subject, content, only=body.get("only") or "all")
+    return {"ok": True, "result": r}
+
+
 @router.get("/devices/{device_id}")
 async def device_trace(device_id: str, _: dict = Depends(require_admin)) -> dict:
     return {"ok": True, "device_id": device_id, "trace": events.device_trace(device_id)}

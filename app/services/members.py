@@ -130,3 +130,121 @@ def list_members(limit: int = 200) -> list[dict]:
 def set_plan(member_id: str, plan: str, expires_at: float | None = None) -> None:
     db.execute("UPDATE members SET plan=?, expires_at=? WHERE id=?",
                (plan, expires_at, member_id))
+
+
+# ══════════════════════════════════════════════════════════════════
+#  會員統計（小羅 2026-09-27 要求）
+#  「有多少會員、多少付費會員、付費等級分別幾個、今天新增幾個、
+#    付費／未付費／訪客各多少 —— 這些數據都要留。」
+# ══════════════════════════════════════════════════════════════════
+
+def _day_start(tz_name: str = "Asia/Taipei") -> float:
+    """該時區「今天 00:00」的時間戳（後端全部用 UTC 秒，這裡換算當地午夜）。"""
+    import datetime as _dt
+
+    try:
+        from zoneinfo import ZoneInfo
+
+        now = _dt.datetime.now(ZoneInfo(tz_name))
+    except Exception:  # noqa: BLE001
+        now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=8)))
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return midnight.timestamp()
+
+
+def stats(tz_name: str = "Asia/Taipei") -> dict:
+    """會員統計（後台首頁／會員頁用）。"""
+    from . import billing
+
+    total = int(db.scalar("SELECT COUNT(*) FROM members") or 0)
+    # 「今天」＝該時區的當天 00:00 起算
+    day_start = _day_start(tz_name)
+    today_new = int(db.scalar(
+        "SELECT COUNT(*) FROM members WHERE created_at>=?", (day_start,)) or 0)
+    week_new = int(db.scalar(
+        "SELECT COUNT(*) FROM members WHERE created_at>=?", (day_start - 6 * 86400,)) or 0)
+
+    # 各方案分佈（付費等級不同要分別列出來）
+    rows = {r["plan"]: int(r["c"]) for r in db.query(
+        "SELECT plan, COUNT(*) AS c FROM members GROUP BY plan")}
+    plans = []
+    for pid, meta in billing.PLANS.items():
+        n = rows.get(pid, 0)
+        if pid == billing.PLAN_FREE:
+            continue
+        plans.append({"id": pid, "name": meta["name"], "price": meta["price"], "count": n})
+    free_n = rows.get(billing.PLAN_FREE, 0)
+    paid_n = sum(x["count"] for x in plans)
+
+    # 訪客＝有活動紀錄但沒有註冊帳號的裝置
+    visitor_devices = int(db.scalar(
+        "SELECT COUNT(*) FROM devices WHERE device_id NOT IN"
+        " (SELECT device_id FROM members WHERE device_id IS NOT NULL AND device_id<>'')") or 0)
+
+    return {
+        "total": total,
+        "today_new": today_new,
+        "week_new": week_new,
+        "free": free_n,
+        "paid": paid_n,
+        "plans": plans,
+        "visitor_devices": visitor_devices,
+        "conversion": round(paid_n / total * 100, 1) if total else 0.0,
+    }
+
+
+def list_full(limit: int = 300) -> list[dict]:
+    """會員清單（含方案名稱）。"""
+    from . import billing
+
+    plans = billing.PLANS
+    out = []
+    for r in db.query(
+            "SELECT id, email, plan, device_id, tz, created_at, expires_at"
+            " FROM members ORDER BY created_at DESC LIMIT ?", (limit,)):
+        row = dict(r)
+        row["plan_name"] = (plans.get(row["plan"]) or {}).get("name", row["plan"])
+        row["paid"] = row["plan"] not in ("", None, billing.PLAN_FREE)
+        out.append(row)
+    return out
+
+
+def delete(member_id: str) -> bool:
+    """註銷帳號（小羅要求：要能讓會員自己註銷）。
+
+    ⚠️ 只刪「帳號」本身；這個裝置的匿名統計（events）保留，
+       因為那是「不記名的流量數字」，刪掉會讓後台數字對不上。
+       但會把裝置與帳號的關聯切斷。
+    """
+    m = get(member_id)
+    if not m:
+        return False
+    db.execute("UPDATE members SET device_id=NULL WHERE id=?", (member_id,))
+    db.execute("DELETE FROM members WHERE id=?", (member_id,))
+    # token 是自帶簽章的（沒有查表），所以不用另外清
+    return True
+
+
+def emails(only: str = "all") -> list[str]:
+    """取得會員 Email 名單（後台寄通知用）。
+
+    only: all（全部）／paid（只付費）／free（只免費）
+    """
+    from . import billing
+
+    if only == "paid":
+        sql = ("SELECT email FROM members WHERE email IS NOT NULL AND email<>''"
+               " AND plan<>? ORDER BY created_at DESC")
+        rows = db.query(sql, (billing.PLAN_FREE,))
+    elif only == "free":
+        sql = ("SELECT email FROM members WHERE email IS NOT NULL AND email<>''"
+               " AND plan=? ORDER BY created_at DESC")
+        rows = db.query(sql, (billing.PLAN_FREE,))
+    else:
+        rows = db.query("SELECT email FROM members WHERE email IS NOT NULL AND email<>''"
+                        " ORDER BY created_at DESC")
+    return [r["email"] for r in rows if r["email"]]
+
+
+def counts_by(only: str = "all") -> int:
+    return len(emails(only))

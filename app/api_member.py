@@ -57,6 +57,25 @@ async def me(request: Request) -> dict:
             "unlimited": billing.is_unlimited(f"user:{mid}")}
 
 
+# ── 註銷帳號（**使用者自己**註銷；小羅 2026-09-27 要求）──────────
+#    ⚠️ 不是後台代為註銷 —— 要讓使用者自己決定。
+#    警語在**前端**跳（依有沒有付費給不同警告）：
+#      • 已付費 → 費用不退、資格立即失效
+#      • 未付費 → 之後要再用會員功能必須重新申請
+@router.delete("/api/member/me")
+async def delete_me(request: Request) -> dict:
+    """註銷自己的帳號。
+
+    ⚠️ 只刪「帳號」本身；不記名的流量統計（events）保留，
+       否則後台的流量數字會對不上。裝置與帳號的關聯會切斷。
+    """
+    mid = auth.current_member_id(request)
+    if not mid:
+        raise HTTPException(status_code=401, detail="尚未登入")
+    members.delete(mid)
+    return {"ok": True, "message": "帳號已註銷，謝謝你曾經使用。"}
+
+
 # ── 付款 ─────────────────────────────────────────────
 @router.get("/api/pay/providers")
 async def pay_providers() -> dict:
