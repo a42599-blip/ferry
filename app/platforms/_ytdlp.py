@@ -45,6 +45,19 @@ def quality_label(height: int | None) -> str:
     return f"{height}P"
 
 
+def _cache_dir():
+    """yt-dlp 的快取目錄（優先用資料目錄，讓它跨重啟保留）。"""
+    import os
+
+    root = os.environ.get("DATA_DIR") or os.path.join(os.getcwd(), "data")
+    path = os.path.join(root, "yt-dlp-cache")
+    try:
+        os.makedirs(path, exist_ok=True)
+        return path
+    except OSError:
+        return True          # 建不出來就讓 yt-dlp 用它的預設位置
+
+
 # ⚠️ 一定要用「桌面瀏覽器」UA，不要用手機 UA（2026-09-27 實測踩到）：
 #    手機 UA 會讓 Facebook／TikTok／微博／今日頭條 回「沒有影片資料」的頁面：
 #      Facebook      手機 UA → 0 種畫質　桌面 UA → 1080P/720P ✅
@@ -65,7 +78,12 @@ _BASE_OPTS: dict[str, Any] = {
     "extractor_retries": 1,
     "retries": 2,
     "nocheckcertificate": True,
-    "cachedir": False,          # 容器內不需要快取
+    # ⚠️ 一定要留快取！（2026-09-27 從 v8i8 對照出來的關鍵）
+    #    yt-dlp 會把 YouTube 的 player JS／PO token 存在快取裡；
+    #    關掉快取 = 每次都要重新解一次 JS 驗證 → 某些影片就被判定成機器人。
+    #    v8i8 沒有關快取，所以它的 YouTube 三支測起來全部成功。
+    #    這裡放在資料目錄（Railway 是 Volume）→ 重啟也不會消失。
+    "cachedir": _cache_dir(),
     "no_color": True,
     "http_headers": {
         "User-Agent": _DESKTOP_UA,
