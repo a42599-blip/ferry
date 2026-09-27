@@ -236,12 +236,27 @@ async function pgReports() {
         ? '<span class="dim">' + esc(r.url.slice(0, 44)) + '</span>' : '–'), html: true },
     { t: '狀態', v: (r) => (r.handled ? '<span class="badge ok">已處理</span>'
         : '<button class="gh" data-fb="' + r.id + '">標記已處理</button>'), html: true },
-  ], rows) : '<div class="dim">目前沒有回報 🎉</div>';
+  ], rows) : (`<div class="dim">目前沒有客戶回報 🎉</div>
+    <div class="adjustbox" style="margin-top:12px">
+      <div class="lbl2">如果客人是用其他方式（電話／私訊）反映，也可以在這裡補登並直接處理</div>
+      <div class="inrow">
+        <input id="rp-new-msg" placeholder="客戶反映的內容（例：抖音貼連結沒反應）">
+        <button class="big sm" id="rp-new-add">補登一筆</button>
+      </div>
+      <div class="dim" style="font-size:11.5px">補登後會出現在上面的清單，並可標記已處理。</div>
+    </div>`);
   $$('#rp-list [data-fb]').forEach((b) => b.addEventListener('click', async () => {
     await api('/feedback/' + b.dataset.fb + '/handled', { method: 'POST', body: '{}' });
     queue('已標記回報 #' + b.dataset.fb + ' 為已處理');
     pgReports();
   }));
+  $('#rp-new-add').onclick = async () => {
+    const msg = $('#rp-new-msg').value.trim();
+    if (msg.length < 4) return alert('請至少寫 4 個字');
+    await api('/report', { method: 'POST', body: JSON.stringify({ message: msg }) });
+    queue('已補登一筆客戶回報');
+    pgReports();
+  };
   queue(`客戶回報 ${fmtN(c.total)} 則（未處理 ${fmtN(c.new)}）`);
 }
 $('#rp-onlynew').addEventListener('change', () => { if (curPage === 'reports') pgReports(); });
@@ -258,14 +273,29 @@ async function pgQuotas() {
     kpi('免費次數限制', q.enabled ? '開啟中' : '已關閉',
         q.enabled ? '超過就必須等隔天或付費' : '所有人都無限使用'),
   ].join('');
-  $('#qt-list').innerHTML = (q.rows || []).length ? table([
+  // 手動加次數（對象用 Email 或裝置 ID 都可以；不必等有資料）
+  const manualBox = `
+    <div class="adjustbox">
+      <div class="lbl2">手動加次數（客人反映「失敗還扣我次數」時用）</div>
+      <div class="inrow">
+        <input id="qt-who" placeholder="輸入會員 Email 或裝置 ID（例：dev_xxx）">
+        <select id="qt-kind">
+          <option value="download">無水印下載</option>
+          <option value="transfer">無損傳輸</option>
+        </select>
+        <input id="qt-n" type="number" min="1" step="1" placeholder="加幾次？（1 / 10 / 100）" value="1">
+        <button class="big sm" id="qt-add">加次數</button>
+      </div>
+      <div class="dim" id="qt-msg" style="font-size:11.5px"></div>
+    </div>`;
+  $('#qt-list').innerHTML = manualBox + ((q.rows || []).length ? table([
     { t: '對象', v: (r) => esc(r.subject) },
     { t: '用途', v: (r) => esc(r.kind === 'transfer' ? '無損傳輸' : '無水印下載') },
     { t: '今日已用', v: (r) => `<b>${fmtN(r.count)}</b> / ${fmtN(r.limit)}`, html: true },
     { t: '剩餘', v: (r) => fmtN(Math.max(0, r.limit - r.count)), num: true },
     { t: '幫他 ＋1', v: (r) => `<button class="gh" data-grant="${esc(r.subject)}" data-kind="${esc(r.kind)}">補回一次</button>`, html: true },
     { t: '歸零', v: (r) => `<button class="gh" data-reset="${esc(r.subject)}" data-kind="${esc(r.kind)}">清除</button>`, html: true },
-  ], q.rows) : '<div class="dim">今天還沒有人使用免費次數</div>';
+  ], q.rows) : '<div class="dim">今天還沒有人使用免費次數（上面可以直接手動加）</div>');
   $$('#qt-list [data-grant]').forEach((b) => b.addEventListener('click', async () => {
     await api('/quota/grant', { method: 'POST', body: JSON.stringify({
       subject: b.dataset.grant, kind: b.dataset.kind, n: 1 }) });
@@ -278,6 +308,25 @@ async function pgQuotas() {
     queue('已清除 ' + b.dataset.reset);
     pgQuotas();
   }));
+  $('#qt-add').onclick = async () => {
+    const who = $('#qt-who').value.trim();
+    const n = Number($('#qt-n').value || 1);
+    if (!who) { $('#qt-msg').textContent = '請先填會員 Email 或裝置 ID'; return; }
+    // Email → 轉成會員 subject；其他就當裝置 ID
+    let subject = who;
+    try {
+      if (who.includes('@')) {
+        const r = await api('/members/search?q=' + encodeURIComponent(who));
+        if (!r.rows.length) { $('#qt-msg').textContent = '找不到這個會員'; return; }
+        subject = 'user:' + r.rows[0].id;
+      }
+      await api('/quota/grant', { method: 'POST', body: JSON.stringify({
+        subject, kind: $('#qt-kind').value, n }) });
+      $('#qt-msg').textContent = `✅ 已給 ${who} 加 ${n} 次`;
+      queue(`已給 ${who} 加 ${n} 次`);
+      pgQuotas();
+    } catch (e) { $('#qt-msg').textContent = '❌ ' + e.message; }
+  };
   $('#qt-reset-all').onclick = async () => {
     if (!confirm('把今天所有人的用量歸零？')) return;
     await api('/quota/reset', { method: 'POST', body: '{}' });
@@ -1020,7 +1069,8 @@ async function loadMemberList() {
     { t: '註冊', v: (r) => fmtTime(r.created_at) },
     { t: '付費起', v: (r) => (r.plan_started_at ? fmtTime(r.plan_started_at) : '–') },
     { t: '到期', v: (r) => (r.expires_at ? fmtTime(r.expires_at) : '永久') },
-    { t: '剩餘', v: (r) => (r.remaining_days === null ? '–'
+    { t: '剩餘', v: (r) => (r.remaining_days === null
+        ? (r.plan === 'lifetime' ? '<b>永久</b>' : '<span class="dim">免費方案</span>')
         : (r.remaining_days <= 0 ? '<span class="badge err">已到期</span>'
           : `<b>${r.remaining_days}</b> 天`)), html: true },
     { t: '登入', v: (r) => `${fmtN(r.login_count)} 次<br><span class="dim">`
@@ -1047,6 +1097,10 @@ async function openMemberCard(mid) {
     + (r.platform ? `　${esc(r.platform)}` : '')
     + (r.result ? `　${r.result === 'ok' ? '✅' : '❌'}` : '') + '</div>').join('')
     || '<div class="dim">尚無活動</div>';
+  const logins = (m.logins || []).map((x) =>
+    `<div class="hrow">${fmtTime(x.ts)}　<span class="dim">${esc(x.os || '')}`
+    + `${x.browser ? ' · ' + esc(x.browser) : ''}`
+    + `${x.country ? ' · ' + esc(x.country) : ''}</span></div>`).join('');
   $('#ml-cardtitle').textContent = `會員資料卡 — ${m.email || m.id}`;
   // 會員種類要「一眼看得出來」（小羅 2026-09-27：資料卡沒寫他是哪一種會員）
   const PTYPE = { free: '免費會員', monthly: '月會員', lifetime: '終身會員' };
@@ -1076,7 +1130,8 @@ async function openMemberCard(mid) {
       <div><span>註冊時間</span>${fmtTime(m.created_at)}</div>
       <div><span>付費起始</span>${m.plan_started_at ? fmtTime(m.plan_started_at) : '–'}</div>
       <div><span>到期時間</span>${m.expires_at ? fmtTime(m.expires_at) : '永久'}</div>
-      <div><span>剩餘天數</span>${m.remaining_days === null ? '–'
+      <div><span>剩餘天數</span>${m.remaining_days === null
+          ? (m.plan === 'lifetime' ? '<b>永久</b>' : '免費方案無期限')
           : (m.remaining_days <= 0 ? '<b>已到期</b>' : `<b>${m.remaining_days}</b> 天`)}</div>
       <div><span>最後登入</span>${m.last_login_at ? fmtTime(m.last_login_at) : '–'}</div>
       <div><span>登入次數</span>${fmtN(m.login_count)} 次</div>
@@ -1107,6 +1162,10 @@ async function openMemberCard(mid) {
     <div class="rows" style="margin-top:14px">
       <div class="pnl"><div class="lbl">方案變更歷史</div>${hist}</div>
       <div class="pnl"><div class="lbl">最近活動</div>${recent}</div>
+    </div>
+    <div class="pnl" style="margin-top:12px">
+      <div class="lbl">登入歷史（共 ${fmtN(m.login_count)} 次）</div>
+      ${logins || '<div class="dim">尚無登入紀錄</div>'}
     </div>`;
   $('#ml-cardbox').hidden = false;
   $('#ml-cardbox').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1148,5 +1207,11 @@ function bindMemberPage() {
   $('#ml-prev').onclick = () => { if (ML.page > 1) { ML.page--; loadMemberList(); } };
   $('#ml-next').onclick = () => { if (ML.page < ML.pages) { ML.page++; loadMemberList(); } };
   $('#ml-cardclose').onclick = () => { $('#ml-cardbox').hidden = true; };
+  $('#ml-backfill').onclick = async () => {
+    if (!confirm('把早期會員的「登入次數／最後登入／地區」從紀錄補回來？（不會覆蓋已有資料）')) return;
+    const r = await api('/members/backfill', { method: 'POST', body: '{}' });
+    queue(`已回填：登入 ${r.logins} 位、地區 ${r.countries} 位`);
+    loadMemberList();
+  };
 }
 bindMemberPage();

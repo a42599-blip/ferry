@@ -283,6 +283,21 @@ async def adjust_member(member_id: str, body: dict = Body(...),
     return {"ok": True, "done": done, "card": members.card(member_id)}
 
 
+@router.post("/members/backfill")
+async def members_backfill(_: dict = Depends(require_admin)) -> dict:
+    """回填早期資料（登入次數／最後登入／地區）。
+
+    小羅 2026-09-27：「他中間有沒有登入過第 2 次第 3 次？資料要清楚」
+    早期註冊的會員沒有這些欄位，從 events 撈回來補上。
+    """
+    from ..services import members
+
+    logins = members.backfill_logins()
+    countries = members.backfill_country()
+    return {"ok": True, "logins": logins, "countries": countries,
+            "stats": members.stats()}
+
+
 @router.get("/members/search")
 async def search_members(q: str = Query(""), _: dict = Depends(require_admin)) -> dict:
     """用 Email 或會員 ID 查會員（附方案歷史）。"""

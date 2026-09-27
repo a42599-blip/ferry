@@ -584,6 +584,12 @@ def card(member_id: str) -> dict | None:
     m["history"] = plan_history(member_id, limit=30)
     dev = m.get("device_id") or ""
     m["recent"] = events.device_trace(dev, limit=15) if dev else []
+    # 登入歷史（小羅：「他中間有沒有登入過第 2 次第 3 次？資料要清楚」）
+    like = "%" + member_id + "%"
+    m["logins"] = [dict(r) for r in db.query(
+        "SELECT ts, country, os, browser FROM events"
+        " WHERE kind='login' AND (device_id=? OR meta LIKE ?)"
+        " ORDER BY ts DESC LIMIT 30", (dev, like))]
     m["quota"] = {
         "download": _quota_state("download", member_id),
         "transfer": _quota_state("transfer", member_id),
@@ -597,3 +603,60 @@ def _quota_state(kind: str, member_id: str) -> dict:
     subj = f"user:{member_id}"
     return {"used": _q.used(kind, subj), "limit": _q.daily_limit(kind),
             "remaining": _q.remaining(kind, subj)}
+
+
+def backfill_logins() -> int:
+    """把 events 裡的登入紀錄回填到 members（補早期資料）。
+
+    ⚠️ 只補「login_count 還是 0」的會員，不會覆蓋已有資料。
+    小羅 2026-09-27：「他中間有沒有登入過？叫你做數據就是要清楚」。
+    """
+    fixed = 0
+    rows = db.query(
+        "SELECT id, email, device_id, created_at, COALESCE(login_count,0) AS lc"
+        " FROM members WHERE COALESCE(login_count,0)=0")
+    for r in rows:
+        mid = r["id"]
+        dev = r["device_id"] or ""
+        cnt = 0
+        last = None
+        if dev:
+            cnt = int(db.scalar(
+                "SELECT COUNT(*) FROM events WHERE kind='login' AND device_id=?", (dev,)) or 0)
+            last = db.scalar(
+                "SELECT MAX(ts) FROM events WHERE kind='login' AND device_id=?", (dev,))
+        if not cnt:
+            like = "%" + mid + "%"
+            cnt = int(db.scalar(
+                "SELECT COUNT(*) FROM events WHERE kind='login' AND meta LIKE ?", (like,)) or 0)
+            last = last or db.scalar(
+                "SELECT MAX(ts) FROM events WHERE kind='login' AND meta LIKE ?", (like,))
+        if not cnt:
+            # 完全沒有登入紀錄 → 至少把「註冊」算成第一次
+            cnt, last = 1, r["created_at"]
+        db.execute("UPDATE members SET login_count=?, last_login_at=? WHERE id=?",
+                   (cnt, last, mid))
+        fixed += 1
+    return fixed
+
+
+def backfill_country() -> int:
+    """把 events／devices 裡的地區回填到 members（補早期資料）。"""
+    fixed = 0
+    for r in db.query(
+            "SELECT id, device_id FROM members"
+            " WHERE country IS NULL OR country=''"):
+        dev = r["device_id"] or ""
+        cc = None
+        if dev:
+            cc = db.scalar(
+                "SELECT country FROM events WHERE device_id=? AND country IS NOT NULL"
+                " AND country<>'' ORDER BY ts DESC LIMIT 1", (dev,))
+            if not cc:
+                cc = db.scalar(
+                    "SELECT country FROM devices WHERE device_id=? AND country IS NOT NULL"
+                    " AND country<>''", (dev,))
+        if cc:
+            db.execute("UPDATE members SET country=? WHERE id=?", (cc.upper()[:2], r["id"]))
+            fixed += 1
+    return fixed
