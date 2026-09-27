@@ -351,18 +351,37 @@ async function loadAnnouncements() {
 //     固定在下面客戶回報那個地方，不然頁面一直被拖下去。」
 let _replyItems = [];
 let _replyPending = 0;
-const REPLY_OPEN_KEY = 'fy_reply_open';
+let _unread = 0;
+const REPLY_READ_KEY = 'fy_reply_read_at';    // 最後「已讀」的時間
+
+/** 算出有幾則是「還沒讀過」的（比上次已讀時間新的） */
+function unreadCount() {
+  let readAt = 0;
+  try { readAt = Number(localStorage.getItem(REPLY_READ_KEY) || 0); } catch (e) { readAt = 0; }
+  const fresh = _replyItems.filter((x) => Number(x.replied_at || 0) > readAt).length;
+  // 沒有新回覆但還有「處理中」的回報 → 也算 1 則提示（讀過就不再顯示）
+  const pend = (_replyPending && !readAt) ? 1 : 0;
+  return fresh || pend;
+}
+
+/** 標記全部已讀（打開回報問題時呼叫） */
+function markRepliesRead() {
+  const latest = _replyItems.reduce((a, x) => Math.max(a, Number(x.replied_at || 0)), 0);
+  const val = Math.max(latest, Math.floor(Date.now() / 1000));
+  try { localStorage.setItem(REPLY_READ_KEY, String(val)); } catch (e) { /* 忽略 */ }
+  _unread = 0;
+}
 
 function renderReplyBar() {
   const bar = document.getElementById('replybar');
   if (!bar) return;
-  // 「回報問題」標題後面顯示有幾則回覆（小羅：加一個小框框提醒客戶去點開看）
+  // 「回報問題」標題後面顯示**未讀**數量（小羅 2026-09-27：
+  //  「打開看過、再關起來，數字就要消失；下次有新回覆才會再出現 1」）
   const badge = document.getElementById('rep-badge');
-  const n = _replyItems.length || _replyPending;
   if (badge) {
-    badge.hidden = !n;
-    badge.textContent = n ? `💬 ${n}` : '';
-    badge.title = _replyItems.length ? '有客服回覆你' : '你的回報處理中';
+    badge.hidden = !_unread;
+    badge.textContent = _unread ? `💬 ${_unread}` : '';
+    badge.title = _replyItems.length ? '有客服回覆你（點開查看）' : '你的回報處理中';
   }
   if (!_replyItems.length) {
     if (_replyPending) {                       // 沒有回覆但還有處理中的回報 → 細提示
@@ -394,9 +413,8 @@ function renderReplyBar() {
     + '</button>'
     + '<div class="rbody">' + items + '</div>'
     + '</div>';
-  // 有回覆時自動把「回報問題」打開，讓客戶直接看到
-  const box = document.getElementById('report-box');
-  if (box && _replyItems.length) box.open = true;
+  // ⚠️ 不自動打開（小羅 2026-09-27：「我希望在回報問題的+打開之後才看到」）
+  //    使用者自己點開 → 標記已讀 → 徽章消失（像未讀訊息）
 }
 
 async function loadMyReplies() {
@@ -406,6 +424,7 @@ async function loadMyReplies() {
   try { j = await api('/api/my-replies'); } catch (err) { return; }
   _replyItems = (j.items || []).slice(0, 20);
   _replyPending = j.pending || 0;
+  _unread = unreadCount();
   renderReplyBar();
 }
 
@@ -915,6 +934,16 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   await loadQuota();
   loadAnnouncements();
   loadMyReplies();
+  // 「回報問題」被打開（或關起來）就標記已讀 → 數字消失（像未讀訊息）
+  const _rbox = document.getElementById('report-box');
+  if (_rbox) {
+    _rbox.addEventListener('toggle', () => {
+      if (_replyItems.length || _replyPending) {
+        markRepliesRead();
+        renderReplyBar();
+      }
+    });
+  }
   loadPayWays();
   renderHistory();
 })();
