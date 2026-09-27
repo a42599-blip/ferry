@@ -194,11 +194,28 @@ def activate(order_id: str, *, raw_amount: float | None = None) -> dict:
                      note=row["note"])
     events.mark_paid(order_id)
 
+    # ── 到期日計算（小羅 2026-09-27 定案的規則）────────────────
+    #  ① 月會員一次算 31 天
+    #  ② **續約要累加**：如果他還剩 3 天又買一次月會員 → 3 + 31 = 34 天
+    #     剩 10 天又買 → 10 + 31 = 41 天
+    #  ③ **終身會員不累加**（永久，expires_at 永遠是 None）
     period = PLANS.get(plan, {}).get("period_days")
-    expires = (time.time() + period * 86400) if period else None
     mid = row["member_id"] or ""
+    expires = None
+    if period:
+        base = time.time()
+        if mid.startswith("user:"):
+            cur = members.get(mid[5:]) or {}
+            cur_exp = cur.get("expires_at")
+            # 還是同一個月會員身分、且還沒到期 → 從原到期日繼續加（累加）
+            if (cur.get("plan") == plan and cur_exp
+                    and float(cur_exp) > base):
+                base = float(cur_exp)
+        expires = base + period * 86400
     if mid.startswith("user:"):
-        members.set_plan(mid[5:], plan, expires)
+        members.set_plan(mid[5:], plan, expires, amount=price,
+                         reason="renew" if expires else "first_pay",
+                         note="付款成功（續約累加）" if expires else "付款成功（終身）")
 
     notify_task = notify.notify(
         "pay_success", "新付款成功",

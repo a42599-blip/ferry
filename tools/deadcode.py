@@ -108,6 +108,11 @@ def check_js(html_ids: set[str]) -> list[str]:
     js_files = [p for p in _walk((".js",)) if "sw.js" not in p.name]
     all_js = "\n".join(read(p) for p in js_files)
 
+    # JS 用樣板字串「動態產生」的 id 也要算
+    # （例：innerHTML = `<input id="adj-days">`）—— 否則會誤判成「DOM id 不存在」
+    js_defined_ids = set(re.findall(r'''id=["']([A-Za-z0-9_-]+)["']''', all_js))
+    known = set(html_ids) | js_defined_ids
+
     for p in js_files:
         src = read(p)
         # ③ 引用了不存在的 id（最致命）
@@ -115,7 +120,7 @@ def check_js(html_ids: set[str]) -> list[str]:
             dom_id = m.group(1) or m.group(2)
             if dom_id in ("lang",):          # 動態建立的不算
                 continue
-            if dom_id not in html_ids:
+            if dom_id not in known:
                 line = src[:m.start()].count("\n") + 1
                 issues.append(f"[DOM id 不存在] {p.relative_to(ROOT)}:{line} → #{dom_id}（HTML 裡沒有，會讓 JS 掛掉）")
 

@@ -222,6 +222,67 @@ async def members_broadcast(body: dict = Body(...), _: dict = Depends(require_ad
 
 
 # ── 會員查詢與手動管理（小羅 2026-09-27：客服＋賠償機制）────────
+
+# ══════════════════════════════════════════════════════════════
+#  會員資料模塊（小羅 2026-09-27：獨立模塊，壞了單獨修）
+#  「我要有一個搜尋列，找到他然後點進他的會員資料卡；
+#    次數、天數都要我自己填數字，不要固定 7 天 30 天。」
+# ══════════════════════════════════════════════════════════════
+@router.get("/members/list")
+async def members_page(q: str = Query(""), plan: str = Query(""),
+                       sort: str = Query("created_desc"),
+                       page: int = Query(1, ge=1), size: int = Query(25, ge=5, le=200),
+                       _: dict = Depends(require_admin)) -> dict:
+    """會員清單（搜尋／篩選／排序／分頁）——1000 個客戶也找得到。"""
+    from ..services import members
+
+    return {"ok": True, **members.page(q=q, plan=plan, sort=sort, page=page, size=size)}
+
+
+@router.get("/members/{member_id}/card")
+async def member_card(member_id: str, _: dict = Depends(require_admin)) -> dict:
+    """會員資料卡（含方案歷史、最近活動、回報紀錄）。"""
+    from ..services import members
+
+    card = members.card(member_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="找不到這個會員")
+    return {"ok": True, "card": card}
+
+
+@router.post("/members/{member_id}/adjust")
+async def adjust_member(member_id: str, body: dict = Body(...),
+                        _: dict = Depends(require_admin)) -> dict:
+    """手動調整（賠償機制）：加天數、加次數、改方案、停權。
+
+    小羅：「我可以加 1 天 2 天 5 天 8 天甚至一個月；
+           次數我可以加 1 次 10 次 100 次 1000 次 —— 我自己填數字。」
+    """
+    from ..services import members, quota
+
+    days = int(body.get("days") or 0)
+    plan = (body.get("plan") or "").strip()
+    q_dl = int(body.get("quota_download") or 0)
+    q_tr = int(body.get("quota_transfer") or 0)
+    note = (body.get("note") or "後台手動調整")[:200]
+    done = []
+
+    if plan:
+        members.grant_plan(member_id, plan, days, reason="gift", note=note)
+        done.append(f"方案→{plan}" + (f'(+{days}天)' if days else ""))
+    elif days:
+        members.extend_days(member_id, days, reason="gift", note=note)
+        done.append(f"加 {days} 天")
+    if q_dl:
+        quota.grant("download", f"user:{member_id}", q_dl)
+        done.append(f"下載次數 +{q_dl}")
+    if q_tr:
+        quota.grant("transfer", f"user:{member_id}", q_tr)
+        done.append(f"傳輸次數 +{q_tr}")
+
+    return {"ok": True, "done": done, "card": members.card(member_id)}
+
+
 @router.get("/members/search")
 async def search_members(q: str = Query(""), _: dict = Depends(require_admin)) -> dict:
     """用 Email 或會員 ID 查會員（附方案歷史）。"""

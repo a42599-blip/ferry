@@ -508,3 +508,87 @@ def search(keyword: str, limit: int = 50) -> list[dict]:
         m["remaining_days"] = remaining_days(m)
         out.append(m)
     return out
+
+
+# ══════════════════════════════════════════════════════════════════
+#  會員資料模塊：清單（搜尋／排序／分頁）＋ 資料卡
+#  小羅：「1000 個客戶時我一條一條刷找不到人，要有搜尋列，
+#         點進去就是他的會員資料卡。」
+# ══════════════════════════════════════════════════════════════════
+
+SORTS = {
+    "created_desc": "created_at DESC",
+    "created_asc": "created_at ASC",
+    "expires_asc": "CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END, expires_at ASC",
+    "login_desc": "COALESCE(last_login_at,0) DESC",
+    "email_asc": "email ASC",
+}
+
+
+def page(q: str = "", plan: str = "", sort: str = "created_desc",
+         page: int = 1, size: int = 25) -> dict:
+    """會員清單（分頁）。回傳 total 讓前端算頁數。"""
+    from . import billing
+
+    where, params = [], []
+    kw = (q or "").strip()
+    if kw:
+        where.append("(email LIKE ? OR id LIKE ?)")
+        like = f"%{kw}%"
+        params += [like, like]
+    if plan == "paid":
+        where.append("plan<>?")
+        params.append(billing.PLAN_FREE)
+    elif plan == "free":
+        where.append("plan=?")
+        params.append(billing.PLAN_FREE)
+    elif plan:
+        where.append("plan=?")
+        params.append(plan)
+    sql_where = (" WHERE " + " AND ".join(where)) if where else ""
+    total = int(db.scalar("SELECT COUNT(*) FROM members" + sql_where, tuple(params)) or 0)
+    order = SORTS.get(sort, SORTS["created_desc"])
+    offset = max(0, (page - 1) * size)
+    rows = db.query(
+        "SELECT id, email, plan, device_id, tz, created_at, expires_at, country,"
+        " plan_started_at, COALESCE(status,'active') AS status,"
+        " last_login_at, COALESCE(login_count,0) AS login_count"
+        " FROM members" + sql_where + " ORDER BY " + order + " LIMIT ? OFFSET ?",
+        tuple(params + [size, offset]))
+    plans = billing.PLANS
+    out = []
+    for r in rows:
+        m = dict(r)
+        m["remaining_days"] = remaining_days(m)
+        m["plan_name"] = (plans.get(m["plan"]) or {}).get("name", m["plan"])
+        m["paid"] = m["plan"] not in ("", None, billing.PLAN_FREE)
+        out.append(m)
+    return {"rows": out, "total": total, "page": page, "size": size,
+            "pages": max(1, (total + size - 1) // size)}
+
+
+def card(member_id: str) -> dict | None:
+    """會員資料卡：基本資料 ＋ 方案歷史 ＋ 最近活動 ＋ 回報紀錄。"""
+    from . import billing, events
+
+    m = get(member_id)
+    if not m:
+        return None
+    m["plan_name"] = (billing.PLANS.get(m.get("plan")) or {}).get("name", m.get("plan"))
+    m["price"] = (billing.PLANS.get(m.get("plan")) or {}).get("price", 0)
+    m["history"] = plan_history(member_id, limit=30)
+    dev = m.get("device_id") or ""
+    m["recent"] = events.device_trace(dev, limit=15) if dev else []
+    m["quota"] = {
+        "download": _quota_state("download", member_id),
+        "transfer": _quota_state("transfer", member_id),
+    }
+    return m
+
+
+def _quota_state(kind: str, member_id: str) -> dict:
+    from . import quota as _q
+
+    subj = f"user:{member_id}"
+    return {"used": _q.used(kind, subj), "limit": _q.daily_limit(kind),
+            "remaining": _q.remaining(kind, subj)}
