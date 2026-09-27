@@ -77,7 +77,13 @@ CREATE TABLE IF NOT EXISTS members (
     tz          TEXT,
     created_at  REAL NOT NULL,
     expires_at  REAL,
-    country     TEXT                       -- 註冊時的地區（cf-ipcountry）
+    country     TEXT,                      -- 註冊時的地區（cf-ipcountry）
+    plan_started_at REAL,                  -- 付費起始時間
+    status      TEXT DEFAULT 'active',     -- active / deleted（軟刪除）
+    deleted_at  REAL,
+    last_login_at REAL,
+    login_count INTEGER DEFAULT 0,
+    marketing_opt_in INTEGER DEFAULT 0     -- 行銷信同意（合規：預設不同意）
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -106,6 +112,23 @@ CREATE TABLE IF NOT EXISTS announcements (
     emailed     INTEGER DEFAULT 0         -- 有沒有同步寄給會員
 );
 CREATE INDEX IF NOT EXISTS idx_ann_ts ON announcements(ts);
+
+-- 方案變更歷史（小羅 2026-09-27：「要知道付費時間、用什麼費率、剩餘多少」）
+CREATE TABLE IF NOT EXISTS plan_history (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id   TEXT    NOT NULL,
+    email       TEXT,
+    from_plan   TEXT,
+    to_plan     TEXT    NOT NULL,
+    amount      REAL    DEFAULT 0,
+    currency    TEXT    DEFAULT 'USD',
+    at          REAL    NOT NULL,
+    expires_at  REAL,                      -- 這次變更後的到期時間
+    reason      TEXT,                      -- signup / first_pay / renew / upgrade / expire / refund / admin
+    note        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_planh_member ON plan_history(member_id);
+CREATE INDEX IF NOT EXISTS idx_planh_at ON plan_history(at);
 
 -- 提現紀錄（後台把收入提出來時記錄；實際撥款由金流商處理）
 CREATE TABLE IF NOT EXISTS payouts (
@@ -184,6 +207,15 @@ def _migrate(c: sqlite3.Connection) -> None:
             "expires_at": "REAL",
             # 會員來自哪個地區（Cloudflare 的 cf-ipcountry；台灣＝TW）
             "country": "TEXT",
+            # 付費起始時間（「什麼時間加入會員」）
+            "plan_started_at": "REAL",
+            # 帳號狀態：active / deleted（軟刪除，合規要求保留一段時間）
+            "status": "TEXT",
+            "deleted_at": "REAL",
+            "last_login_at": "REAL",
+            "login_count": "INTEGER",
+            # 願不願意收行銷信（合規：預設不收，要他自己同意）
+            "marketing_opt_in": "INTEGER",
         },
         "events": {
             "is_new": "INTEGER",

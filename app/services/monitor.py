@@ -136,6 +136,12 @@ async def loop() -> None:
                 _last_digest_date = today
                 db.set_setting("last_digest_date", today)
                 await notify.send_digest(days=1)
+                # 會員到期提醒 ＋ 到期後自動降回免費（每天一次）
+                from . import members as _mem
+
+                out = await _mem.run_expiry_tasks()
+                if out.get("reminded") or out.get("downgraded"):
+                    db.set_setting("last_expiry_run", str(out))
         except Exception:  # noqa: BLE001
             pass
 

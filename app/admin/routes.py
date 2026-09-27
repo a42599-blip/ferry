@@ -220,6 +220,67 @@ async def members_broadcast(body: dict = Body(...), _: dict = Depends(require_ad
     return {"ok": True, "result": r}
 
 
+
+# ── 會員查詢與手動管理（小羅 2026-09-27：客服＋賠償機制）────────
+@router.get("/members/search")
+async def search_members(q: str = Query(""), _: dict = Depends(require_admin)) -> dict:
+    """用 Email 或會員 ID 查會員（附方案歷史）。"""
+    from ..services import members
+
+    rows = members.search(q)
+    for r in rows:
+        r["history"] = members.plan_history(r["id"], limit=20)
+    return {"ok": True, "rows": rows}
+
+
+@router.post("/members/{member_id}/grant")
+async def grant_member(member_id: str, body: dict = Body(...),
+                       _: dict = Depends(require_admin)) -> dict:
+    """臨時開通／補償（給方案 ＋ 天數）。"""
+    from ..services import members
+
+    m = members.grant_plan(member_id, body.get("plan") or "monthly",
+                          int(body.get("days") or 0),
+                          reason="gift", note=body.get("note") or "")
+    return {"ok": True, "member": m}  
+
+
+@router.post("/members/{member_id}/days")
+async def add_member_days(member_id: str, body: dict = Body(...),
+                          _: dict = Depends(require_admin)) -> dict:
+    """臨時加時間（補償幾天）。"""
+    from ..services import members
+
+    m = members.extend_days(member_id, int(body.get("days") or 1),
+                            reason="gift", note=body.get("note") or "")
+    return {"ok": True, "member": m}
+
+
+@router.post("/members/{member_id}/status")
+async def set_member_status(member_id: str, body: dict = Body(...),
+                            _: dict = Depends(require_admin)) -> dict:
+    """停權／復權。"""
+    from ..services import members
+
+    status = body.get("status") or "active"
+    members.set_status(member_id, status)
+    if status == "suspended":
+        members.set_plan(member_id, "free", None, reason="suspend", note="後台停權")
+    return {"ok": True, "member": members.get(member_id) or {}}
+
+
+@router.post("/members/{member_id}/quota")
+async def add_member_quota(member_id: str, body: dict = Body(...),
+                           _: dict = Depends(require_admin)) -> dict:
+    """臨時加免費次數（補償；kind = download / transfer）。"""
+    from ..services import quota
+
+    kind = body.get("kind") or "download"
+    n = int(body.get("n") or 1)
+    r = quota.grant(kind, f"user:{member_id}", n)
+    return {"ok": True, "result": r}
+
+
 @router.get("/devices/{device_id}")
 async def device_trace(device_id: str, _: dict = Depends(require_admin)) -> dict:
     return {"ok": True, "device_id": device_id, "trace": events.device_trace(device_id)}

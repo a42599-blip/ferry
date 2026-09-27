@@ -314,6 +314,15 @@ def _send_one(to: str, subject: str, body: str) -> tuple[bool, str]:
         return False, str(exc)[:120]
 
 
+async def send_to(to: str, subject: str, body: str) -> dict:
+    """寄給單一收件人（會員到期提醒這類一對一通知用）。"""
+    if not to:
+        return {"ok": False, "reason": "沒有收件人"}
+    ok, note = await asyncio.to_thread(_send_one, to, subject, body)
+    _log(subject, f"→ {to}", ok, note, "one")
+    return {"ok": ok, "note": note}
+
+
 async def broadcast(subject: str, body: str, *, only: str = "all") -> dict:
     """對會員發送通知（背景執行，回傳預估結果）。"""
     from . import members

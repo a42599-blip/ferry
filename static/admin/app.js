@@ -520,6 +520,81 @@ async function pgDevices() {
     { t: '綁定裝置', v: (r) => esc(String(r.device_id || '–').slice(0, 20)) },
   ], ms.members, '目前還沒有註冊會員') : '<div class="dim">目前還沒有註冊會員</div>';
 
+  // ── 會員查詢與手動管理（客服＋賠償）──
+  async function doMemberSearch() {
+    const q = $('#ms-q').value.trim();
+    if (!q) return;
+    const box = $('#ms-result');
+    box.innerHTML = '<div class="dim">查詢中…</div>';
+    try {
+      const d = await api('/members/search?q=' + encodeURIComponent(q));
+      if (!d.rows.length) { box.innerHTML = '<div class="dim">找不到符合的會員</div>'; return; }
+      const PL = { free: '免費', monthly: '月會員', lifetime: '終身會員' };
+      box.innerHTML = d.rows.map((m) => {
+        const left = m.remaining_days;
+        const leftTxt = left === null ? '–' : (left <= 0 ? '已到期' : `<b>${left}</b> 天`);
+        const hist = (m.history || []).map((h) =>
+          `<div class="hrow"><span class="dim">${fmtTime(h.at)}</span>　`
+          + `${esc(PL[h.from_plan] || h.from_plan || '—')} → <b>${esc(PL[h.to_plan] || h.to_plan)}</b>`
+          + (h.amount ? `　US$ ${h.amount}` : '')
+          + (h.reason ? `　<span class="dim">${esc(h.reason)}</span>` : '')
+          + (h.note ? `　<span class="dim">${esc(h.note)}</span>` : '') + `</div>`).join('')
+          || '<div class="dim">尚無變更紀錄</div>';
+        return `<div class="mcard" data-mid="${esc(m.id)}">
+          <div class="mhead">
+            <b>${esc(m.email || m.id)}</b>
+            <span class="badge ${m.plan !== 'free' ? 'ok' : ''}">${esc(PL[m.plan] || m.plan)}</span>
+            ${m.status === 'suspended' ? '<span class="badge err">已停權</span>' : ''}
+          </div>
+          <div class="mgrid">
+            <div><span>註冊時間</span>${fmtTime(m.created_at)}</div>
+            <div><span>付費起始</span>${m.plan_started_at ? fmtTime(m.plan_started_at) : '–'}</div>
+            <div><span>到期時間</span>${m.expires_at ? fmtTime(m.expires_at) : '永久／無'}</div>
+            <div><span>剩餘</span>${leftTxt}</div>
+            <div><span>最後登入</span>${m.last_login_at ? fmtTime(m.last_login_at) : '–'}</div>
+            <div><span>登入次數</span>${fmtN(m.login_count)} 次</div>
+            <div><span>地區</span>${esc(m.country || '–')}</div>
+            <div><span>裝置</span>${esc(String(m.device_id || '–').slice(0, 20))}</div>
+          </div>
+          <div class="mactions">
+            <button class="gh" data-m-grant="1">臨時開通月會員</button>
+            <button class="gh" data-m-days="7">＋7 天</button>
+            <button class="gh" data-m-days="30">＋30 天</button>
+            <button class="gh" data-m-quota="download">下載次數 +5</button>
+            <button class="gh" data-m-quota="transfer">傳輸次數 +5</button>
+            <button class="gh" data-m-susp="${m.status === 'suspended' ? 'active' : 'suspended'}">
+              ${m.status === 'suspended' ? '復權' : '停權'}</button>
+          </div>
+          <details class="mhist"><summary>方案變更歷史（${(m.history || []).length}）</summary>${hist}</details>
+        </div>`;
+      }).join('');
+      $$('#ms-result .mcard').forEach((card) => {
+        const mid = card.dataset.mid;
+        const after = async (fn) => { try { await fn(); queue('已更新 ' + mid); doMemberSearch(); }
+                                      catch (e) { alert(e.message); } };
+        card.querySelector('[data-m-grant]')?.addEventListener('click', () => {
+          const days = prompt('臨時開通幾天？（月會員）', '7');
+          if (days === null) return;
+          after(() => api(`/members/${mid}/grant`, { method: 'POST', body: JSON.stringify({
+            plan: 'monthly', days: Number(days), note: '後台臨時開通' }) }));
+        });
+        card.querySelectorAll('[data-m-days]').forEach((b) => b.addEventListener('click', () =>
+          after(() => api(`/members/${mid}/days`, { method: 'POST', body: JSON.stringify({
+            days: Number(b.dataset.mDays), note: '後台補償天數' }) }))));
+        card.querySelectorAll('[data-m-quota]').forEach((b) => b.addEventListener('click', () =>
+          after(() => api(`/members/${mid}/quota`, { method: 'POST', body: JSON.stringify({
+            kind: b.dataset.mQuota, n: 5 }) }))));
+        card.querySelector('[data-m-susp]')?.addEventListener('click', () => {
+          const st = card.querySelector('[data-m-susp]').dataset.mSusp;
+          if (st === 'suspended' && !confirm('確定要停權這個帳號？\n（會降回免費方案，資料保留）')) return;
+          after(() => api(`/members/${mid}/status`, { method: 'POST', body: JSON.stringify({ status: st }) }));
+        });
+      });
+    } catch (e) { $('#ms-result').innerHTML = `<span style="color:var(--err)">查詢失敗：${esc(e.message)}</span>`; }
+  }
+  $('#ms-go').onclick = doMemberSearch;
+  $('#ms-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') doMemberSearch(); });
+
   // ── 前台公告管理 ──
   const renderAnn = (items) => {
     $('#an-list').innerHTML = (items || []).length ? table([
