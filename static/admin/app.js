@@ -470,6 +470,36 @@ async function pgDevices() {
     kpi('付費方案數', fmtN((st.plans || []).filter((p) => p.count > 0).length),
       (st.plans || []).map((p) => `${p.name} ${p.count}`).join('　') || '尚無'),
   ].join('');
+  // ── 會員地區分佈（圓餅圖 ＋ 列表；純 CSS，不引入外部圖表庫）──
+  const REG_COLOR = ['#d9c08c', '#6ea8dc', '#6ee7a8', '#e8d28a', '#f0a0a0', '#b48ce0',
+                     '#7fd8d8', '#e0a06e', '#9ad86e', '#d88cb4'];
+  const regs = st.regions || [];
+  if (regs.length) {
+    // ① 圓餅圖：用 conic-gradient 疊出每一塊
+    let acc = 0;
+    const stops = regs.map((r, i) => {
+      const from = acc;
+      acc += r.pct;
+      const to = i === regs.length - 1 ? 100 : acc;   // 最後一塊補滿
+      return `${REG_COLOR[i % REG_COLOR.length]} ${from}% ${to}%`;
+    }).join(', ');
+    $('#mem-pie').innerHTML = `
+      <div class="piec" style="background:conic-gradient(${stops})"></div>
+      <div class="piec-hole"><b>${fmtN(st.total)}</b><span>位會員</span></div>`;
+    // ② 列表：每國一個人數長條
+    const maxN = Math.max(...regs.map((r) => r.n));
+    $('#mem-regions').innerHTML = regs.map((r, i) => `
+      <div class="rrow">
+        <span class="rdot" style="background:${REG_COLOR[i % REG_COLOR.length]}"></span>
+        <span class="rn">${esc(r.name)}</span>
+        <div class="rbar"><i style="width:${Math.round(r.n / maxN * 100)}%"></i></div>
+        <span class="rv"><b>${fmtN(r.n)}</b> 人　${r.pct}%${r.paid ? `　<span class="badge ok">付費 ${r.paid}</span>` : ''}</span>
+      </div>`).join('');
+  } else {
+    $('#mem-pie').innerHTML = '';
+    $('#mem-regions').innerHTML = '<div class="dim">還沒有會員資料</div>';
+  }
+
   $('#mem-plans').innerHTML = (st.plans || []).length ? table([
     { t: '方案', v: (r) => esc(r.name) },
     { t: '價格', v: (r) => 'US$ ' + fmtN(r.price), num: true },

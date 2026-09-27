@@ -44,7 +44,7 @@ def _verify(password: str, stored: str) -> bool:
 
 # ── 註冊／登入 ───────────────────────────────────────
 def register(email: str, password: str, *, device_id: str | None = None,
-             tz: str | None = None) -> dict:
+             tz: str | None = None, country: str | None = None) -> dict:
     email = (email or "").strip().lower()
     if "@" not in email or len(email) < 6:
         raise BadRequest("Email 格式不正確", code="BAD_EMAIL")
@@ -56,8 +56,10 @@ def register(email: str, password: str, *, device_id: str | None = None,
 
     mid = "u_" + secrets.token_hex(8)
     db.execute(
-        "INSERT INTO members(id, email, plan, device_id, tz, created_at) VALUES(?,?,?,?,?,?)",
-        (mid, email, "free", device_id, tz, time.time()),
+        "INSERT INTO members(id, email, plan, device_id, tz, created_at, country)"
+        " VALUES(?,?,?,?,?,?,?)",
+        (mid, email, "free", device_id, tz, time.time(),
+         (country or "").upper()[:2] or None),
     )
     db.execute("UPDATE members SET password=? WHERE id=?", (_hash(password), mid))
     from . import events
@@ -138,6 +140,23 @@ def set_plan(member_id: str, plan: str, expires_at: float | None = None) -> None
 #    付費／未付費／訪客各多少 —— 這些數據都要留。」
 # ══════════════════════════════════════════════════════════════════
 
+#: 國家／地區代碼 → 中文名（常用的；查不到就顯示代碼本身）
+COUNTRY_NAMES: dict[str, str] = {
+    "TW": "台灣", "HK": "香港", "MO": "澳門", "CN": "中國", "JP": "日本",
+    "KR": "韓國", "SG": "新加坡", "MY": "馬來西亞", "TH": "泰國", "VN": "越南",
+    "ID": "印尼", "PH": "菲律賓", "IN": "印度", "AU": "澳洲", "NZ": "紐西蘭",
+    "US": "美國", "CA": "加拿大", "MX": "墨西哥", "BR": "巴西", "AR": "阿根廷",
+    "GB": "英國", "UK": "英國", "IE": "愛爾蘭", "FR": "法國", "DE": "德國",
+    "ES": "西班牙", "IT": "義大利", "NL": "荷蘭", "BE": "比利時", "CH": "瑞士",
+    "AT": "奧地利", "SE": "瑞典", "NO": "挪威", "DK": "丹麥", "FI": "芬蘭",
+    "PL": "波蘭", "PT": "葡萄牙", "GR": "希臘", "TR": "土耳其", "RU": "俄羅斯",
+    "UA": "烏克蘭", "AE": "阿聯酋", "SA": "沙烏地", "IL": "以色列", "EG": "埃及",
+    "ZA": "南非", "NG": "奈及利亞", "KE": "肯亞", "PK": "巴基斯坦",
+    "BD": "孟加拉", "LK": "斯里蘭卡", "MM": "緬甸", "KH": "柬埔寨", "LA": "寮國",
+    "MN": "蒙古", "NP": "尼泊爾", "??": "未記錄",
+}
+
+
 def _day_start(tz_name: str = "Asia/Taipei") -> float:
     """該時區「今天 00:00」的時間戳（後端全部用 UTC 秒，這裡換算當地午夜）。"""
     import datetime as _dt
@@ -181,6 +200,19 @@ def stats(tz_name: str = "Asia/Taipei") -> dict:
         "SELECT COUNT(*) FROM devices WHERE device_id NOT IN"
         " (SELECT device_id FROM members WHERE device_id IS NOT NULL AND device_id<>'')") or 0)
 
+    # ── 地區分佈（小羅 2026-09-27：要知道會員來自哪邊、哪邊多哪邊少）──
+    #    國家代碼來自 Cloudflare 的 cf-ipcountry（註冊當下寫入 members.country）
+    regions = [dict(r) for r in db.query(
+        "SELECT COALESCE(NULLIF(country,''),'??') AS code, COUNT(*) AS n"
+        " FROM members GROUP BY code ORDER BY n DESC")]
+    paid_regions = {r["code"]: int(r["n"]) for r in db.query(
+        "SELECT COALESCE(NULLIF(country,''),'??') AS code, COUNT(*) AS n"
+        " FROM members WHERE plan<>? GROUP BY code", (billing.PLAN_FREE,))}
+    for r in regions:
+        r["paid"] = paid_regions.get(r["code"], 0)
+        r["name"] = COUNTRY_NAMES.get(r["code"], r["code"])
+        r["pct"] = round(r["n"] / total * 100, 1) if total else 0.0
+
     return {
         "total": total,
         "today_new": today_new,
@@ -190,6 +222,7 @@ def stats(tz_name: str = "Asia/Taipei") -> dict:
         "plans": plans,
         "visitor_devices": visitor_devices,
         "conversion": round(paid_n / total * 100, 1) if total else 0.0,
+        "regions": regions,
     }
 
 

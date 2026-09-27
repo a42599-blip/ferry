@@ -76,7 +76,8 @@ CREATE TABLE IF NOT EXISTS members (
     device_id   TEXT,
     tz          TEXT,
     created_at  REAL NOT NULL,
-    expires_at  REAL
+    expires_at  REAL,
+    country     TEXT                       -- 註冊時的地區（cf-ipcountry）
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -181,6 +182,8 @@ def _migrate(c: sqlite3.Connection) -> None:
             "email": "TEXT",
             "tz": "TEXT",
             "expires_at": "REAL",
+            # 會員來自哪個地區（Cloudflare 的 cf-ipcountry；台灣＝TW）
+            "country": "TEXT",
         },
         "events": {
             "is_new": "INTEGER",

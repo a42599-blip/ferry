@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/admin/style.css?v=11">
+<link rel="stylesheet" href="/admin/style.css?v=12">
 </head>
 <body>
 
@@ -125,6 +125,15 @@
         <!-- 會員統計（小羅 2026-09-27：這些數字都要留）-->
         <div class="kpis" id="mem-kpis"></div>
         <div class="rows">
+          <div class="pnl">
+            <div class="lbl">會員地區分佈</div>
+            <div class="regionwrap">
+              <div class="pie" id="mem-pie"></div>
+              <div class="rlist" id="mem-regions"></div>
+            </div>
+            <p class="note">地區來自註冊當下的 IP 國別（Cloudflare）。
+              「未記錄」是較早期註冊、當時還沒有記錄地區的會員。</p>
+          </div>
           <div class="pnl"><div class="lbl">付費方案分佈</div><div id="mem-plans"></div>
             <p class="note">付費等級不同會分開列（月會員／終身會員…）。</p></div>
           <div class="pnl grow2"><div class="lbl">會員名單</div><div class="scroll" id="mem-list"></div></div>
@@ -304,6 +313,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=11"></script>
+<script src="/admin/app.js?v=12"></script>
 </body>
 </html>

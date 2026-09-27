@@ -32,8 +32,10 @@ async def get_plans() -> dict:
 # ── 會員 ─────────────────────────────────────────────
 @router.post("/api/member/register")
 async def register(request: Request, body: dict = Body(...)) -> dict:
+    # 記錄註冊時的地區（Cloudflare 會給 cf-ipcountry）→ 後台可看地區分佈
     m = members.register(body.get("email", ""), body.get("password", ""),
-                         device_id=_device(request), tz=body.get("tz"))
+                         device_id=_device(request), tz=body.get("tz"),
+                         country=request.headers.get("cf-ipcountry"))
     return {"ok": True, "member": m, "token": members.issue_token(m["id"])}
 
 
