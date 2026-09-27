@@ -64,21 +64,48 @@ function _anchorDownload(blobOrUrl, filename, { revoke = false } = {}) {
   return true;
 }
 
-/** 用系統分享存到相簿（iOS／內建瀏覽器） */
-async function _shareToPhotos(file, filename, onStatus) {
-  if (!navigator.canShare || !navigator.canShare({ files: [file] })) return false;
-  if (onStatus) onStatus(`請在彈出的選單點「${saveLabel()}」`, 'warn');
-  try {
-    await navigator.share({ files: [file], title: filename });
-    if (onStatus) onStatus('已送出，請確認相簿是否出現', 'ok');
-    return true;
-  } catch (err) {
-    if (err && err.name === 'AbortError') {
-      if (onStatus) onStatus('已取消，可再按一次', 'warn');
-      return true;                       // 使用者主動取消 → 不算失敗
+/**
+ * iOS 專用：顯示「儲存到相簿」按鈕，讓使用者自己按。
+ *
+ * ⚠️ 為什麼要這樣（2026-09-27 實際踩到，小羅說「相簿裡找不到」）：
+ *    iOS 的 navigator.share() 需要「使用者手勢」才有效。
+ *    我們的流程是「先下載檔案（FB 這種大檔可能幾十秒）→ 再呼叫 share()」，
+ *    等到要分享時手勢早就過期了 → iOS 直接拒絕 → 相簿當然沒有東西。
+ *    （TikTok 那類小檔跑得快，手勢還沒過期，所以看起來正常）
+ *  → 改成下載完顯示一顆按鈕；使用者按下去才是「有效手勢」，分享才會成功。
+ */
+function showSaveButton(file, filename, onStatus) {
+  const box = document.createElement('div');
+  box.className = 'savepop';
+  box.innerHTML =
+    `<div class="sp-t">檔案已下載完成</div>`
+    + `<button class="sp-b" type="button">📥 ${_escHtml(saveLabel())}</button>`
+    + `<button class="sp-x" type="button">稍後再說</button>`;
+  document.body.appendChild(box);
+  const close = () => box.remove();
+  box.querySelector('.sp-b').addEventListener('click', async () => {
+    // 這個點擊就是「使用者手勢」→ share 這下才會成功
+    try {
+      await navigator.share({ files: [file], title: filename });
+      if (onStatus) onStatus('已送出，請確認相簿是否出現', 'ok');
+      close();
+    } catch (err) {
+      if (err && err.name === 'AbortError') { if (onStatus) onStatus('已取消，可再按一次', 'warn'); close(); return; }
+      // 分享被拒 → 退回「開新頁面自己存」
+      const url = URL.createObjectURL(file);
+      const w = window.open(url, '_blank');
+      if (onStatus) onStatus(w ? '在新頁面點底部「分享」→「儲存到照片」' : '請允許彈出視窗', 'warn');
+      setTimeout(() => URL.revokeObjectURL(url), 120000);
+      close();
     }
-    return false;
-  }
+  });
+  box.querySelector('.sp-x').addEventListener('click', close);
+  if (onStatus) onStatus('檔案下載完成，請按「📥 儲存到相簿」', 'ok');
+}
+
+function _escHtml(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 /**
@@ -89,9 +116,11 @@ async function saveBlob(blob, filename, onStatus) {
   const isMedia = /\.(mp4|mov|m4v|webm|mkv|jpe?g|png|gif|webp)$/i.test(filename);
   const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
 
-  // ① iOS／App 內建瀏覽器：一定要走系統分享，否則存不進相簿
+  // ① iOS／App 內建瀏覽器：改成「顯示按鈕讓使用者自己按」
+  //    （直接在這裡呼叫 share 會因為手勢過期而失敗 → 相簿不會有東西）
   if (FYEnv.isIOS || FYEnv.inApp) {
-    if (await _shareToPhotos(file, filename, onStatus)) return { ok: true, how: 'share' };
+    showSaveButton(file, filename, onStatus);
+    return { ok: true, how: 'button' };
     // ② 不支援分享 → 開新頁面讓使用者自己儲存
     const url = URL.createObjectURL(blob);
     const w = window.open(url, '_blank');

@@ -291,3 +291,13 @@ input:focus{outline:none;border-color:var(--acc)}
 /* ── 配對碼角色提示（加入方顯示；避免以為兩邊都要產生號碼）── */
 .joinednote{margin-top:10px;padding:10px 12px;border-radius:9px;font-size:12.5px;
   background:rgba(63,191,127,.1);border:1px solid rgba(63,191,127,.28);color:#8fe8b8}
+
+/* ── iOS「儲存到相簿」浮動按鈕（下載完成後出現，按下才是有效手勢）── */
+.savepop{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9999;
+  background:#111a19;border:1px solid var(--acc);border-radius:14px;padding:14px 16px;
+  box-shadow:0 10px 34px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:9px;
+  min-width:min(88vw,320px);text-align:center}
+.savepop .sp-t{font-size:12.5px;color:var(--dim)}
+.savepop .sp-b{padding:13px;border:0;border-radius:10px;cursor:pointer;font-size:15px;font-weight:700;
+  background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff}
+.savepop .sp-x{background:transparent;border:0;color:var(--dim);font-size:12px;cursor:pointer;padding:2px}

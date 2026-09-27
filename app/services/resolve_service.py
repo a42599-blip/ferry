@@ -40,10 +40,21 @@ async def resolve(url: str) -> VideoInfo:
         ) from exc
     elapsed_ms = int((time.perf_counter() - started) * 1000)
 
-    # 需要經伺服器轉發的（CDN 檢查 Referer、或 DASH 要合併影音）→ 登記短鍵
+    # ── 影片一律走伺服器轉發（relay）──────────────────────────
+    #
+    # ⚠️ 為什麼要全部轉發（2026-09-27 小羅反映「抖音按了下載跳空白頁」）：
+    #    前端直接 fetch 平台的 CDN 時，只要 CDN 沒開 CORS 就會失敗
+    #    （抖音的 zjcdn.com 就沒有），失敗後退回開新頁面 → 使用者看到空白頁。
+    #    由伺服器補上正確 Referer 轉發，就不會有 CORS／Referer 問題，
+    #    手機、電腦、內建瀏覽器都一定下載得到。
+    #    （v8i8 也是全部走它的 /api/proxy-video，這是它各平台都能用的原因）
+    #
+    # 音訊維持原本模式（檔案小、CDN 多半允許直連），避免不必要的流量。
     for f in info.formats:
-        need = f.mode == "relay" or (f.audio_url and not f.audio)
-        if need and f.url:
+        if not f.url:
+            continue
+        need = (not f.audio) or f.mode == "relay" or bool(f.audio_url)
+        if need:
             f.mode = "relay"
             f.relay_key = proxy.register(f.url, f.audio_url, f.headers)
 
