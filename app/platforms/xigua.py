@@ -1,11 +1,12 @@
-"""西瓜視頻（Ixigua）解析。
+"""西瓜視頻（Ixigua／抖音系）解析。
 
-**不需要 cookies**（與 v8i8 同一套作法）：
-    西瓜與抖音同屬字節跳動，影片 ID 在抖音的 Web API 通用
-    → 把 ixigua 網址轉成 `douyin.com/video/<id>`，走抖音的 a_bogus 官方流程。
+**不需要登入、也不需要 cookies**。
+
+西瓜與抖音同屬字節跳動，分享出來的短網址是 **iesdouyin.com/xg/video/<id>**，
+這個 `<id>` 就是**抖音的 aweme_id** → 直接走抖音的 a_bogus 官方 API。
 
 順序：
-  1) 轉成抖音網址 → 用抖音 resolver（a_bogus ＋ ttwid）
+  1) iesdouyin.com / ixigua.com 的 `<id>` → 抖音官方 API（`_douyin_shared`）
   2) yt-dlp（有 cookies 時）
 """
 from __future__ import annotations
@@ -16,30 +17,43 @@ from ..core.errors import PlatformError
 from ._douyin_shared import resolve_via_douyin
 from ._ytdlp import YtDlpResolver
 
-_URL_RE = re.compile(r"https?://(?:www\.|m\.)?ixigua\.com/", re.I)
-_ID_RE = re.compile(r"ixigua\.com/(\d{15,25})")
+_URL_RE = re.compile(
+    r"https?://(?:www\.|m\.)?(?:ixigua\.com|iesdouyin\.com)/", re.I
+)
+#: iesdouyin 分享：/xg/video/<id>；ixigua：/<id> 或 /video/<id>
+_ID_RE = re.compile(r"(?:/xg)?/video/(\d{15,25})|ixigua\.com/(\d{15,25})")
 
 
 class XiguaResolver(YtDlpResolver):
     name = "xigua"
     label = "西瓜視頻"
-    hosts = ("ixigua.com",)
+    hosts = ("ixigua.com", "iesdouyin.com")
     default_mode = "proxy"
 
     async def match(self, url: str) -> bool:
         return bool(_URL_RE.search(url))
 
     async def resolve(self, url: str):
-        m = _ID_RE.search(url)
-        if m:
+        aweme_id = self._aweme_id(url)
+        if aweme_id:
             try:
-                info = await resolve_via_douyin(f"https://www.douyin.com/video/{m.group(1)}")
+                info = await resolve_via_douyin(f"https://www.douyin.com/video/{aweme_id}")
                 if info is not None:
                     info.platform = self.name
                     info.extra["route"] = "douyin-api"
                     return info
             except PlatformError:
-                raise
-            except Exception:  # noqa: BLE001 — 換下一條路
+                # 抖音 API 失敗（例如影片只在西瓜上架）→ 換 yt-dlp 試
                 pass
-        return await YtDlpResolver.resolve(self, url)
+            except Exception:  # noqa: BLE001
+                pass
+        # yt-dlp 只認得 douyin.com/video/<id>（iesdouyin 會說 Unsupported URL）
+        canonical = (f"https://www.douyin.com/video/{aweme_id}" if aweme_id else url)
+        return await YtDlpResolver.resolve(self, canonical)
+
+    @staticmethod
+    def _aweme_id(url: str) -> str | None:
+        m = _ID_RE.search(url)
+        if not m:
+            return None
+        return m.group(1) or m.group(2)
