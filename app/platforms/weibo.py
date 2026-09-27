@@ -22,7 +22,8 @@ _SHOW = "https://weibo.com/ajax/statuses/show"
 _URL_RE = re.compile(
     r"https?://(?:www\.|m\.|weibo\.|video\.)?(?:weibo\.com|weibo\.cn)/|https?://t\.cn/", re.I
 )
-_NUM_ID = re.compile(r"(?:tv/show/1034:|detail/|status/)(\d{15,20})")
+#: 支援多種形式：tv/show/1034:<mid>、detail/<mid>、status/<mid>、?fid=1034:<mid>
+_NUM_ID = re.compile(r"(?:tv/show/1034:|fid=1034:|detail/|status/|/tv/)(\d{15,20})")
 _MBLOG = re.compile(r"weibo\.com/(?:\d{6,12}|u/\d{6,12})/([0-9A-Za-z]{8,12})")
 
 

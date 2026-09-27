@@ -43,8 +43,23 @@ class BilibiliResolver(Resolver):
     async def match(self, url: str) -> bool:
         return bool(_URL_RE.search(url))
 
+    @staticmethod
+    async def _bvid_from_short(url: str) -> str | None:
+        """b23.tv 短連結 → 跟隨轉址取 BV 號。"""
+        try:
+            async with HttpClient(ua=_UA, timeout=15) as http:
+                resp = await http.get(url, headers=_HEADERS)
+                return BilibiliResolver._extract_bvid(str(resp.url))
+        except Exception:  # noqa: BLE001
+            return None
+
     async def resolve(self, url: str) -> VideoInfo:
         bvid = self._extract_bvid(url)
+        if not bvid:
+            # b23.tv 短連結：先跟隨轉址拿到 BV 號
+            bvid = await self._bvid_from_short(url)
+        if not bvid:
+            raise PlatformChanged("找不到 B 站影片編號（BV 號）", platform=self.name)
         try:
             async with HttpClient(ua=_UA) as http:
                 # ★關鍵：先拜訪首頁 → 自動取得 buvid3/buvid4 訪客 Cookie

@@ -19,7 +19,13 @@ from ..core.models import Format, VideoInfo
 from ._ssr import meta_content, page_video_info
 from ._ytdlp import YtDlpResolver
 
-_URL_RE = re.compile(r"https?://(?:www\.|m\.)?xiaohongshu\.com/|https?://xhslink\.com/", re.I)
+#: 短連結有三個網域：xhslink.com / xhslink.cn / xhs.link
+_URL_RE = re.compile(
+    r"https?://(?:www\.|m\.)?xiaohongshu\.com/"
+    r"|https?://(?:www\.)?xhslink\.(?:com|cn)/"
+    r"|https?://xhs\.link/",
+    re.I,
+)
 _IPHONE_UA = (
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
@@ -41,7 +47,7 @@ _HDRS = {"Referer": "https://www.xiaohongshu.com/", "User-Agent": _IPHONE_UA}
 class XiaohongshuResolver(YtDlpResolver):
     name = "xiaohongshu"
     label = "小紅書"
-    hosts = ("xiaohongshu.com", "xhslink.com")
+    hosts = ("xiaohongshu.com", "xhslink.com", "xhslink.cn", "xhs.link")
     default_mode = "fetch"          # 小紅書 CDN 開 CORS（規格書第 8 章）
     ytdlp_extra = {"http_headers": {"User-Agent": _IPHONE_UA}}
 

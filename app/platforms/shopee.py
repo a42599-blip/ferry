@@ -15,9 +15,12 @@ from ..core.models import Format, VideoInfo
 from ._ssr import meta_content
 from .base import Resolver
 
+#: 支援國別子網域（tw.shp.ee / shopee.tw / m.shopee.tw / sv.shopee.tw…）
 _URL_RE = re.compile(
-    r"https?://(?:www\.|m\.|shopee\.|video\.)?(?:shopee\.[a-z.]+|shp\.ee)/", re.I
+    r"https?://(?:[a-z0-9-]+\.)*(?:shopee\.[a-z.]+|shp\.ee)/", re.I
 )
+#: 蝦皮短連結會導到 universal-link，真正的影片網址在 redir 參數裡
+_UNIVERSAL = re.compile(r"[?&]redir=([^&]+)")
 _UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -27,7 +30,7 @@ _UA = (
 class ShopeeResolver(Resolver):
     name = "shopee"
     label = "蝦皮"
-    hosts = ("shopee.tw", "shp.ee")
+    hosts = ("shopee.tw", "shp.ee")   # shp.ee 是短連結網域
 
     async def match(self, url: str) -> bool:
         return bool(_URL_RE.search(url))
@@ -41,6 +44,16 @@ class ShopeeResolver(Resolver):
         async with HttpClient(ua=_UA, timeout=25) as http:
             resp = await http.get(url, headers=headers)
             page = resp.text
+            final = str(resp.url)
+            # 短連結 → universal-link，真正網址在 redir 參數（要 URL 解碼）
+            if "universal-link" in final:
+                from urllib.parse import unquote
+
+                m = _UNIVERSAL.search(final)
+                if m:
+                    real = unquote(m.group(1))
+                    resp = await http.get(real, headers=headers)
+                    page = resp.text
 
         title = _meta(page, "og:title") or "蝦皮影片"
         cover = _meta(page, "og:image") or ""
