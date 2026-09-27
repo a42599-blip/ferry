@@ -407,6 +407,9 @@ async def main() -> None:
         print("\n▶ C. 後台審核")
         rep["issues"] += await audit_admin(args.base, args.admin_user, args.admin_pass)
 
+    print("\n▶ D. 網址路由審核（哪個連結該由哪個平台處理）")
+    rep["issues"] += await audit_routing()
+
     print_report(rep)
     if args.json:
         Path(args.json).write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
