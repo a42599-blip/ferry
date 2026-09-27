@@ -20,8 +20,8 @@ const FEATURE_LABELS = {
   'feature.free_limit_download': '免費次數限制 ── 無水印下載',
   'feature.free_limit_transfer': '免費次數限制 ── 無損傳輸',
   'feature.maintenance': '全站維護模式',
-  'feature.auth': '會員登入 ── 關掉後前台會員頁收起來',
-  'feature.billing': '付費訂閱 ── 關掉後前台方案頁的購買按鈕收起來',
+  'feature.auth': '會員登入（預留）',
+  'feature.billing': '付費／訂閱（預留）',
 };
 const SEV = { critical: '嚴重', warn: '警告', info: '一般' };
 const KIND = { page_view: '進站', resolve: '解析', download: '下載',
