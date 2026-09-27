@@ -32,8 +32,8 @@ def register(resolver: Resolver) -> None:
 
 for _cls in (
     # 中國大陸
+    XiguaResolver,       # ← 必須在 Douyin 前面（iesdouyin.com/xg/ 是西瓜的分享路徑）
     DouyinResolver,
-    XiguaResolver,       # ← 必須在 Toutiao 前面（不同網域但同集團）
     BilibiliResolver,
     XiaohongshuResolver,
     WeiboResolver,

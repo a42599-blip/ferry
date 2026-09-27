@@ -306,6 +306,49 @@ async def audit_admin(base: str, user: str, password: str) -> list[dict]:
     return out
 
 
+# ══ D. 網址路由審核（哪個連結該由哪個平台處理）══════════
+ROUTING_CASES = [
+    ("https://www.douyin.com/video/1234567890123456", "douyin"),
+    ("https://v.douyin.com/abc123/", "douyin"),
+    ("https://www.iesdouyin.com/share/video/1234567890123456/", "douyin"),
+    ("https://www.iesdouyin.com/xg/video/1234567890123456", "xigua"),
+    ("https://www.ixigua.com/1234567890123456", "xigua"),
+    ("https://www.tiktok.com/@a/video/123", "tiktok"),
+    ("https://vm.tiktok.com/ZMabc/", "tiktok"),
+    ("https://www.bilibili.com/video/BV1xx411c7mD", "bilibili"),
+    ("https://b23.tv/abc", "bilibili"),
+    ("https://weibo.com/detail/5347454541103635", "weibo"),
+    ("https://m.weibo.cn/detail/5347454541103635", "weibo"),
+    ("https://x.com/a/status/123", "x"),
+    ("https://twitter.com/a/status/123", "x"),
+    ("https://www.youtube.com/watch?v=abc", "youtube"),
+    ("https://youtu.be/abc", "youtube"),
+    ("https://www.instagram.com/reel/abc/", "instagram"),
+    ("https://www.facebook.com/watch/?v=1", "facebook"),
+    ("https://www.threads.com/@a/post/abc", "threads"),
+    ("https://www.xiaohongshu.com/explore/abc", "xiaohongshu"),
+    ("https://xhslink.com/abc", "xiaohongshu"),
+    ("https://shopee.tw/product/1/2", "shopee"),
+    ("https://www.toutiao.com/video/123/", "toutiao"),
+]
+
+
+async def audit_routing() -> list[dict]:
+    """確認每個網址都交給正確的平台（避免 A 平台的連結被 B 平台吃掉）。"""
+    from app.core import registry
+
+    out: list[dict] = []
+    for url, want in ROUTING_CASES:
+        r = await registry.detect(url)
+        got = r.name if r else None
+        if got != want:
+            out.append({"lang": "路由", "tab": "registry", "pos": "——",
+                        "kind": "平台誤判", "detail": f"{url[:56]} → {got}（期望 {want}）"})
+    if not out:
+        print(f"   ✔ 網址路由 {len(ROUTING_CASES)} 項全部正確")
+    return out
+
+
 # ══ 報告 ════════════════════════════════════════════
 def print_report(rep: dict) -> None:
     print("\n" + "=" * 78)

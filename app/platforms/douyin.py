@@ -20,8 +20,9 @@ from . import _douyin_shared as _shared
 from ._ytdlp import YtDlpResolver, quality_label
 
 _API = "https://www.tikwm.com/api/"
+#: ⚠️ 排除 `/xg/`：那是**西瓜視頻**的分享路徑（iesdouyin.com/xg/video/<id>）
 _URL_RE = re.compile(
-    r"https?://(?:www\.|v\.|vm\.|m\.)?(?:douyin\.com|iesdouyin\.com)/", re.I
+    r"https?://(?:www\.|v\.|vm\.|m\.)?(?:douyin\.com|iesdouyin\.com)/(?!xg/)", re.I
 )
 _ID_RE = re.compile(r"/(?:video|note|share/video|share/note)/(\d{15,25})")
 

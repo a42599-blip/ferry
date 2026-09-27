@@ -17,12 +17,15 @@ from ..core.errors import PlatformError
 from ._douyin_shared import resolve_via_douyin
 from ._ytdlp import YtDlpResolver
 
+#: 只認「西瓜自己的」路徑：
+#:   - ixigua.com/<id>、ixigua.com/video/<id>
+#:   - iesdouyin.com/**xg**/video/<id>（有 /xg/ 才是西瓜分享）
 _URL_RE = re.compile(
-    r"https?://(?:www\.|m\.)?(?:ixigua\.com|iesdouyin\.com)/", re.I
+    r"https?://(?:www\.|m\.)?ixigua\.com/"
+    r"|https?://(?:www\.|m\.)?iesdouyin\.com/xg/",
+    re.I,
 )
-#: iesdouyin 分享：/xg/video/<id>；ixigua：/<id> 或 /video/<id>
-_ID_RE = re.compile(r"(?:/xg)?/video/(\d{15,25})|ixigua\.com/(\d{15,25})")
-
+_ID_RE = re.compile(r"/xg/video/(\d{15,25})|ixigua\.com/(?:video/)?(\d{15,25})")
 
 class XiguaResolver(YtDlpResolver):
     name = "xigua"
