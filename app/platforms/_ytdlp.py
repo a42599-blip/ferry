@@ -97,6 +97,10 @@ class YtDlpResolver(Resolver):
         from ..services.cookies import cookiefile_for
 
         cf = cookiefile_for(self.name)
+        # YouTube 另外支援環境變數（雲端 IP 被判定機器人時用）
+        env_ck = getattr(self, "_env_cookiefile", None)
+        if callable(env_ck):
+            cf = env_ck() or cf
         if cf:
             opts["cookiefile"] = cf
 

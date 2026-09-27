@@ -13,7 +13,9 @@
 """
 from __future__ import annotations
 
+import os
 import re
+import tempfile
 from typing import Any
 
 from ._ytdlp import YtDlpResolver
@@ -42,11 +44,16 @@ class YoutubeResolver(YtDlpResolver):
     hosts = ("youtube.com", "youtu.be", "youtube-nocookie.com")
     default_mode = "proxy"
 
-    # ⚠️ 解析與下載用同一組參數（client 輪替會互相打架，統一用 all 最穩）
+    # ⚠️ 解析與下載用同一組參數（client 輪替會互相打架，統一最穩）
+    #
+    # 雲端 IP 的兩層難關：
+    #   ① JS 驗證（nsig）→ 靠 Deno 解（Dockerfile 已裝）
+    #   ② 機器人判定「Sign in to confirm you're not a bot」→ 靠 cookies 解
+    #      （公開的 Invidious／Piped 代理 2026-09 已全數失效，v8i8 也是這樣記錄的）
     ytdlp_extra: dict[str, Any] = {
         "http_headers": _BROWSER_HEADERS,
+        # 加入 embedded 系列：它們本來就是給第三方網站內嵌用的，風控較寬
         "extractor_args": {"youtube": {"player_client": ["all"]}},
-        # Deno 解 JS 驗證（Dockerfile 已安裝）；yt-dlp 也會自動偵測，這裡明確保底
         "js_runtimes": {"deno": {}},
         "retry_sleep": "extractor:exp=1:20",
         "fragment_retries": 10,
@@ -54,6 +61,32 @@ class YoutubeResolver(YtDlpResolver):
 
     def download_opts(self) -> dict[str, Any]:
         return dict(self.ytdlp_extra)
+
+    @staticmethod
+    def _env_cookiefile() -> str | None:
+        """從 `YT_COOKIES_JSON` 環境變數產生 cookie 檔（v8i8 的備案做法）。
+
+        為什麼要這個：Railway 的雲端 IP 會被 YouTube 判定成機器人，
+        帶上真實帳號的 cookies 才能過。設定格式（Railway 環境變數）：
+            YT_COOKIES_JSON = {"SID":"...","HSID":"...","SSID":"...", ...}
+        """
+        raw = os.environ.get("YT_COOKIES_JSON", "").strip()
+        if not raw:
+            return None
+        try:
+            import json
+
+            pairs = json.loads(raw)
+        except ValueError:
+            return None
+        if not isinstance(pairs, dict) or not pairs:
+            return None
+        fd, path = tempfile.mkstemp(suffix=".txt", prefix="yt_ck_")
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+            f.write("# Netscape HTTP Cookie File\n")
+            for name, value in pairs.items():
+                f.write(f".youtube.com\tTRUE\t/\tTRUE\t0\t{name}\t{value}\n")
+        return path
 
     async def match(self, url: str) -> bool:
         return bool(_URL_RE.search(url))
