@@ -93,6 +93,20 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
 
+-- 提現紀錄（後台把收入提出來時記錄；實際撥款由金流商處理）
+CREATE TABLE IF NOT EXISTS payouts (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          REAL    NOT NULL,
+    amount      REAL    NOT NULL,
+    fee         REAL    DEFAULT 0,
+    currency    TEXT    DEFAULT 'USD',
+    method      TEXT,                       -- bank / paypal / stripe ...
+    note        TEXT,
+    status      TEXT    DEFAULT 'pending',  -- pending / done / cancelled
+    done_at     REAL
+);
+CREATE INDEX IF NOT EXISTS idx_payouts_ts ON payouts(ts);
+
 -- 使用者回報問題（任何人都能送，不限會員）
 CREATE TABLE IF NOT EXISTS feedback (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

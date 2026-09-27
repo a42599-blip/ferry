@@ -36,6 +36,7 @@ EVENTS: dict[str, dict[str, Any]] = {
     "db_usage_high":    {"title": "資料庫／儲存用量偏高", "severity": "warn", "can_disable": True},
     "cert_expiring":    {"title": "SSL 憑證／網域即將到期", "severity": "critical", "can_disable": False},
     "copyright_notice": {"title": "版權檢舉／侵權投訴", "severity": "critical", "can_disable": False},
+    "payout_request":   {"title": "提現申請",       "severity": "info",     "can_disable": True},
     "user_report":      {"title": "使用者回報問題",   "severity": "info",     "can_disable": True},
     "deploy":           {"title": "部署完成／失敗",   "severity": "info",     "can_disable": True},
 }

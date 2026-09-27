@@ -290,12 +290,14 @@ async function loadConfig() {
 function renderQuota(q) {
   if (!q) return;
   state.quota = q;
-  const unlimited = q.unlimited || (q.download?.remaining ?? 0) >= 9999;
+
   // ⚠️ 小羅 2026-09-27：「已使用次數」要**照實寫**，不要顯示一橫線。
   //    沒用過就是 0，用過 1 次就是 1（∞ 只用在「剩餘」那一格）
   const n = (v) => String(Number(v) || 0);
   const fill = (left, used, reset, part) => {
     if (!left || !used) return;
+    // ⚠️ 每個模組有自己的 unlimited（免費次數開關是分開的）
+    const unlimited = part?.unlimited || (part?.remaining ?? 0) >= 9999;
     used.textContent = n(part?.used);                    // 永遠是實際數字
     left.textContent = unlimited ? '∞' : n(part?.remaining);
     if (reset) {
@@ -732,10 +734,52 @@ async function loadPlans() {
   renderPayStatus();
   } catch { /* 忽略 */ }
 }
+// ── 付款方式（預留模塊；金流商設好金鑰就會自動出現）──────
+//   支援兩種呈現：
+//     ① 線上刷卡／導頁付款（checkout_url）
+//     ② QR code（有些金流商回傳 qr_code / qr_url，當場掃碼付款）
+const PAY_ICON = { ecpay: '🟢', newebpay: '🔵', stripe: '💳' };
+
+async function loadPayWays() {
+  const box = $('#pay-ways');
+  if (!box) return;
+  let cfg;
+  try { cfg = await api('/api/pay/providers'); } catch { return; }
+  const ready = Object.entries(cfg.providers || {}).filter(([, v]) => v.ready);
+  if (!ready.length) {
+    box.innerHTML = `<div class="note" style="margin:0"><b>${t('pay_beta')}</b><br>`
+      + `${t('pay_not_ready')}</div>`;
+    return;
+  }
+  box.innerHTML = ready.map(([id, v]) =>
+    `<button class="payway" data-pay="${id}">${PAY_ICON[id] || '💳'} ${esc(v.label)}</button>`).join('');
+  box.querySelectorAll('[data-pay]').forEach((b) => b.addEventListener('click', () => {
+    box.querySelectorAll('[data-pay]').forEach((x) => x.classList.toggle('on', x === b));
+  }));
+}
+
+function currentProvider() {
+  const on = $('#pay-ways')?.querySelector('[data-pay].on');
+  return on ? on.dataset.pay : ($('#pay-ways')?.querySelector('[data-pay]')?.dataset.pay || 'ecpay');
+}
+
 $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   try {
-    const j = await api('/api/pay/checkout', { method: 'POST', body: JSON.stringify({ plan: b.dataset.buy, provider: 'ecpay' }) });
-    if (j.checkout_url) window.location.href = j.checkout_url;
+    const j = await api('/api/pay/checkout', { method: 'POST', body: JSON.stringify({
+      plan: b.dataset.buy, provider: currentProvider() }) });
+    // ① 導頁式付款
+    if (j.checkout_url) { window.location.href = j.checkout_url; return; }
+    // ② QR code 付款（金流商回傳圖片或字串）
+    if (j.qr_url || j.qr_code) {
+      const qr = $('#pay-qr');
+      qr.hidden = false;
+      qr.innerHTML = j.qr_url
+        ? `<img alt="QR" src="${esc(j.qr_url)}"><div class="note">${t('pay_qr_hint')}</div>`
+        : `<canvas id="pay-qr-c" width="200" height="200"></canvas><div class="note">${t('pay_qr_hint')}</div>`;
+      msg('#pay-status', t('pay_qr_ready'), 'ok');
+      return;
+    }
+    msg('#pay-status', j.message || t('pay_not_ready'), 'err');
   } catch (e) { msg('#pay-status', e.message, 'err'); }
 }));
 
@@ -744,5 +788,6 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   await loadLang();
   try { await loadConfig(); } catch (e) { console.warn(e); }
   await loadQuota();
+  loadPayWays();
   renderHistory();
 })();

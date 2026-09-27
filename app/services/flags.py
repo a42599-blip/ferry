@@ -20,7 +20,9 @@ _DEFAULT_FEATURES: dict[str, bool] = {
     "feature.quality": True,       # 畫質選擇（關掉＝只給最高畫質）
     "feature.audio_only": True,    # 純音訊輸出
     "feature.history": True,       # 歷史記錄
-    "feature.free_limit": settings.free_limit_enabled,  # 免費次數限制
+    # 免費次數限制（**各模組分開**；關掉＝該模組無限使用，公測期間常用）
+    "feature.free_limit_download": settings.free_limit_enabled,  # 無水印下載的免費次數
+    "feature.free_limit_transfer": settings.free_limit_enabled,  # 無損傳輸的免費次數
     # 頁面（關掉 → 前台導航與內容一併消失）
     "feature.teach": True,         # 教學頁
     "feature.plans": True,         # 方案頁

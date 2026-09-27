@@ -140,6 +140,31 @@
           <div class="pnl grow2"><div class="lbl">訂單列表</div><div class="scroll" id="rev-orders"></div>
             <p class="note">金流為 P6 階段：程式與訂單流程已完成，設定金鑰後即可收款。</p></div>
         </div>
+        <!-- ── 收款設定（第三方支付接入點位）── -->
+        <div class="pnl">
+          <div class="lbl">收款設定（怎麼接第三方支付）</div>
+          <p class="note">只要在 Railway 設定對應的環境變數，前台付款與回呼就會自動生效
+            —— 不用改程式。<br>
+            <b>回呼網址</b>（給金流商後台填）：<code id="rev-webhook">–</code>　
+            付款完成導回：<code id="rev-return">–</code></p>
+          <div class="scroll" id="rev-providers"></div>
+        </div>
+        <!-- ── 提現 ── -->
+        <div class="rows">
+          <div class="pnl"><div class="lbl">可提餘額</div><div id="rev-balance"></div>
+            <p class="note">提現這裡只做<b>紀錄與提醒</b>；實際撥款請到該金流商的後台操作，
+              完成後回來把狀態改成「已撥款」。<br>
+              <span class="dim">（不自動撥款是因為金流商撥款要驗證與 2FA，人工確認比較安全）</span></p>
+          </div>
+          <div class="pnl grow2"><div class="lbl">提現紀錄</div><div class="scroll" id="rev-payouts"></div>
+            <div class="inrow" style="margin-top:10px">
+              <input id="po-amount" type="number" step="0.01" min="0" placeholder="金額（US$）">
+              <select id="po-method"></select>
+              <input id="po-note" placeholder="備註（選填）">
+              <button class="big sm" id="po-go">申請提現</button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- 回報與額度 -->

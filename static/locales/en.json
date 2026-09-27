@@ -264,5 +264,10 @@
   "tr_timeout_hint": "Not connected yet. If the devices are on different networks, a firewall may block it — try the same WiFi.",
   "quota_vip": "Paid members: unlimited",
   "btn_paste_only": "📋 Paste",
-  "btn_retry_parse": "🔍 Parse again"
+  "btn_parse": "🔍 Parse",
+  "pay_method": "Payment method",
+  "pay_beta": "Free during beta — no charge for now",
+  "pay_not_ready": "Payments are being set up. Card / QR code options will appear here.",
+  "pay_qr_hint": "Scan the QR code with your phone to pay",
+  "pay_qr_ready": "Payment QR code ready — please scan"
 }

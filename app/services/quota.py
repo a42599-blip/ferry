@@ -53,8 +53,8 @@ def used(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> int:
 
 
 def remaining(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> int:
-    if not settings.free_limit_enabled:
-        return 9999  # 開發期＝不限
+    if not _limit_on(kind) or _is_paid(subject):
+        return 9999  # 不限（公測全開／該模組開關關掉／會員）
     return max(0, daily_limit(kind) - used(kind, subject, tz_name=tz_name))
 
 
@@ -64,7 +64,7 @@ def consume(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
         raise ValueError(f"unknown quota kind: {kind}")
 
     dk = _date_key(tz_name)
-    if settings.free_limit_enabled and not _is_paid(subject):
+    if _limit_on(kind) and not _is_paid(subject):
         cur = used(kind, subject, tz_name=tz_name)
         if cur >= daily_limit(kind):
             raise QuotaExceeded("今天的免費次數用完了，明天 00:00 重新開始")
@@ -85,8 +85,25 @@ def consume(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
         "used": used(kind, subject, tz_name=tz_name),
         "remaining": remaining(kind, subject, tz_name=tz_name),
         "reset_at": f"{dk}T00:00:00（{tz_name} 隔日）",
-        "unlimited": not settings.free_limit_enabled or _is_paid(subject),
+        "unlimited": not _limit_on(kind) or _is_paid(subject),
     }
+
+
+def _limit_on(kind: str) -> bool:
+    """這個模組現在要不要限制次數？
+
+    ⚠️ 小羅 2026-09-27：開關要**分開**（下載一個、傳輸一個），
+       關掉＝該模組無限使用（公測期間想全開就是關掉限制）。
+    """
+    from . import flags
+
+    if not settings.free_limit_enabled:
+        return False
+    key = "feature.free_limit_transfer" if kind == "transfer" else "feature.free_limit_download"
+    try:
+        return bool(flags.feature_enabled(key))
+    except Exception:  # noqa: BLE001
+        return True
 
 
 def _is_paid(subject: str) -> bool:
@@ -108,22 +125,28 @@ def status(subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
     dk = _date_key(tz_name)
     parts = dk.split("-")
     hint = f"{parts[1]}-{parts[2]} 00:00"        # 例：09-27 00:00
-    unlimited = not settings.free_limit_enabled or _is_paid(subject)
+    # ⚠️ 「不限次數」要**分模組**判斷（下載與傳輸的免費開關是分開的）
+    paid = _is_paid(subject)
+    dl_unlimited = not _limit_on("download") or paid
+    tr_unlimited = not _limit_on("transfer") or paid
     return {
         "download": {
             "limit": daily_limit("download"),
             "used": used("download", subject, tz_name=tz_name),
             "remaining": remaining("download", subject, tz_name=tz_name),
             "reset_hint": hint,
+            "unlimited": dl_unlimited,
         },
         "transfer": {
             "limit": daily_limit("transfer"),
             "used": used("transfer", subject, tz_name=tz_name),
             "remaining": remaining("transfer", subject, tz_name=tz_name),
             "reset_hint": hint,
+            "unlimited": tr_unlimited,
         },
         "timezone": tz_name,
-        "unlimited": unlimited,
+        # 舊欄位：兩個都無限才算全站無限（前台相容用）
+        "unlimited": dl_unlimited and tr_unlimited,
     }
 
 

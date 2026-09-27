@@ -365,6 +365,45 @@ async def growth(days: int = Query(90, ge=7, le=730), _: dict = Depends(require_
     return {"ok": True, **events.growth(days)}
 
 
+# ── 收款與提現（小羅 2026-09-27 要求先預留）──────────────
+@router.get("/payout")
+async def get_payout(_: dict = Depends(require_admin)) -> dict:
+    """可提餘額 ＋ 提現紀錄 ＋ 各金流商設定狀態。"""
+    from ..services import billing
+
+    return {"ok": True, "summary": billing.payout_summary(),
+            "payouts": billing.payouts(), "providers": billing.provider_setup_guide(),
+            "methods": billing.PAYOUT_METHODS,
+            "callbacks": {
+                "webhook": "/api/billing/webhook/{provider}",
+                "return": "/?paid=1",
+            }}
+
+
+@router.post("/payout/request")
+async def request_payout(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
+    """建立提現申請（實際撥款請在該金流商的後台操作，完成後再回來標記）。"""
+    from ..services import billing, notify
+
+    row = billing.request_payout(float(body.get("amount") or 0),
+                                 body.get("method") or "bank",
+                                 body.get("note") or "")
+    await notify.notify("payout_request", "提現申請",
+                        f"金額 US$ {row['amount']}\n方式 {row['method']}\n"
+                        f"備註 {row.get('note') or '（無）'}",
+                        force=True)
+    return {"ok": True, "row": row, "summary": billing.payout_summary()}
+
+
+@router.post("/payout/{pid}/status")
+async def payout_status(pid: int, body: dict = Body(...),
+                        _: dict = Depends(require_admin)) -> dict:
+    from ..services import billing
+
+    billing.set_payout_status(pid, (body or {}).get("status") or "done")
+    return {"ok": True, "summary": billing.payout_summary(), "payouts": billing.payouts()}
+
+
 # ── 使用者回報（任何人都能送，不限會員）───────────────
 @router.get("/feedback")
 async def get_feedback(days: int = Query(30), only_new: bool = Query(False),

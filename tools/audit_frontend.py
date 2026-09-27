@@ -154,11 +154,12 @@ async def audit_functional(pg, base: str) -> list[dict]:
     # 1) 語言切換真的換字
     #    ⚠️ 2026-09-27 起改成兩顆固定按鈕（照 v8i8）：
     #       「📋 貼上」＋「🔍 開始解析」→ 兩顆都要翻譯到、且英文版不得有中文
-    #    只有一顆按鈕：「📋 貼上並解析」（小羅 2026-09-27 定案）
+    #    按鈕（小羅 2026-09-27 定案）：
+    #      點網址欄 → 出現「📋 貼上」；「🔍 解析」常駐（沒改連結時可再按）
     ALLOW = {
-        "en": {"📋 Paste & Parse", "Paste & Parse"},
-        "zh-Hans": {"📋 贴上并解析", "贴上并解析"},
-        "zh-Hant": {"📋 貼上並解析", "貼上並解析"},
+        "en": {"🔍 Parse", "Parse"},
+        "zh-Hans": {"🔍 解析", "解析"},
+        "zh-Hant": {"🔍 解析", "解析"},
     }
     for lang, expects in ALLOW.items():
         await pg.locator(f'#lang button[data-lang="{lang}"]:visible').first.click()

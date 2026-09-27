@@ -234,7 +234,6 @@ input:focus{outline:none;border-color:var(--acc)}
     transition-duration:.001ms !important;scroll-behavior:auto !important}
 }
 /* 觸控目標 >= 44px（規格書 5-3） */
-button.mini{min-height:32px}
 .pick button,.inbar .go{min-height:48px}
 .q{min-height:46px}
 
@@ -277,5 +276,14 @@ button.mini{min-height:32px}
 /* ── 「📋 貼上」按鈕（點網址欄才出現；按了自動解析）── */
 .inbar .go.paste{background:transparent;color:var(--acc);font-size:13px;
   padding:0 14px;border-left:1px solid var(--inp);flex:0 0 auto}
-/* ── 「🔍 重新解析」（解析失敗時重試用，次要樣式）── */
-.o-retry{width:100%;margin-bottom:8px}
+
+/* ── 付款方式（方案頁；金流接好才會出現按鈕）── */
+.paybox{margin-top:18px;border-top:1px solid var(--line-soft);padding-top:14px}
+.paybox .lbl2{font-size:12.5px;color:var(--dim);margin-bottom:9px}
+.payways{display:flex;gap:8px;flex-wrap:wrap}
+.payway{padding:9px 14px;border:1px solid var(--line-soft);border-radius:9px;background:transparent;
+  color:var(--text);font-size:13px;cursor:pointer;transition:.2s}
+.payway:hover{border-color:var(--acc)}
+.payway.on{border-color:var(--acc);background:rgba(217,192,140,.1);color:var(--acc)}
+.payqr{margin-top:14px;text-align:center}
+.payqr img,.payqr canvas{max-width:190px;border-radius:10px;background:#fff;padding:8px}

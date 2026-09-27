@@ -264,5 +264,10 @@
   "tr_timeout_hint": "還沒連上。若兩台不在同一個網路，可能被防火牆擋住；請改連同一個 WiFi 再試。",
   "quota_vip": "付費會員：不限次數",
   "btn_paste_only": "📋 貼上",
-  "btn_retry_parse": "🔍 重新解析"
+  "btn_parse": "🔍 解析",
+  "pay_method": "付款方式",
+  "pay_beta": "目前為公測期間，暫不收費",
+  "pay_not_ready": "付費功能正在準備中。開通後這裡會出現信用卡／QR code 等付款方式。",
+  "pay_qr_hint": "請用手機掃描 QR code 完成付款",
+  "pay_qr_ready": "已產生付款 QR code，請掃描"
 }

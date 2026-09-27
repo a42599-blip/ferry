@@ -58,6 +58,17 @@ async def me(request: Request) -> dict:
 
 
 # ── 付款 ─────────────────────────────────────────────
+@router.get("/api/pay/providers")
+async def pay_providers() -> dict:
+    """前台付款方式（金流商設好環境變數才會 ready）。
+
+    小羅 2026-09-27：先把付款機制的位置留好，
+    之後接第三方支付只要設環境變數，不用改程式。
+    """
+    return {"ok": True, "providers": billing.available_providers(),
+            "plans": billing.plans(), "enabled": billing.enabled()}
+
+
 @router.post("/api/pay/checkout")
 async def checkout(request: Request, body: dict = Body(...)) -> dict:
     subject = auth.current_subject(request)

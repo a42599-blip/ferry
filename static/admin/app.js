@@ -355,23 +355,34 @@ async function pgGrowth() {
   const rank = d.platform_ranking || [];
   if (rank.length) {
     const maxR = Math.max(1, ...rank.map((x) => x.resolve_total));
-    $('#gr-rank').innerHTML = table([
-      { t: '#', v: (r) => { const i = rank.indexOf(r); return i === 0 ? '<span class="rank1">1</span>' : (i + 1); }, html: true },
-      { t: '平台', v: (r) => esc(r.platform) },
-      { t: '解析次數', v: (r) => `<span class="bar-mini" style="width:${Math.round(r.resolve_total / maxR * 46)}px"></span><b>${fmtN(r.resolve_total)}</b><br><small class="dim">佔 ${r.share}%</small>`, html: true },
-      { t: '成長', v: (r) => pct(r.growth_pct), html: true },
-      { t: '解析成功率', v: (r) => rateBadge(r.resolve_rate), html: true },
-      { t: '解析失敗', v: 'resolve_fail', num: true },
-      { t: '下載次數', v: 'download_total', num: true },
-      { t: '下載轉換率', v: (r) => {
-          const v = r.download_per_resolve;
-          if (v === null) return '<span class="dim">–</span>';
-          const cls = v >= 60 ? 'ok' : v >= 25 ? 'warn' : 'err';
-          return `<span class="badge ${cls}">${v}%</span>`;
-        }, html: true },
-      { t: '下載成功率', v: (r) => rateBadge(r.download_rate), html: true },
-      { t: '平均耗時', v: (r) => r.avg_ms ? (r.avg_ms / 1000).toFixed(1) + 's' : '–', num: true },
-    ], rank);
+    // 圖表版排行榜（小羅 2026-09-27：一堆文字像亂碼，要看得懂的圖）
+    const PNAME = { douyin: '抖音', xigua: '西瓜視頻', tiktok: 'TikTok', bilibili: 'B站',
+      weibo: '微博', xiaohongshu: '小紅書', instagram: 'Instagram', facebook: 'Facebook',
+      toutiao: '今日頭條', threads: 'Threads', shopee: '蝦皮', x: 'X', youtube: 'YouTube' };
+    // 明寫 class 名稱（不要用字串拼接，否則看不出用了哪些樣式）
+    const tone = (v) => (v === null ? 'dim' : v >= 90 ? 'ok' : v >= 70 ? 'warn' : 'err');
+    const toneBar = (v) => (v === null ? 'b-dim' : v >= 90 ? 'b-ok' : v >= 70 ? 'b-warn' : 'b-err');
+    $('#gr-rank').innerHTML = rank.map((r, i) => {
+      const w = Math.max(3, Math.round((r.resolve_total / maxR) * 100));
+      const rate = r.resolve_rate;
+      return `<div class="prow">
+        <span class="prk">${i + 1}</span>
+        <span class="pn">${esc(PNAME[r.platform] || r.platform || '未辨識')}</span>
+        <div class="pbar">
+          <i class="${toneBar(rate)}" style="width:${w}%"></i>
+          <span class="pt">${fmtN(r.resolve_total)} 次解析　${r.share}%</span>
+        </div>
+        <span class="pr badge ${tone(rate)}">${rate === null ? '無資料' : rate + '%'}</span>
+        <span class="pc">${r.download_per_resolve === null ? '尚未下載'
+          : '下載轉換 ' + r.download_per_resolve + '%'}</span>
+        ${r.avg_ms ? `<span class="pm2">${(r.avg_ms / 1000).toFixed(1)}s</span>` : ''}
+      </div>`;
+    }).join('') + `<div class="plegend">
+      <span class="badge ok">90%↑ 很好</span>
+      <span class="badge warn">70~90% 注意</span>
+      <span class="badge err">70%↓ 要修</span>
+      <span class="dim">（長條＝解析次數；右邊是成功率、下載轉換率、平均耗時）</span>
+    </div>`;
 
     // 自動洞察：直接指出「哪個平台要修 / 哪個下載體驗要加強」
     const ins = [];
@@ -507,15 +518,94 @@ async function pgRevenue() {
     { t: '訂單', v: 'id' }, { t: '方案', v: 'plan' }, { t: '金額', v: 'amount', num: true },
     { t: '狀態', v: 'status' }, { t: '時間', v: (r) => fmtTime(r.created_at) },
   ], d.orders, '還沒有訂單');
-  queue(`本期 US$ ${fmtN(s.month)}　累計 US$ ${fmtN(s.total)}　訂單 ${fmtN(s.orders)} 筆`);
+  // ── 收款設定（各金流商要設哪些環境變數）──
+  const po = await api('/payout');
+  $('#rev-webhook').textContent = location.origin + po.callbacks.webhook;
+  $('#rev-return').textContent = location.origin + po.callbacks.return;
+  $('#rev-providers').innerHTML = po.providers.map((p) => `
+    <div class="metric"><span>${p.ready ? '✅' : '⬜'} ${esc(p.label)}</span>
+      <span>${p.ready ? '<b>已設定，可收款</b>'
+        : '還缺：' + p.env.filter((e) => !e.set).map((e) => e.key).join('、')}</span></div>`).join('')
+    + `<p class="note">設定位置：Railway → ferry → Variables。設好後前台「方案」頁的付款按鈕就會出現。</p>`;
+
+  // ── 提現 ──
+  const b = po.summary;
+  $('#rev-balance').innerHTML = [
+    ['累計收入', 'US$ ' + fmtN(b.gross)],
+    ['已提現', 'US$ ' + fmtN(b.paid_out)],
+    ['處理中', 'US$ ' + fmtN(b.pending)],
+    ['可提餘額', '<b>US$ ' + fmtN(b.available) + '</b>'],
+  ].map(([k, v]) => `<div class="metric"><span>${k}</span><span>${v}</span></div>`).join('');
+  $('#po-method').innerHTML = Object.entries(po.methods)
+    .map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
+  $('#rev-payouts').innerHTML = po.payouts.length ? table([
+    { t: '時間', v: (r) => fmtTime(r.ts) },
+    { t: '金額', v: (r) => 'US$ ' + fmtN(r.amount), num: true },
+    { t: '方式', v: (r) => esc((po.methods || {})[r.method] || r.method || '–') },
+    { t: '備註', v: (r) => esc(r.note || '–') },
+    { t: '狀態', v: (r) => r.status === 'done' ? '<span class="badge ok">已撥款</span>'
+        : r.status === 'cancelled' ? '<span class="badge">已取消</span>'
+        : `<button class="gh" data-po-done="${r.id}">標記已撥款</button>`, html: true },
+  ], po.payouts, '還沒有提現紀錄') : '';
+  $$('#rev-payouts [data-po-done]').forEach((el) => el.addEventListener('click', async () => {
+    await api('/payout/' + el.dataset.poDone + '/status', { method: 'POST', body: JSON.stringify({ status: 'done' }) });
+    queue('已標記提現 #' + el.dataset.poDone + ' 為已撥款');
+    pgRevenue();
+  }));
+  $('#po-go').onclick = async () => {
+    const amt = Number($('#po-amount').value || 0);
+    if (!amt) return alert('請填提現金額');
+    if (!confirm(`確定申請提現 US$ ${amt}？`)) return;
+    try {
+      await api('/payout/request', { method: 'POST', body: JSON.stringify({
+        amount: amt, method: $('#po-method').value, note: $('#po-note').value }) });
+      $('#po-amount').value = ''; $('#po-note').value = '';
+      queue(`已建立提現申請 US$ ${amt}（到金流商後台撥款後回來標記完成）`);
+      pgRevenue();
+    } catch (e) { alert(e.message); }
+  };
+  queue(`本期 US$ ${fmtN(s.month)}　累計 US$ ${fmtN(s.total)}　訂單 ${fmtN(s.orders)} 筆　可提 US$ ${fmtN(po.summary.available)}`);
 }
 
 // ── 錯誤與告警 ───────────────────────────────────
+// 錯誤碼 → 中文（小羅 2026-09-27：「這些錯誤碼我看不懂」）
+const ERR_TW = {
+  PLATFORM_CHANGED:   '平台改版了（我們的解析程式要更新）',
+  PLATFORM_BLOCKED:   '被平台擋住（風控／需要登入 or cookies）',
+  PLATFORM_TIMEOUT:   '平台回應太慢，逾時',
+  PLATFORM_RATE_LIMITED: '被平台限流（請求太密集）',
+  PLATFORM_DISABLED:  '這個平台目前被後台關閉',
+  PLATFORM_ERROR:     '平台解析失敗（其他原因）',
+  UNSUPPORTED_URL:    '不支援的網址（或連結格式不對）',
+  NOT_FOUND:          '找不到這個影片（可能已刪除）',
+  BAD_REQUEST:        '請求有誤',
+  QUOTA_EXCEEDED:     '免費用次數用完',
+  TIMEOUT:            '前端等太久（網路慢或伺服器忙）',
+  NETWORK:            '前端連不上伺服器',
+  CLIENT_ERROR:       '前端回報的錯誤',
+  MAINTENANCE:        '全站維護中',
+  FEATURE_DISABLED:   '這個功能目前關閉',
+};
+const errTw = (code) => ERR_TW[code] || (code ? `其他（${code}）` : '未記錄原因');
+
 async function pgErrors() {
   const d = await api('/errors?days=' + days());
   $('#err-top').innerHTML = table([
-    { t: '平台', v: 'platform' }, { t: '錯誤碼', v: 'error_code' }, { t: '次數', v: 'count', num: true },
-  ], d.top_errors, '沒有失敗紀錄');
+    { t: '平台', v: (r) => esc(r.platform || '（未辨識）') },
+    { t: '發生什麼事', v: (r) => `<b>${esc(errTw(r.error_code))}</b>`
+        + (ERR_TW[r.error_code] ? '' : `<br><span class="dim">原始碼：${esc(r.error_code || '–')}</span>`),
+      html: true },
+    { t: '次數', v: 'count', num: true },
+    { t: '怎麼處理', v: (r) => ({
+        PLATFORM_CHANGED: '要修該平台的解析程式',
+        PLATFORM_BLOCKED: '等風控解除，或提供 cookies',
+        PLATFORM_TIMEOUT: '使用者網路慢，或平台當下很慢',
+        PLATFORM_RATE_LIMITED: '降低頻率即可',
+        UNSUPPORTED_URL: '確認貼的是正確的分享連結',
+        TIMEOUT: '使用者手機網路較慢（非我們問題）',
+        NETWORK: '使用者斷線（非我們問題）',
+      }[r.error_code] || '觀察即可'), html: false },
+  ], d.top_errors, '沒有失敗紀錄 🎉');
   $('#err-plat').innerHTML = table([
     { t: '平台', v: (r) => esc(r.platform) },
     { t: '解析失敗', v: 'resolve_fail', num: true },

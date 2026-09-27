@@ -245,3 +245,87 @@ def summary(days: int = 30) -> dict:
     from . import events
 
     return events.revenue_summary(days)
+
+
+# ══════════════════════════════════════════════════════════════════
+#  收款與提現（小羅 2026-09-27 要求先預留）
+#
+#  收款：PROVIDERS 三個金流商（綠界／藍新／Stripe）。
+#        只要在 Railway 設好環境變數，前台付款與回呼（webhook）就會自動生效。
+#  提現：這裡只記錄「提現申請與狀態」；真正的撥款由金流商後台操作。
+#        為什麼不由程式自動撥款：牽涉金流商的驗證與 2FA，人工確認比較安全。
+# ══════════════════════════════════════════════════════════════════
+
+#: 提現方式（先放常用的；之後可加）
+PAYOUT_METHODS = {
+    "bank": "銀行匯款",
+    "paypal": "PayPal",
+    "stripe": "Stripe 撥款",
+    "other": "其他",
+}
+
+#: 金流商抽成（僅供試算；實際以各家合約為準）
+FEE_RATE = {"ecpay": 0.029, "newebpay": 0.028, "stripe": 0.034, "": 0.03}
+
+
+def payout_summary(days: int = 0) -> dict:
+    """可提餘額＝已付款訂單總額 − 已提現（含處理中）− 預估手續費。"""
+    since = time.time() - days * 86400 if days else 0
+    gross = float(db.scalar(
+        "SELECT COALESCE(SUM(amount),0) FROM orders WHERE status='paid'" +
+        (" AND created_at>=?" if days else ""), ((since,) if days else ())) or 0)
+    paid_out = float(db.scalar(
+        "SELECT COALESCE(SUM(amount),0) FROM payouts WHERE status='done'") or 0)
+    pending = float(db.scalar(
+        "SELECT COALESCE(SUM(amount),0) FROM payouts WHERE status='pending'") or 0)
+    fee_total = float(db.scalar(
+        "SELECT COALESCE(SUM(fee),0) FROM payouts") or 0)
+    return {
+        "gross": round(gross, 2),
+        "paid_out": round(paid_out, 2),
+        "pending": round(pending, 2),
+        "fees": round(fee_total, 2),
+        "available": round(max(0.0, gross - paid_out - pending), 2),
+        "methods": PAYOUT_METHODS,
+    }
+
+
+def payouts(limit: int = 100) -> list[dict]:
+    return [dict(r) for r in db.query(
+        "SELECT * FROM payouts ORDER BY ts DESC LIMIT ?", (limit,))]
+
+
+def request_payout(amount: float, method: str = "bank", note: str = "") -> dict:
+    """建立一筆提現申請（狀態 pending，等你在金流商後台實際撥款後再標完成）。"""
+    amount = round(float(amount or 0), 2)
+    if amount <= 0:
+        raise BadRequest("提現金額要大於 0")
+    s = payout_summary()
+    if amount > s["available"]:
+        raise BadRequest(f"可提餘額只有 US$ {s['available']}，不能提 US$ {amount}")
+    db.execute(
+        "INSERT INTO payouts (ts, amount, fee, currency, method, note, status)"
+        " VALUES (?,?,?,?,?,?,?)",
+        (time.time(), amount, 0.0, "USD", method or "bank", (note or "")[:300], "pending"))
+    row = db.one("SELECT * FROM payouts ORDER BY id DESC LIMIT 1")
+    return dict(row) if row else {}
+
+
+def set_payout_status(pid: int, status: str) -> bool:
+    if status not in ("pending", "done", "cancelled"):
+        raise BadRequest("狀態不正確")
+    db.execute("UPDATE payouts SET status=?, done_at=? WHERE id=?",
+               (status, time.time() if status == "done" else None, pid))
+    return True
+
+
+def provider_setup_guide() -> list[dict]:
+    """每個金流商要設哪些環境變數、回呼網址是什麼（給後台顯示）。"""
+    out = []
+    for pid, meta in PROVIDERS.items():
+        out.append({
+            "id": pid, "label": meta["label"],
+            "env": [{"key": k, "set": bool(os.getenv(k))} for k in meta["env"]],
+            "ready": all(os.getenv(k) for k in meta["env"]),
+        })
+    return out
