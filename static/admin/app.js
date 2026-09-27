@@ -79,17 +79,24 @@ function chart(series, unit = '次', extra = '') {
   if (!data.length) return '<p class="note">還沒有資料</p>';
   const max = Math.max(1, ...data.map((x) => x.c));
   const n = data.length;
-  const skip = n > 16 ? Math.ceil(n / 12) : 1;
+  const skip = n > 14 ? Math.ceil(n / 10) : 1;
+  const total = data.reduce((a, x) => a + x.c, 0);
+  const avg = Math.round(total / n);
+  // 參考線（把圖切三等份，方便一眼看出高低）
+  const grid = [0, 1, 2].map((i) => `<i style="bottom:${(i / 3) * 100}%">`
+    + `<span>${fmtN(Math.round(max * i / 3))}</span></i>`).join('');
   const bars = data.map((x, i) => {
-    const h = Math.max(3, Math.round((x.c / max) * 100));
+    const h = Math.max(4, Math.round((x.c / max) * 100));
     const hi = i === n - 1;
     const showDate = i % skip === 0 || hi;
-    return `<div class="bar${hi ? ' hi' : ''}" style="height:${h}%" title="${x.d}：${x.c} ${unit}">
-      <b>${x.c}</b>${showDate ? `<i>${String(x.d).slice(5)}</i>` : ''}</div>`;
+    return `<div class="cbar${hi ? ' hi' : ''}" style="height:${h}%">
+      <b>${x.c}</b>
+      ${showDate ? `<i>${String(x.d).slice(5)}</i>` : ''}</div>`;
   }).join('');
-  const total = data.reduce((a, x) => a + x.c, 0);
-  return bars +
-    `<div class="chart-legend">共 ${fmtN(total)} ${unit}　最高 ${fmtN(max)} ${unit}　（${data[0].d.slice(5)} ～ ${data[n - 1].d.slice(5)}）${extra ? '　' + extra : ''}</div>`;
+  return `<div class="cgrid">${grid}</div><div class="cbars">${bars}</div>`
+    + `<div class="chart-legend">共 ${fmtN(total)} ${unit}　平均 ${fmtN(avg)} ${unit}　`
+    + `最高 ${fmtN(max)} ${unit}　（${data[0].d.slice(5)} ～ ${data[n - 1].d.slice(5)}）`
+    + `${extra ? '　' + extra : ''}</div>`;
 }
 
 // ── API ──────────────────────────────────────────

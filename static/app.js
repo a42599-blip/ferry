@@ -356,6 +356,14 @@ const REPLY_OPEN_KEY = 'fy_reply_open';
 function renderReplyBar() {
   const bar = document.getElementById('replybar');
   if (!bar) return;
+  // 「回報問題」標題後面顯示有幾則回覆（小羅：加一個小框框提醒客戶去點開看）
+  const badge = document.getElementById('rep-badge');
+  const n = _replyItems.length || _replyPending;
+  if (badge) {
+    badge.hidden = !n;
+    badge.textContent = n ? `💬 ${n}` : '';
+    badge.title = _replyItems.length ? '有客服回覆你' : '你的回報處理中';
+  }
   if (!_replyItems.length) {
     if (_replyPending) {                       // 沒有回覆但還有處理中的回報 → 細提示
       bar.hidden = false;
@@ -386,14 +394,9 @@ function renderReplyBar() {
     + '</button>'
     + '<div class="rbody">' + items + '</div>'
     + '</div>';
-  const head = bar.querySelector('.rhead');
-  if (head) {
-    head.addEventListener('click', () => {
-      const nowOpen = localStorage.getItem(REPLY_OPEN_KEY) !== '0';
-      localStorage.setItem(REPLY_OPEN_KEY, nowOpen ? '0' : '1');
-      renderReplyBar();
-    });
-  }
+  // 有回覆時自動把「回報問題」打開，讓客戶直接看到
+  const box = document.getElementById('report-box');
+  if (box && _replyItems.length) box.open = true;
 }
 
 async function loadMyReplies() {

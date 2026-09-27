@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=16">
+<link rel="stylesheet" href="/style.css?v=17">
 <style>
 /* ⚠️ 手機導覽的「關鍵樣式」內嵌在這裡（小羅 2026-09-27）。
    原因：他的手機卡在舊的 style.css 快取（舊版 .tabs 是 display:none），
@@ -56,7 +56,6 @@
      小羅 2026-09-27：前台要留一個區塊做公告。
      後台有公告管理（新增／顯示中／隱藏），這裡自動顯示。 -->
 <div class="annbar" id="annbar" hidden></div>
-<div class="replybar" id="replybar" hidden></div>
 <div class="wrap" id="wrap">
 
   <!-- ══ 無水印下載 ══ -->
@@ -97,7 +96,10 @@
       <!-- ── 回報問題（小羅 2026-09-27：拉到首頁，不限會員都能送）──
            送出後會存進後台，並「彙總」寄信通知（不是一則一封） -->
       <details class="o-report" id="report-box">
-        <summary data-i18n="report_title">回報問題</summary>
+        <summary><span data-i18n="report_title">回報問題</span>
+          <span class="repbadge" id="rep-badge" hidden></span></summary>
+        <!-- 客服回覆（有回覆時才顯示，放在回報問題裡面）-->
+        <div id="replybar" hidden></div>
         <p class="note" data-i18n="report_note">任何平台下載不了都可以告訴我們（不用註冊）。我們會彙總後盡快處理。</p>
         <div class="inbar" style="margin-top:10px">
           <input id="rp-msg" data-i18n-ph="report_ph" placeholder="例如：抖音貼連結沒反應">
@@ -301,10 +303,10 @@
 
 <!-- 底部導航已移除（小羅 2026-09-27：手機版也把選項提到上面那一行） -->
 
-<script src="/sha256.js?v=16"></script>
-<script src="/save.js?v=16"></script>
-<script src="/app.js?v=16"></script>
-<script src="/transfer.js?v=16"></script>
+<script src="/sha256.js?v=17"></script>
+<script src="/save.js?v=17"></script>
+<script src="/app.js?v=17"></script>
+<script src="/transfer.js?v=17"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）
 (function () {

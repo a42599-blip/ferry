@@ -81,14 +81,6 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .badge.err{color:var(--err);border-color:rgba(201,139,122,.45)}
 
 /* ── 長條圖 ── */
-.chart{display:flex;align-items:flex-end;gap:5px;height:190px;margin-top:22px;position:relative}
-.chart .bar{flex:1;background:rgba(217,192,140,.45);min-height:2px;position:relative}
-.chart .bar.hi{background:var(--acc)}
-.chart .bar b{position:absolute;top:-16px;left:50%;transform:translateX(-50%);
-  font-size:10.5px;color:var(--text);font-family:var(--num);white-space:nowrap}
-.chart .bar.hi b{color:var(--acc);font-weight:600}
-.chart .bar i{position:absolute;bottom:-19px;left:50%;transform:translateX(-50%);
-  font-size:9.5px;color:var(--lab);white-space:nowrap;font-style:normal}
 
 /* ── 開關 ── */
 .switches{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin-top:12px}
@@ -265,3 +257,26 @@ textarea:focus{border-color:var(--acc)}
 .fact{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px}
 .fact input[type=number]{width:110px}
 .fact .freply-in{flex:1;min-width:200px}
+
+/* ── 每日趨勢圖（美化版：數字放大在柱子上方、加參考線、圓角）──────
+   小羅 2026-09-27：「柱狀圖有點醜、我要數字直接寫在柱子上方，
+                     不要 hover 才看得到。」 */
+.chart{margin-top:26px;position:relative;height:210px}
+.cgrid{position:absolute;inset:0 0 22px 0;pointer-events:none}
+.cgrid i{position:absolute;left:0;right:0;height:0;border-top:1px dashed rgba(255,255,255,.08)}
+.cgrid i span{position:absolute;left:0;top:-9px;font-size:9.5px;color:var(--lab);
+  background:#0d1414;padding-right:5px}
+.cbars{position:absolute;inset:0 0 22px 30px;display:flex;align-items:flex-end;gap:4px;
+  justify-content:space-around}
+.cbar{flex:1 1 0;max-width:52px;background:linear-gradient(180deg,rgba(217,192,140,.7),rgba(217,192,140,.3));
+  border-radius:5px 5px 2px 2px;min-height:3px;position:relative;
+  transition:filter .15s}
+.cbar:hover{filter:brightness(1.25)}
+.cbar.hi{background:linear-gradient(180deg,#e8d5a0,var(--acc));box-shadow:0 0 10px rgba(217,192,140,.35)}
+.cbar b{position:absolute;top:-17px;left:50%;transform:translateX(-50%);
+  font-size:11.5px;font-weight:600;color:var(--text);font-family:var(--num);white-space:nowrap}
+.cbar.hi b{color:var(--acc);font-size:12.5px}
+.cbar i{position:absolute;bottom:-19px;left:50%;transform:translateX(-50%);
+  font-size:9.5px;color:var(--lab);white-space:nowrap;font-style:normal}
+.chart-legend{position:absolute;bottom:-14px;left:0;right:0;font-size:11px;color:var(--lab);
+  text-align:center}
