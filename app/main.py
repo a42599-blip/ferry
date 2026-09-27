@@ -21,7 +21,7 @@ from .core import db
 from .core.errors import AppError
 from .core.http import HttpClient
 from .core import timezone as tz_util
-from .services import auth, downloader, events, flags, monitor, quota, resolve_service
+from .services import auth, downloader, events, flags, monitor, proxy, quota, resolve_service
 from .services.transfer import router as transfer_router
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -272,6 +272,24 @@ async def proxied_download(
         filename=filename,
         background=BackgroundTask(downloader.cleanup, path),
     )
+
+
+@app.get("/api/proxy-video")
+async def proxy_video(request: Request, k: str = Query(..., description="解析時取得的轉發鍵")):
+    """把平台 CDN 的影片轉發給瀏覽器（支援 Range，可續傳／可拖曳）。
+
+    為什麼要繞這一圈：平台 CDN 會檢查 Referer，瀏覽器送的是本網站網址 → 403。
+    伺服器補上正確 Referer 就通了（B站等 DASH 平台還會順便合併影音軌）。
+
+    ⚠️ 不是開放代理：k 只能來自剛解析成功的結果（30 分失效）。
+    """
+    row = proxy.lookup(k)
+    if not row:
+        raise HTTPException(status_code=404, detail="網址已失效，請重新解析")
+    video, audio, headers = row
+    events.track("download", device_id=auth._device_id(request),
+                 platform=await _platform_of(video), result="ok", url=video, mode="relay")
+    return await proxy.relay(video, audio, headers, request.headers.get("range"))
 
 
 async def _platform_of(src: str) -> str:

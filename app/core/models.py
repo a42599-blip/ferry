@@ -28,9 +28,14 @@ class Format:
     # direct  = 前端 <a href> 直連（CDN 擋 Origin）
     # fetch   = 前端 fetch→blob（CDN 開 CORS，可自訂檔名）
     # stream  = 前端 Service Worker 串流（大檔）
-    # proxy   = 必須經伺服器轉發（YouTube，串流不落地）
+    # proxy   = 必須經伺服器重新抓取（YouTube，yt-dlp 重新下載）
+    # relay   = 必須經伺服器「原樣轉發」（CDN 檢查 Referer；DASH 要合併影音）
     mode: str = "fetch"
     headers: dict[str, str] = field(default_factory=dict)  # 下載時需要的標頭
+    #: DASH 的「純聲音軌」網址。有值＝必須合併，否則使用者會下載到無聲影片。
+    audio_url: Optional[str] = None
+    #: 轉發用的短鍵（伺服器登記制；前端只拿得到鍵，不當開放代理）
+    relay_key: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -47,6 +52,8 @@ class Format:
             "quality_score": self.quality_score,
             "mode": self.mode,
             "headers": self.headers,
+            "audio_url": self.audio_url,
+            "relay_key": self.relay_key,
         }
 
 

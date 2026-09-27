@@ -199,12 +199,20 @@ class YtDlpResolver(Resolver):
         )
 
     def build_formats(self, info: dict) -> list[Format]:
-        """把 yt-dlp 的 formats 收斂成「每個畫質一個」＋一個音訊。"""
+        """把 yt-dlp 的 formats 整理成清單（**平台給幾種就列幾種**）。
+
+        ⚠️ 小羅 2026-09-27 要求：「他平台假設提供 6 種畫質你就給 6 種，
+           3 種就給 3 種，你不要去篩選。」
+        → 只做必要的去重（同高度+同編碼+同 fps 才算重複，留位元率最高的），
+          不同高度／不同編碼（H.264 vs H.265）／不同 fps 一律**全部保留**。
+        """
         raw = [f for f in (info.get("formats") or []) if f.get("url")]
         if not raw and info.get("url"):
             raw = [info]
 
-        best_by_height: dict[int, dict] = {}
+        # 去重鍵：高度 + 視訊編碼 + fps（同鍵才視為重複，其餘全留）
+        best: dict[tuple, dict] = {}
+        n_by_height: dict[int, int] = {}
         best_audio: Optional[dict] = None
         best_any: Optional[dict] = None
 
@@ -226,20 +234,26 @@ class YtDlpResolver(Resolver):
                 continue
 
             h = int(f.get("height") or 0)
-            prev = best_by_height.get(h)
+            key = (h, (f.get("vcodec") or "none").split(".")[0], int(f.get("fps") or 0))
+            prev = best.get(key)
             if prev is None or _prefer(primary, prev):
-                best_by_height[h] = primary
+                best[key] = primary
             if best_any is None or _prefer(primary, best_any):
                 best_any = primary
 
+        for f in best.values():
+            n_by_height[int(f.get("height") or 0)] = n_by_height.get(int(f.get("height") or 0), 0) + 1
+
         fmts: list[Format] = []
-        for h in sorted(best_by_height, reverse=True):
-            f = best_by_height[h]
+        for key in sorted(best, key=lambda k: (k[0], k[1]), reverse=True):
+            f = best[key]
+            h = int(f.get("height") or 0)
+            fps = int(f.get("fps") or 0)
             has_audio = (f.get("acodec") or "none").lower() != "none"
             fmts.append(
                 Format(
-                    id=f"v{h or 'origin'}",
-                    label=quality_label(h or None),
+                    id=f"v{h or 'origin'}-{key[1]}-{fps}",
+                    label=_variant_label(h, key[1], fps, n_by_height.get(h, 1)),
                     url=f["url"],
                     height=h or None,
                     width=int(f.get("width") or 0) or None,
@@ -247,7 +261,7 @@ class YtDlpResolver(Resolver):
                     ext=f.get("ext") or "mp4",
                     vcodec=f.get("vcodec"),
                     acodec=f.get("acodec"),
-                    quality_score=h or 1,
+                    quality_score=(h or 1) * 10 + fps // 10,
                     mode=self.default_mode,
                     headers={"X-Needs-Merge": "1"} if not has_audio else {},
                 )
@@ -272,6 +286,22 @@ class YtDlpResolver(Resolver):
 
 def _score(f: dict) -> float:
     return float(f.get("tbr") or f.get("abr") or f.get("vbr") or 0)
+
+
+def _variant_label(h: int, vcodec: str, fps: int, same_height_count: int) -> str:
+    """畫質標籤。同高度有多種時，補上編碼／fps 讓使用者分得出來。"""
+    base = quality_label(h or None)
+    tags: list[str] = []
+    if same_height_count > 1:
+        if vcodec in ("h265", "hevc"):
+            tags.append("H.265")
+        elif vcodec in ("vp9", "vp09"):
+            tags.append("VP9")
+        elif vcodec in ("av01", "av1"):
+            tags.append("AV1")
+    if fps >= 50:
+        tags.append(f"{fps}fps")
+    return f"{base} ({'·'.join(tags)})" if tags else base
 
 
 def _prefer(a: dict, b: dict) -> bool:

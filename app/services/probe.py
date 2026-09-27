@@ -81,18 +81,10 @@ async def enrich_dimensions(info: VideoInfo, *, limit: int = 6) -> None:
         w, h = res
         fmt.width, fmt.height = w, h
         fmt.quality_score = max(fmt.quality_score or 0, h)
-
-    # 最後：所有影片格式都依「真實解析度」重貼標籤
-    # （連平台寫死或寫「高清／原畫」的也一起改成幾 P）
-    #
-    # ⚠️ 畫質要用**短邊**算：1080x1920 是「1080P」不是 2K
-    #    （直式/橫式都一樣，大家看的是短邊那個數字）
-    for fmt in info.formats:
-        if fmt.audio or fmt.ext in ("jpg", "jpeg", "png", "webp"):
-            continue
-        sides = [x for x in (fmt.width, fmt.height) if x]
-        if sides:
-            fmt.label = quality_label(min(sides))
+        # ⚠️ 畫質要用**短邊**算：1080x1920 是「1080P」不是 2K
+        #    （直式/橫式都一樣，大家看的是短邊那個數字）
+        fmt.label = quality_label(min(w, h))
+        # 已經有真實解析度了，不必再猜（例如「高清」→「1080P」）
 
     # 補完後重新排序（影片高→低，音訊最後）
     info.formats.sort(key=lambda f: (f.audio, -(f.quality_score or 0)))

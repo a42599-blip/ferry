@@ -184,7 +184,7 @@ const currentTab = () => ($('.panel.on')?.id || 'p-download').slice(2);
 // ── 分頁 ─────────────────────────────────────────
 function go(tab) {
   if (!tabAvailable(tab)) return;
-  $$('.tabs button, .foot button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+  $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
   $$('.panel').forEach((p) => p.classList.toggle('on', p.id === 'p-' + tab));
   updateCtx();
   if (tab === 'member') { refreshMember(); renderHistory(); }
@@ -452,7 +452,19 @@ $('#download').addEventListener('click', async () => {
 
   window.FY?.keepAwake?.(true);
   try {
-    if (f.mode === 'proxy') {
+    if (f.mode === 'relay') {
+      // 經本站轉發（平台 CDN 檢查 Referer；DASH 平台還會順便合併影音軌）
+      msg('#status', '準備中…');
+      const url = '/api/proxy-video?k=' + encodeURIComponent(f.relay_key || '');
+      const blob = await window.FY.fetchWithProgress(url, {
+        onProgress: ({ pct, speed }) => {
+          if (pct !== null) setPct(pct);
+          if (speed) $('#pspeed').textContent = fmtSize(speed) + t('tr_per_sec');
+        },
+      });
+      setPct(100);
+      await window.FY.saveBlob(blob, filename, (text, kind) => msg('#status', text, kind || ''));
+    } else if (f.mode === 'proxy') {
       const q = new URLSearchParams({ src: state.info.source_url, name: filename });
       if (f.audio) q.set('audio', 'true'); else if (f.height) q.set('h', String(f.height));
       msg('#status', '伺服器取得檔案中…');

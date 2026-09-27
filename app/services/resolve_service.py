@@ -12,7 +12,7 @@ from ..core import registry
 from ..core.config import settings
 from ..core.errors import PlatformDisabled, PlatformTimeout, UnsupportedUrl
 from ..core.models import VideoInfo
-from . import flags, probe
+from . import flags, probe, proxy
 
 
 async def resolve(url: str) -> VideoInfo:
@@ -39,6 +39,13 @@ async def resolve(url: str) -> VideoInfo:
             platform=resolver.name,
         ) from exc
     elapsed_ms = int((time.perf_counter() - started) * 1000)
+
+    # 需要經伺服器轉發的（CDN 檢查 Referer、或 DASH 要合併影音）→ 登記短鍵
+    for f in info.formats:
+        need = f.mode == "relay" or (f.audio_url and not f.audio)
+        if need and f.url:
+            f.mode = "relay"
+            f.relay_key = proxy.register(f.url, f.audio_url, f.headers)
 
     _validate(info)
     # 有些平台只回「高清／原畫」沒給幾 P → 用 ffprobe 讀真實解析度再標籤

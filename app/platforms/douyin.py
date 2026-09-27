@@ -131,7 +131,7 @@ class DouyinResolver(YtDlpResolver):
                  or g(r'"cover":"([^"]+)"'))
 
         fmts: list[Format] = []
-        seen_h: set[int] = set()
+        seen_h: set[tuple] = set()   # (高度, 碼率) —— 同高度不同碼率是不同畫質，不能篩掉
 
         # ① bitRateList（多畫質：1920x1080 / 1280x720 / 1024x576 …）
         pat_br = re.compile(
@@ -140,9 +140,10 @@ class DouyinResolver(YtDlpResolver):
         )
         for size, w, hh, src in pat_br.findall(h):
             hh = int(hh)
-            if hh in seen_h:
+            key = (hh, int(br.get("bit_rate") or 0))
+            if key in seen_h:
                 continue
-            seen_h.add(hh)
+            seen_h.add(key)
             fmts.append(Format(
                 id=f"v{hh}", label=quality_label(hh), url=src,
                 height=hh, width=int(w) or None, size=int(size) or None,

@@ -157,6 +157,15 @@ class BilibiliResolver(Resolver):
         out: list[Format] = []
         dash = data.get("dash") or {}
 
+        # ⚠️ B站是 DASH：影像、聲音是**兩條獨立網址**。
+        #    前端直連只會拿到「無聲影片」→ 必須交給伺服器合併。
+        audios = dash.get("audio") or []
+        best_audio = ""
+        if audios:
+            best_audio = max(audios, key=lambda x: x.get("bandwidth") or 0).get(
+                "baseUrl") or max(audios, key=lambda x: x.get("bandwidth") or 0).get("base_url") or ""
+        bili_hdr = {"Referer": "https://www.bilibili.com/"}
+
         # 同一高度取位元率最高的一支
         best: dict[int, dict] = {}
         for v in dash.get("video") or []:
@@ -169,7 +178,11 @@ class BilibiliResolver(Resolver):
                 url=v.get("baseUrl") or v.get("base_url") or "",
                 height=h, width=v.get("width"),
                 vcodec=(v.get("codecs") or "")[:20],
-                quality_score=h, mode="direct", headers={"Referer": "https://www.bilibili.com/"},
+                quality_score=h,
+                # 有聲音軌 → 走伺服器 relay（合併後才不會是默片）
+                mode="relay" if best_audio else "direct",
+                audio_url=best_audio or None,
+                headers=bili_hdr,
             ))
 
         # 後備：durl（舊格式，音視已合併）
@@ -177,16 +190,15 @@ class BilibiliResolver(Resolver):
             for i, u in enumerate(data.get("durl") or [], 1):
                 out.append(Format(id=f"durl{i}", label=f"預設 {i}", url=u.get("url", ""),
                                   size=u.get("size"), quality_score=50 - i, mode="direct",
-                                  headers={"Referer": "https://www.bilibili.com/"}))
+                                  headers=bili_hdr))
 
         # 純音訊（DASH 分離軌）
-        audios = dash.get("audio") or []
         if audios:
             a = max(audios, key=lambda x: x.get("bandwidth") or 0)
             out.append(Format(id="audio", label="純音訊",
                               url=a.get("baseUrl") or a.get("base_url") or "",
                               audio=True, ext="m4a", quality_score=10, mode="direct",
-                              headers={"Referer": "https://www.bilibili.com/"}))
+                              headers=bili_hdr))
         return [f for f in out if f.url]
 
 
