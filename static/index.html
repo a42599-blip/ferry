@@ -63,9 +63,11 @@
       </div>
       <div class="inbar o-in">
         <input id="url" type="url" inputmode="url" autocomplete="off" data-i18n-ph="dl_placeholder" placeholder="請貼上影片網址">
-        <!-- 小羅 2026-09-27 定案：**一個網址列 ＋ 一顆按鈕**就好。
-             點網址欄就出現「貼上並解析」；貼上後**自動解析**，不必再按第二次。 -->
-        <button class="go" id="go" data-i18n="btn_paste_parse">📋 貼上並解析</button>
+        <!-- 小羅 2026-09-27 定案流程：
+             ① 點網址欄 → 自動清空舊連結 → 出現「📋 貼上」
+             ② 按「貼上」→ 自動解析（不必再按任何按鈕）
+             ③ 下面的「重新解析」只在解析失敗時按（重試用） -->
+        <button class="go paste" id="paste" data-i18n="btn_paste_only" hidden>📋 貼上</button>
       </div>
       <div class="quota o-quota">
         <span data-i18n="quota_left">今日剩餘</span> <b class="num" id="q-left">–</b>
@@ -76,6 +78,7 @@
         <span class="beta" data-i18n="quota_beta">目前為公測期間，暫不收費</span>
         <span class="beta" data-i18n="quota_vip">付費會員：不限次數</span>
       </div>
+      <button class="big gh sm o-retry" id="go" data-i18n="btn_retry_parse">🔍 重新解析</button>
       <button class="big o-big" id="download" disabled data-i18n="btn_download">下載到這台裝置</button>
       <div class="o-plats">
         <div class="lbl" id="plat-label"></div>

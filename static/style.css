@@ -273,3 +273,9 @@ button.mini{min-height:32px}
 .peerbox .dot{width:7px;height:7px;border-radius:50%;background:var(--dim);display:inline-block}
 .peerbox .dot.on{background:#3fbf7f;box-shadow:0 0 6px #3fbf7f}
 .t-howto{margin:0 0 10px}
+
+/* ── 「📋 貼上」按鈕（點網址欄才出現；按了自動解析）── */
+.inbar .go.paste{background:transparent;color:var(--acc);font-size:13px;
+  padding:0 14px;border-left:1px solid var(--inp);flex:0 0 auto}
+/* ── 「🔍 重新解析」（解析失敗時重試用，次要樣式）── */
+.o-retry{width:100%;margin-bottom:8px}

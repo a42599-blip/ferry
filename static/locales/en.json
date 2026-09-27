@@ -263,5 +263,6 @@
   "tr_failed_hint": "Could not connect. Make sure both devices are on the same WiFi, or pair again.",
   "tr_timeout_hint": "Not connected yet. If the devices are on different networks, a firewall may block it — try the same WiFi.",
   "quota_vip": "Paid members: unlimited",
-  "btn_paste_parse": "📋 Paste & Parse"
+  "btn_paste_only": "📋 Paste",
+  "btn_retry_parse": "🔍 Parse again"
 }

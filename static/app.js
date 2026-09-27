@@ -316,44 +316,64 @@ async function loadQuota() {
 window._loadQuota = loadQuota;
 
 // ── 解析 ─────────────────────────────────────────
-// ── 唯一的一顆按鈕：「📋 貼上並解析」（小羅 2026-09-27 定案）──────
-//   輸入框空著 → 先讀剪貼簿填入，然後解析
-//   輸入框有東西 → 直接解析（不用先清空）
-//   手動貼上（長按貼上／Ctrl+V）→ 也會自動解析，完全不用再按按鈕
-$('#go').addEventListener('click', async () => {
-  if ($('#url').value.trim()) { doResolve(); return; }
+// ── 貼上流程（小羅 2026-09-27 逐字複述，完全照做）─────────
+//   ① 點網址欄 → 自動清空舊連結 → 出現「📋 貼上」
+//   ② 按「貼上」→ 讀剪貼簿 → **自動解析**（不用再按任何按鈕）
+//   ③ 手機原生的「貼上」泡泡也通 → paste 事件一樣自動解析
+//   ④ 下面的「🔍 重新解析」只在解析失敗時按（重試用）
+//
+// ⚠️ 教訓：不要自己去讀 event.clipboardData —— iOS Safari 常讀不到，
+//    讀到空的就 return，等於「貼上後完全不動」。要讓瀏覽器正常貼上，
+//    再從輸入框取值（v8i8 的做法）。
+let _autoPasteTimer = null;
+
+function revealPaste(show) {
+  const b = $('#paste');
+  if (b) b.hidden = !show;
+}
+
+// ① 點網址欄：清空舊的 ＋ 出現「貼上」按鈕（小羅不用自己刪上一筆）
+$('#url').addEventListener('focus', () => {
+  if ($('#url').value) $('#url').value = '';
+  revealPaste(true);
+});
+$('#url').addEventListener('blur', () => {
+  // 延遲收起，否則點「貼上」按鈕會先觸發 blur 而按不到
+  setTimeout(() => { if (document.activeElement !== $('#url')) revealPaste(false); }, 220);
+});
+
+// ② 📋 貼上：讀剪貼簿 → 填入 → 自動解析
+$('#paste').addEventListener('click', async () => {
   try {
     const text = await navigator.clipboard.readText();
     if (!text || !text.trim()) { msg('#status', t('paste_empty'), 'err'); return; }
-    $('#url').value = extractUrl(text);       // 覆蓋舊連結；支援整段分享文字
+    $('#url').value = extractUrl(text);
     msg('#status', '');
-    doResolve();                              // 自動解析，不必再按第二次
+    doResolve();
   } catch {
-    // 剪貼簿被拒（iOS Safari 有時要使用者手勢）→ 聚焦讓使用者自己長按貼上
+    // 剪貼簿被拒（iOS 有時要使用者手勢）→ 聚焦讓使用者自己長按貼上
     $('#url').focus();
     msg('#status', t('paste_denied'), 'err');
   }
 });
-$('#url').addEventListener('keydown', (e) => { if (e.key === 'Enter') doResolve(); });
 
-// ── 貼上邏輯：完全照 v8i8（小羅 2026-09-27 第三次強調）───────
-//
-// ⚠️ 我原本的寫法錯了：去讀 event.clipboardData——iOS Safari 常常讀不到，
-//    讀到空的就 return，等於「貼上後完全不動」。v8i8 的做法是：
-//    **不阻止預設貼上**，等貼上真的發生後（300ms）再讀「輸入框的值」來解析。
-//
-// 另外小羅要求：「第二次用時不用刪掉上一個連結，貼上就自動換掉」
-//    → 貼上前先清空欄位，新內容貼進去就不會跟舊網址黏在一起。
-let _autoPasteTimer = null;
+// ③ 手機原生貼上（長按→貼上／Ctrl+V）：讓瀏覽器正常貼上，完成後自動解析
 $('#url').addEventListener('paste', () => {
-  $('#url').value = '';                 // 先清空（貼上會直接覆蓋，不會新舊混在一起）
+  $('#url').value = '';                 // 先清空 → 新連結直接覆蓋舊的
   clearTimeout(_autoPasteTimer);
   _autoPasteTimer = setTimeout(() => {
     const val = $('#url').value.trim();
-    if (val.includes('http')) doResolve();     // 貼上完成 → 自動解析
+    if (val.includes('http')) doResolve();
   }, 320);
 });
 
+$('#url').addEventListener('keydown', (e) => { if (e.key === 'Enter') doResolve(); });
+
+// ④ 🔍 重新解析：解析失敗時再按一次（不會去讀剪貼簿）
+$('#go').addEventListener('click', () => {
+  if (!$('#url').value.trim()) { msg('#status', t('paste_empty'), 'err'); return; }
+  doResolve();
+});
 
 /**
  * 從任意文字抽出網址（支援抖音/TikTok 的整段分享文字）。

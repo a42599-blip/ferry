@@ -263,5 +263,6 @@
   "tr_failed_hint": "連不上對方。請確認兩台裝置在同一個 WiFi，或重新配對一次。",
   "tr_timeout_hint": "還沒連上。若兩台不在同一個網路，可能被防火牆擋住；請改連同一個 WiFi 再試。",
   "quota_vip": "付費會員：不限次數",
-  "btn_paste_parse": "📋 貼上並解析"
+  "btn_paste_only": "📋 貼上",
+  "btn_retry_parse": "🔍 重新解析"
 }
