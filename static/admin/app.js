@@ -522,153 +522,6 @@ async function pgDevices() {
   ], ms.members, '目前還沒有註冊會員') : '<div class="dim">目前還沒有註冊會員</div>';
 
   
-// ══ 會員資料模塊（獨立：搜尋 → 點進資料卡 → 手動調整）═══════
-//    小羅 2026-09-27：獨立模塊，壞了單獨修；要能搜尋、看資料卡、
-//    手動填數字（天數／次數都不固定，自己填）。
-const PL_NAME = { free: '免費', monthly: '月會員', lifetime: '終身會員' };
-const ML = { page: 1, size: 25, pages: 1, rows: [] };
-
-async function pgMembers() {
-  const st = (await api('/members')).stats;
-  $('#ml-kpis').innerHTML = [
-    kpi('註冊會員', fmtN(st.total), `今天新增 ${fmtN(st.today_new)}　近 7 天 ${fmtN(st.week_new)}`),
-    kpi('付費會員', fmtN(st.paid), `轉換率 ${st.conversion}%　免費 ${fmtN(st.free)}`),
-    kpi('訪客（未註冊）', fmtN(st.visitor_devices), '有活動但沒帳號'),
-    kpi('付費方案', fmtN((st.plans || []).length),
-      (st.plans || []).map((p) => `${p.name} ${p.count}`).join('　')),
-  ].join('');
-  await loadMemberList();
-}
-
-async function loadMemberList() {
-  const q = $('#ml-q').value.trim();
-  const plan = $('#ml-plan').value;
-  const sort = $('#ml-sort').value;
-  const d = await api(`/members/list?q=${encodeURIComponent(q)}&plan=${plan}&sort=${sort}`
-    + `&page=${ML.page}&size=${ML.size}`);
-  ML.rows = d.rows; ML.pages = d.pages;
-  $('#ml-count').textContent = `共 ${d.total} 位　第 ${d.page} / ${d.pages} 頁`;
-  $('#ml-page').textContent = `${d.page} / ${d.pages}`;
-  $('#ml-list').innerHTML = d.rows.length ? table([
-    { t: 'Email', v: (r) => `<span class="rowlink" data-mid="${esc(r.id)}">${esc(r.email || r.id)}</span>`, html: true },
-    { t: '方案', v: (r) => `<span class="badge ${r.paid ? 'ok' : ''}">${esc(r.plan_name)}</span>`
-        + (r.status === 'suspended' ? ' <span class="badge err">停權</span>' : ''), html: true },
-    { t: '註冊', v: (r) => fmtTime(r.created_at) },
-    { t: '付費起', v: (r) => (r.plan_started_at ? fmtTime(r.plan_started_at) : '–') },
-    { t: '到期', v: (r) => (r.expires_at ? fmtTime(r.expires_at) : '永久') },
-    { t: '剩餘', v: (r) => (r.remaining_days === null ? '–'
-        : (r.remaining_days <= 0 ? '<span class="badge err">已到期</span>'
-          : `<b>${r.remaining_days}</b> 天`)), html: true },
-    { t: '登入', v: (r) => `${fmtN(r.login_count)} 次<br><span class="dim">`
-        + `${r.last_login_at ? fmtTime(r.last_login_at) : '–'}</span>`, html: true },
-    { t: '地區', v: (r) => esc(r.country || '–') },
-    { t: '', v: (r) => `<button class="gh" data-open="${esc(r.id)}">資料卡</button>`, html: true },
-  ], d.rows, '沒有符合的會員') : '<div class="dim">沒有符合的會員</div>';
-  $$('#ml-list [data-mid], #ml-list [data-open]').forEach((el) => el.addEventListener('click',
-    () => openMemberCard(el.dataset.mid || el.dataset.open)));
-}
-
-async function openMemberCard(mid) {
-  const d = await api(`/members/${mid}/card`);
-  const m = d.card;
-  const q = m.quota || {};
-  const hist = (m.history || []).map((h) => `<div class="hrow">${fmtTime(h.at)}　`
-    + `${esc(PL_NAME[h.from_plan] || h.from_plan || '—')} → <b>${esc(PL_NAME[h.to_plan] || h.to_plan)}</b>`
-    + (h.amount ? `　US$ ${h.amount}` : '')
-    + (h.reason ? `　<span class="dim">${esc(h.reason)}</span>` : '')
-    + (h.note ? `　<span class="dim">${esc(h.note)}</span>` : '') + '</div>').join('')
-    || '<div class="dim">尚無紀錄</div>';
-  const recent = (m.recent || []).slice(0, 12).map((r) =>
-    `<div class="hrow">${fmtTime(r.ts)}　<span class="dim">${esc(r.kind)}</span>`
-    + (r.platform ? `　${esc(r.platform)}` : '')
-    + (r.result ? `　${r.result === 'ok' ? '✅' : '❌'}` : '') + '</div>').join('')
-    || '<div class="dim">尚無活動</div>';
-  $('#ml-cardtitle').textContent = `會員資料卡 — ${m.email || m.id}`;
-  $('#ml-card').innerHTML = `
-    <div class="mgrid">
-      <div><span>會員 ID</span>${esc(m.id)}</div>
-      <div><span>Email</span><b>${esc(m.email || '–')}</b></div>
-      <div><span>目前方案</span><b>${esc(m.plan_name)}</b>（US$ ${m.price}）</div>
-      <div><span>帳號狀態</span>${m.status === 'suspended'
-          ? '<span class="badge err">已停權</span>' : '<span class="badge ok">正常</span>'}</div>
-      <div><span>註冊時間</span>${fmtTime(m.created_at)}</div>
-      <div><span>付費起始</span>${m.plan_started_at ? fmtTime(m.plan_started_at) : '–'}</div>
-      <div><span>到期時間</span>${m.expires_at ? fmtTime(m.expires_at) : '永久'}</div>
-      <div><span>剩餘天數</span>${m.remaining_days === null ? '–'
-          : (m.remaining_days <= 0 ? '<b>已到期</b>' : `<b>${m.remaining_days}</b> 天`)}</div>
-      <div><span>最後登入</span>${m.last_login_at ? fmtTime(m.last_login_at) : '–'}</div>
-      <div><span>登入次數</span>${fmtN(m.login_count)} 次</div>
-      <div><span>地區</span>${esc(m.country || '–')}</div>
-      <div><span>今日下載</span>已用 ${fmtN(q.download?.used)} / ${fmtN(q.download?.limit)}</div>
-      <div><span>今日傳輸</span>已用 ${fmtN(q.transfer?.used)} / ${fmtN(q.transfer?.limit)}</div>
-      <div><span>裝置</span>${esc(String(m.device_id || '–').slice(0, 24))}</div>
-    </div>
-
-    <div class="adjustbox">
-      <div class="lbl2">手動調整（賠償機制 —— 數字自己填，不限固定值）</div>
-      <div class="inrow">
-        <label class="tinylabel">加天數</label>
-        <input id="adj-days" type="number" min="0" step="1" placeholder="1 / 2 / 5 / 8 / 30">
-        <label class="tinylabel">下載次數 +</label>
-        <input id="adj-dl" type="number" min="0" step="1" placeholder="1 / 10 / 100 / 1000">
-        <label class="tinylabel">傳輸次數 +</label>
-        <input id="adj-tr" type="number" min="0" step="1" placeholder="1 / 10 / 100">
-      </div>
-      <div class="inrow">
-        <input id="adj-note" placeholder="原因備註（例：客戶反映下載失敗，補償 3 天）">
-        <button class="big sm" id="adj-go">套用調整</button>
-        <button class="gh" id="adj-sus">${m.status === 'suspended' ? '復權' : '停權'}</button>
-      </div>
-      <div class="dim" id="adj-status" style="font-size:11.5px"></div>
-    </div>
-
-    <div class="rows" style="margin-top:14px">
-      <div class="pnl"><div class="lbl">方案變更歷史</div>${hist}</div>
-      <div class="pnl"><div class="lbl">最近活動</div>${recent}</div>
-    </div>`;
-  $('#ml-cardbox').hidden = false;
-  $('#ml-cardbox').scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  $('#adj-go').onclick = async () => {
-    const body = {
-      days: Number($('#adj-days').value || 0),
-      quota_download: Number($('#adj-dl').value || 0),
-      quota_transfer: Number($('#adj-tr').value || 0),
-      note: $('#adj-note').value.trim() || '後台手動調整',
-    };
-    if (!body.days && !body.quota_download && !body.quota_transfer) {
-      $('#adj-status').textContent = '請至少填一個數字'; return;
-    }
-    const msg = `確定套用？\n加天數 ${body.days}\n下載 +${body.quota_download}\n傳輸 +${body.quota_transfer}`;
-    if (!confirm(msg)) return;
-    try {
-      const r = await api(`/members/${mid}/adjust`, { method: 'POST', body: JSON.stringify(body) });
-      queue('已調整：' + (r.done || []).join('、'));
-      openMemberCard(mid); loadMemberList();
-    } catch (e) { $('#adj-status').textContent = '❌ ' + e.message; }
-  };
-  $('#adj-sus').onclick = async () => {
-    const st = m.status === 'suspended' ? 'active' : 'suspended';
-    if (st === 'suspended' && !confirm('確定停權？會降回免費方案，資料保留')) return;
-    await api(`/members/${mid}/status`, { method: 'POST', body: JSON.stringify({ status: st }) });
-    queue('已' + (st === 'suspended' ? '停權' : '復權'));
-    openMemberCard(mid); loadMemberList();
-  };
-}
-
-function bindMemberPage() {
-  $('#ml-go').onclick = () => { ML.page = 1; loadMemberList(); };
-  $('#ml-q').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { ML.page = 1; loadMemberList(); }
-  });
-  $('#ml-plan').onchange = () => { ML.page = 1; loadMemberList(); };
-  $('#ml-sort').onchange = () => { ML.page = 1; loadMemberList(); };
-  $('#ml-prev').onclick = () => { if (ML.page > 1) { ML.page--; loadMemberList(); } };
-  $('#ml-next').onclick = () => { if (ML.page < ML.pages) { ML.page++; loadMemberList(); } };
-  $('#ml-cardclose').onclick = () => { $('#ml-cardbox').hidden = true; };
-}
-bindMemberPage();
-
 // ── 會員查詢與手動管理（客服＋賠償）──
   async function doMemberSearch() {
     const q = $('#ms-q').value.trim();
@@ -1114,3 +967,150 @@ document.getElementById('pw-hint')?.addEventListener('click', () => {
   if (!localStorage.getItem(TKEY)) return showLogin();
   try { await api('/session'); start(); } catch { showLogin(); }
 })();
+
+// ══ 會員資料模塊（獨立：搜尋 → 點進資料卡 → 手動調整）═══════
+//    小羅 2026-09-27：獨立模塊，壞了單獨修；要能搜尋、看資料卡、
+//    手動填數字（天數／次數都不固定，自己填）。
+const PL_NAME = { free: '免費', monthly: '月會員', lifetime: '終身會員' };
+const ML = { page: 1, size: 25, pages: 1, rows: [] };
+
+async function pgMembers() {
+  const st = (await api('/members')).stats;
+  $('#ml-kpis').innerHTML = [
+    kpi('註冊會員', fmtN(st.total), `今天新增 ${fmtN(st.today_new)}　近 7 天 ${fmtN(st.week_new)}`),
+    kpi('付費會員', fmtN(st.paid), `轉換率 ${st.conversion}%　免費 ${fmtN(st.free)}`),
+    kpi('訪客（未註冊）', fmtN(st.visitor_devices), '有活動但沒帳號'),
+    kpi('付費方案', fmtN((st.plans || []).length),
+      (st.plans || []).map((p) => `${p.name} ${p.count}`).join('　')),
+  ].join('');
+  await loadMemberList();
+}
+
+async function loadMemberList() {
+  const q = $('#ml-q').value.trim();
+  const plan = $('#ml-plan').value;
+  const sort = $('#ml-sort').value;
+  const d = await api(`/members/list?q=${encodeURIComponent(q)}&plan=${plan}&sort=${sort}`
+    + `&page=${ML.page}&size=${ML.size}`);
+  ML.rows = d.rows; ML.pages = d.pages;
+  $('#ml-count').textContent = `共 ${d.total} 位　第 ${d.page} / ${d.pages} 頁`;
+  $('#ml-page').textContent = `${d.page} / ${d.pages}`;
+  $('#ml-list').innerHTML = d.rows.length ? table([
+    { t: 'Email', v: (r) => `<span class="rowlink" data-mid="${esc(r.id)}">${esc(r.email || r.id)}</span>`, html: true },
+    { t: '方案', v: (r) => `<span class="badge ${r.paid ? 'ok' : ''}">${esc(r.plan_name)}</span>`
+        + (r.status === 'suspended' ? ' <span class="badge err">停權</span>' : ''), html: true },
+    { t: '註冊', v: (r) => fmtTime(r.created_at) },
+    { t: '付費起', v: (r) => (r.plan_started_at ? fmtTime(r.plan_started_at) : '–') },
+    { t: '到期', v: (r) => (r.expires_at ? fmtTime(r.expires_at) : '永久') },
+    { t: '剩餘', v: (r) => (r.remaining_days === null ? '–'
+        : (r.remaining_days <= 0 ? '<span class="badge err">已到期</span>'
+          : `<b>${r.remaining_days}</b> 天`)), html: true },
+    { t: '登入', v: (r) => `${fmtN(r.login_count)} 次<br><span class="dim">`
+        + `${r.last_login_at ? fmtTime(r.last_login_at) : '–'}</span>`, html: true },
+    { t: '地區', v: (r) => esc(r.country || '–') },
+    { t: '', v: (r) => `<button class="gh" data-open="${esc(r.id)}">資料卡</button>`, html: true },
+  ], d.rows, '沒有符合的會員') : '<div class="dim">沒有符合的會員</div>';
+  $$('#ml-list [data-mid], #ml-list [data-open]').forEach((el) => el.addEventListener('click',
+    () => openMemberCard(el.dataset.mid || el.dataset.open)));
+}
+
+async function openMemberCard(mid) {
+  const d = await api(`/members/${mid}/card`);
+  const m = d.card;
+  const q = m.quota || {};
+  const hist = (m.history || []).map((h) => `<div class="hrow">${fmtTime(h.at)}　`
+    + `${esc(PL_NAME[h.from_plan] || h.from_plan || '—')} → <b>${esc(PL_NAME[h.to_plan] || h.to_plan)}</b>`
+    + (h.amount ? `　US$ ${h.amount}` : '')
+    + (h.reason ? `　<span class="dim">${esc(h.reason)}</span>` : '')
+    + (h.note ? `　<span class="dim">${esc(h.note)}</span>` : '') + '</div>').join('')
+    || '<div class="dim">尚無紀錄</div>';
+  const recent = (m.recent || []).slice(0, 12).map((r) =>
+    `<div class="hrow">${fmtTime(r.ts)}　<span class="dim">${esc(r.kind)}</span>`
+    + (r.platform ? `　${esc(r.platform)}` : '')
+    + (r.result ? `　${r.result === 'ok' ? '✅' : '❌'}` : '') + '</div>').join('')
+    || '<div class="dim">尚無活動</div>';
+  $('#ml-cardtitle').textContent = `會員資料卡 — ${m.email || m.id}`;
+  $('#ml-card').innerHTML = `
+    <div class="mgrid">
+      <div><span>會員 ID</span>${esc(m.id)}</div>
+      <div><span>Email</span><b>${esc(m.email || '–')}</b></div>
+      <div><span>目前方案</span><b>${esc(m.plan_name)}</b>（US$ ${m.price}）</div>
+      <div><span>帳號狀態</span>${m.status === 'suspended'
+          ? '<span class="badge err">已停權</span>' : '<span class="badge ok">正常</span>'}</div>
+      <div><span>註冊時間</span>${fmtTime(m.created_at)}</div>
+      <div><span>付費起始</span>${m.plan_started_at ? fmtTime(m.plan_started_at) : '–'}</div>
+      <div><span>到期時間</span>${m.expires_at ? fmtTime(m.expires_at) : '永久'}</div>
+      <div><span>剩餘天數</span>${m.remaining_days === null ? '–'
+          : (m.remaining_days <= 0 ? '<b>已到期</b>' : `<b>${m.remaining_days}</b> 天`)}</div>
+      <div><span>最後登入</span>${m.last_login_at ? fmtTime(m.last_login_at) : '–'}</div>
+      <div><span>登入次數</span>${fmtN(m.login_count)} 次</div>
+      <div><span>地區</span>${esc(m.country || '–')}</div>
+      <div><span>今日下載</span>已用 ${fmtN(q.download?.used)} / ${fmtN(q.download?.limit)}</div>
+      <div><span>今日傳輸</span>已用 ${fmtN(q.transfer?.used)} / ${fmtN(q.transfer?.limit)}</div>
+      <div><span>裝置</span>${esc(String(m.device_id || '–').slice(0, 24))}</div>
+    </div>
+
+    <div class="adjustbox">
+      <div class="lbl2">手動調整（賠償機制 —— 數字自己填，不限固定值）</div>
+      <div class="inrow">
+        <label class="tinylabel">加天數</label>
+        <input id="adj-days" type="number" min="0" step="1" placeholder="1 / 2 / 5 / 8 / 30">
+        <label class="tinylabel">下載次數 +</label>
+        <input id="adj-dl" type="number" min="0" step="1" placeholder="1 / 10 / 100 / 1000">
+        <label class="tinylabel">傳輸次數 +</label>
+        <input id="adj-tr" type="number" min="0" step="1" placeholder="1 / 10 / 100">
+      </div>
+      <div class="inrow">
+        <input id="adj-note" placeholder="原因備註（例：客戶反映下載失敗，補償 3 天）">
+        <button class="big sm" id="adj-go">套用調整</button>
+        <button class="gh" id="adj-sus">${m.status === 'suspended' ? '復權' : '停權'}</button>
+      </div>
+      <div class="dim" id="adj-status" style="font-size:11.5px"></div>
+    </div>
+
+    <div class="rows" style="margin-top:14px">
+      <div class="pnl"><div class="lbl">方案變更歷史</div>${hist}</div>
+      <div class="pnl"><div class="lbl">最近活動</div>${recent}</div>
+    </div>`;
+  $('#ml-cardbox').hidden = false;
+  $('#ml-cardbox').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  $('#adj-go').onclick = async () => {
+    const body = {
+      days: Number($('#adj-days').value || 0),
+      quota_download: Number($('#adj-dl').value || 0),
+      quota_transfer: Number($('#adj-tr').value || 0),
+      note: $('#adj-note').value.trim() || '後台手動調整',
+    };
+    if (!body.days && !body.quota_download && !body.quota_transfer) {
+      $('#adj-status').textContent = '請至少填一個數字'; return;
+    }
+    const msg = `確定套用？\n加天數 ${body.days}\n下載 +${body.quota_download}\n傳輸 +${body.quota_transfer}`;
+    if (!confirm(msg)) return;
+    try {
+      const r = await api(`/members/${mid}/adjust`, { method: 'POST', body: JSON.stringify(body) });
+      queue('已調整：' + (r.done || []).join('、'));
+      openMemberCard(mid); loadMemberList();
+    } catch (e) { $('#adj-status').textContent = '❌ ' + e.message; }
+  };
+  $('#adj-sus').onclick = async () => {
+    const st = m.status === 'suspended' ? 'active' : 'suspended';
+    if (st === 'suspended' && !confirm('確定停權？會降回免費方案，資料保留')) return;
+    await api(`/members/${mid}/status`, { method: 'POST', body: JSON.stringify({ status: st }) });
+    queue('已' + (st === 'suspended' ? '停權' : '復權'));
+    openMemberCard(mid); loadMemberList();
+  };
+}
+
+function bindMemberPage() {
+  $('#ml-go').onclick = () => { ML.page = 1; loadMemberList(); };
+  $('#ml-q').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { ML.page = 1; loadMemberList(); }
+  });
+  $('#ml-plan').onchange = () => { ML.page = 1; loadMemberList(); };
+  $('#ml-sort').onchange = () => { ML.page = 1; loadMemberList(); };
+  $('#ml-prev').onclick = () => { if (ML.page > 1) { ML.page--; loadMemberList(); } };
+  $('#ml-next').onclick = () => { if (ML.page < ML.pages) { ML.page++; loadMemberList(); } };
+  $('#ml-cardclose').onclick = () => { $('#ml-cardbox').hidden = true; };
+}
+bindMemberPage();
