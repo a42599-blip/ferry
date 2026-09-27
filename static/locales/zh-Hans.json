@@ -23,7 +23,7 @@
   "quota_reset_suf": "重置（当地时间）",
   "quota_unlimited": "（付费会员：不限次数）",
   "pv_result": "解析结果",
-  "pv_empty": "贴上链接后按「解析」",
+  "pv_empty": "解析后，视频信息与可下载的画质会显示在这里",
   "pv_notitle": "（无标题）",
   "btn_download": "下载到这台设备",
   "btn_choose_quality": "选择画质后下载",
@@ -222,5 +222,26 @@
   "err_PAIRING_RATE": "配对码错误次数过多，请稍后再试",
   "err_NEED_6_DIGITS": "请输入 6 位数字",
   "err_MAINTENANCE": "系统维护中，请稍后再试",
-  "err_NETWORK": "连接失败，请检查网络"
+  "err_NETWORK": "连接失败，请检查网络",
+  "err_FEATURE_DISABLED": "这个功能目前关闭中",
+  "teach_save_title": "下载后存到哪里？",
+  "teach_save_list": [
+    [
+      "iPhone／iPad",
+      "按「下载到这台设备」→ 系统菜单选「<b>保存到照片</b>」→ 视频会进相册"
+    ],
+    [
+      "Android",
+      "按「下载到这台设备」→ 存到「<b>下载</b>」文件夹；在 Chrome 可看到下载通知"
+    ],
+    [
+      "Windows／Mac／Linux",
+      "按「下载到这台设备」→ 浏览器会**问你要存哪里**（或存到默认下载文件夹）"
+    ],
+    [
+      "微信／LINE 内置浏览器",
+      "会改用系统分享保存；若失败，请点右上角「⋯」→「<b>用浏览器打开</b>」"
+    ]
+  ],
+  "teach_save_note": "手机存的是相册、电脑是你自己选的文件夹；我们不碰你的文件。"
 }

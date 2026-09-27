@@ -16,11 +16,10 @@ import re
 from ..core.errors import PlatformChanged, PlatformError, PlatformTimeout
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
+from . import _douyin_shared as _shared
 from ._ytdlp import YtDlpResolver, quality_label
 
 _API = "https://www.tikwm.com/api/"
-_DETAIL = "https://www.douyin.com/aweme/v1/web/aweme/detail/"
-_TTWID = "https://ttwid.bytedance.com/ttwid/union/register/"
 _URL_RE = re.compile(
     r"https?://(?:www\.|v\.|vm\.|m\.)?(?:douyin\.com|iesdouyin\.com)/", re.I
 )
@@ -187,95 +186,14 @@ class DouyinResolver(YtDlpResolver):
 
     # ── 路線①：官方 Web API（a_bogus 簽章）────────────
     async def _via_official(self, url: str) -> VideoInfo | None:
-        global _ttwid_cache
-
+        """官方 Web API＋a_bogus（與西瓜共用 `_douyin_shared`）。"""
         aweme_id = await self._aweme_id(url)
         if not aweme_id:
             return None
-
-        params = {
-            "device_platform": "webapp",
-            "aid": "6383",
-            "channel": "channel_pc_web",
-            "pc_client_type": "1",
-            "version_code": "190500",
-            "version_name": "19.5.0",
-            "cookie_enabled": "true",
-            "screen_width": "1920",
-            "screen_height": "1080",
-            "browser_language": "zh-CN",
-            "browser_platform": "Win32",
-            "browser_name": "Chrome",
-            "browser_online": "true",
-            "engine_name": "Blink",
-            "os_name": "Windows",
-            "os_version": "10",
-            "platform": "PC",
-            "browser_version": "90.0.4430.212",
-            "engine_version": "90.0.4430.212",
-            "cpu_core_num": "12",
-            "device_memory": "8",
-            "aweme_id": aweme_id,
-        }
-
-        params["a_bogus"] = ""          # 佔位，下面每輪重算
-
-        headers = {
-            "User-Agent": _UA,
-            "Referer": f"https://www.douyin.com/video/{aweme_id}",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "zh-CN,zh;q=0.9",
-        }
-
-        # 抖音會偶發限流 → 重試（每次重算 a_bogus）
-        for attempt in range(3):
-            params["a_bogus"] = _abogus().get_value(
-                {k: v for k, v in params.items() if k != "a_bogus"}
-            )
-            async with HttpClient(ua=_UA, timeout=20) as http:
-                if not _ttwid_cache:
-                    _ttwid_cache = await self._ttwid(http) or ""
-                if _ttwid_cache:
-                    headers["Cookie"] = f"ttwid={_ttwid_cache}"
-                resp = await http.get(_DETAIL, params=params, headers=headers)
-                if resp.status_code != 200:
-                    if attempt < 2:
-                        await asyncio.sleep(0.8 * (attempt + 1))
-                        continue
-                    return None
-                try:
-                    data = resp.json()
-                except Exception:  # noqa: BLE001
-                    return None
-
-            detail = (data or {}).get("aweme_detail")
-            if detail:
-                return self._build_official(url, detail)
-            if attempt < 2:
-                await asyncio.sleep(0.8 * (attempt + 1))
-        return None
-
-    @staticmethod
-    async def _ttwid(http: HttpClient) -> str | None:
-        """向 bytedance 註冊一個匿名 ttwid（不需要登入）。"""
-        body = {
-            "region": "cn",
-            "aid": 1768,
-            "needFid": False,
-            "service": "www.ixigua.com",
-            "migrate_info": {"ticket": "", "source": "node"},
-            "cbUrlProtocol": "https",
-            "union": True,
-        }
-        try:
-            resp = await http.post(_TTWID, json=body)
-        except Exception:  # noqa: BLE001
+        detail = await _shared.fetch_detail(aweme_id)
+        if not detail:
             return None
-        for cookie in resp.headers.get_list("set-cookie"):
-            m = re.search(r"ttwid=([^;]+)", cookie)
-            if m:
-                return m.group(1)
-        return None
+        return self._build_official(url, detail)
 
     @staticmethod
     async def _aweme_id(url: str) -> str | None:
@@ -436,11 +354,6 @@ class DouyinResolver(YtDlpResolver):
                                 "is_gallery": bool(images), "route": "tikwm"})
 
 
-def _abogus():
-    """延遲載入（sm3 需要 Python 3.12+，失敗時讓其他路線仍可用）。"""
-    from ._douyin_abogus import ABogus
-
-    return ABogus()
 
 
 def _abs(u: str) -> str:

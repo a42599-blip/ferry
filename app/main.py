@@ -147,6 +147,9 @@ async def post_resolve(body: ResolveIn, request: Request):
     if flags.feature_enabled("feature.maintenance"):
         return JSONResponse(status_code=503, content={
             "ok": False, "code": "MAINTENANCE", "message": "系統維護中，請稍後再試"})
+    if not flags.feature_enabled("feature.download"):
+        return JSONResponse(status_code=403, content={
+            "ok": False, "code": "FEATURE_DISABLED", "message": "無水印下載目前關閉中"})
 
     subject = auth.current_subject(request)      # 額度用（會員／裝置）
     device = auth._device_id(request)            # 事件用（永遠是裝置，軌跡才不會斷）
@@ -164,10 +167,6 @@ async def post_resolve(body: ResolveIn, request: Request):
     events.track("resolve", device_id=device, platform=info.platform, result="ok",
                  latency_ms=info.extra.get("elapsed_ms"), url=body.url,
                  country=request.headers.get("cf-ipcountry"))
-
-    if not flags.feature_enabled("feature.download"):
-        return {"ok": True, "data": info_dict,
-                "quota": quota.status(subject, tz_name=tz), "download_disabled": True}
 
     # 畫質選擇關閉 → 只給最高畫質
     if not flags.feature_enabled("feature.quality") and info_dict.get("formats"):

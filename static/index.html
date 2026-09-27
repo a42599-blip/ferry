@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=5">
+<link rel="stylesheet" href="/style.css?v=6">
 </head>
 <body>
 
@@ -140,6 +140,10 @@
       <ol class="steps" id="teach-steps-dl"></ol>
       <h2 class="sec" data-i18n="teach_tr">無損傳輸</h2>
       <ol class="steps" id="teach-steps-tr"></ol>
+      <h2 class="sec" data-i18n="teach_save_title">下載後存到哪裡？</h2>
+      <div class="kv" id="teach-save-list"></div>
+      <p class="note" id="teach-save-note"></p>
+
       <h2 class="sec" data-i18n="teach_os">支援的系統</h2>
       <div class="kv" id="teach-os-list"></div>
       <h2 class="sec" data-i18n="teach_faq">常見問題</h2>
@@ -225,9 +229,10 @@
   <button data-tab="member" data-i18n="nav_member">會員</button>
 </footer>
 
-<script src="/sha256.js?v=5"></script>
-<script src="/app.js?v=5"></script>
-<script src="/transfer.js?v=5"></script>
+<script src="/sha256.js?v=6"></script>
+<script src="/save.js?v=6"></script>
+<script src="/app.js?v=6"></script>
+<script src="/transfer.js?v=6"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）
 (function () {

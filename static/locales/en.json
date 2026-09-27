@@ -23,7 +23,7 @@
   "quota_reset_suf": "(your local time)",
   "quota_unlimited": "(paid member: unlimited)",
   "pv_result": "Result",
-  "pv_empty": "Paste a link and press Parse",
+  "pv_empty": "Video info and available qualities will appear here after parsing",
   "pv_notitle": "(untitled)",
   "btn_download": "Download to this device",
   "btn_choose_quality": "Pick a quality first",
@@ -222,5 +222,26 @@
   "err_PAIRING_RATE": "Too many wrong attempts. Please wait.",
   "err_NEED_6_DIGITS": "Please enter 6 digits.",
   "err_MAINTENANCE": "Under maintenance. Please try again later.",
-  "err_NETWORK": "Network error. Please check your connection."
+  "err_NETWORK": "Network error. Please check your connection.",
+  "err_FEATURE_DISABLED": "This feature is currently turned off",
+  "teach_save_title": "Where does it save?",
+  "teach_save_list": [
+    [
+      "iPhone / iPad",
+      "Tap <b>Download</b> → choose <b>Save to Photos</b> in the system sheet → the video lands in your camera roll"
+    ],
+    [
+      "Android",
+      "Tap <b>Download</b> → it goes to your <b>Downloads</b> folder (Chrome shows a download notification)"
+    ],
+    [
+      "Windows / Mac / Linux",
+      "Tap <b>Download</b> → your browser <b>asks where to save</b> (or uses the default Downloads folder)"
+    ],
+    [
+      "In-app browsers (WeChat / LINE)",
+      "It falls back to the system share sheet; if that fails, open the page in a real browser"
+    ]
+  ],
+  "teach_save_note": "Phones save to the photo library, desktops save where you choose. We never touch your files."
 }

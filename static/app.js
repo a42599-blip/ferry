@@ -17,7 +17,8 @@ function t(key, fallback) {
   if (v === undefined || v === null) return fallback !== undefined ? fallback : key;
   return v;                    // 空字串是「該語言不需要這個字」，不是缺翻譯
 }
-window.FY = { t: (k, d) => t(k, d), lang: () => state.lang };
+// ⚠️ 用 Object.assign（不能用 = 覆蓋，否則會蓋掉 save.js 的存檔工具）
+window.FY = Object.assign(window.FY || {}, { t: (k, d) => t(k, d), lang: () => state.lang });
 
 function applyLang() {
   // ⚠️ 不能用 if(v)：空的翻譯（例：英文的「次」不需要）也必須套用，否則會殘留中文
@@ -49,7 +50,11 @@ function applyLang() {
   renderPlatforms(state.config?.platforms, state.config?.enabled_platform_count);
   renderQuota(state.quota);
   renderHistory();
+  // ⚠️ 動態訊息不會被 data-i18n 涵蓋 → 語言切換時必須重新產生
+  renderPayStatus();
+  $('.msg:not([hidden])') && clearTransient();
   if (state.info) renderResult(state.info);
+  if (currentTab() === 'member') refreshMember();
   updateCtx();
 }
 
@@ -116,6 +121,10 @@ function buildTeach() {
   const steps = (arr) => (arr || []).map((s) => `<li>${s}</li>`).join('');
   if ($('#teach-steps-dl')) $('#teach-steps-dl').innerHTML = steps(dl);
   if ($('#teach-steps-tr')) $('#teach-steps-tr').innerHTML = steps(tr);
+  const svl = t('teach_save_list', []);
+  if ($('#teach-save-list')) $('#teach-save-list').innerHTML = (svl || []).map(
+    ([k, v]) => `<div class="r"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  if ($('#teach-save-note')) $('#teach-save-note').textContent = t('teach_save_note', '');
   if ($('#teach-os-list')) $('#teach-os-list').innerHTML = (osl || []).map(
     ([k, v]) => `<div class="r"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
   if ($('#teach-faq')) $('#teach-faq').innerHTML = (faq || []).map(
@@ -130,7 +139,13 @@ function buildPlans() {
 }
 
 // ── 開關連動：關掉的功能，前台整個消失 ─────────────────
-const FEATURE_TAB = { transfer: 'feature.transfer', teach: 'feature.teach', plans: 'feature.plans', member: 'feature.member' };
+const FEATURE_TAB = {
+  download: 'feature.download',   // ← 關掉＝整個下載模組消失
+  transfer: 'feature.transfer',
+  teach: 'feature.teach',
+  plans: 'feature.plans',
+  member: 'feature.member',
+};
 const AVAILABLE_TABS = ['download', 'transfer', 'teach', 'plans', 'member'];
 
 function applyFlags(cfg) {
@@ -146,7 +161,6 @@ function applyFlags(cfg) {
   // 面板內容區塊
   if ($('#report-box')) $('#report-box').hidden = f['feature.report'] === false;
   if ($('#history-box')) $('#history-box').hidden = f['feature.history'] === false;
-  if ($('#download')) $('#download').hidden = f['feature.download'] === false;
   if ($('#go')) $('#go').disabled = f['feature.maintenance'] === true;
   if ($('#url')) $('#url').disabled = f['feature.maintenance'] === true;
 
@@ -322,56 +336,65 @@ function selectFormat(i) {
   $('#download').textContent = t('btn_download');
 }
 
-// ── 下載 ─────────────────────────────────────────
+// ── 下載（跨平台：iOS 存相簿／Android 下載／桌機選路徑）──
 $('#download').addEventListener('click', async () => {
   const f = state.info?.formats?.[state.selected];
   if (!f) return;
   const track = $('#track'), bar = $('#bar'), pm = $('#pm');
-  track.hidden = false; pm.hidden = false; bar.style.width = '0%'; $('#pct').textContent = '0%'; $('#pspeed').textContent = '';
+  track.hidden = false; pm.hidden = false; bar.style.width = '0%';
+  $('#pct').textContent = '0%'; $('#pspeed').textContent = '';
+  const env = window.FY?.env || {};
+  const setPct = (p) => { bar.style.width = p + '%'; $('#pct').textContent = p + '%'; };
+  const title = (state.info.title || 'video').slice(0, 60);
+  const ext = f.audio ? (f.ext || 'm4a') : (f.ext || 'mp4');
+  const filename = `${title}.${ext}`;
+
+  window.FY?.keepAwake?.(true);
   try {
-    if (f.mode === 'direct') {
-      const a = document.createElement('a');
-      a.href = f.url; a.download = ''; a.rel = 'noreferrer';
-      document.body.appendChild(a); a.click(); a.remove();
-      $('#pct').textContent = t('dl_started');
-    } else if (f.mode === 'proxy') {
-      const ext = f.audio ? (f.ext || 'm4a') : (f.ext || 'mp4');
-      const q = new URLSearchParams({ src: state.info.source_url, name: (state.info.title || 'video').slice(0, 60) + '.' + ext });
+    if (f.mode === 'proxy') {
+      const q = new URLSearchParams({ src: state.info.source_url, name: filename });
       if (f.audio) q.set('audio', 'true'); else if (f.height) q.set('h', String(f.height));
-      const a = document.createElement('a');
-      a.href = '/api/download?' + q.toString(); a.rel = 'noreferrer';
-      document.body.appendChild(a); a.click(); a.remove();
-      $('#pct').textContent = t('dl_proxy');
+      msg('#status', '伺服器取得檔案中…');
+      const blob = await window.FY.fetchWithProgress('/api/download?' + q.toString(), {
+        onProgress: ({ pct, speed }) => {
+          if (pct !== null) setPct(pct);
+          if (speed) $('#pspeed').textContent = fmtSize(speed) + t('tr_per_sec');
+        },
+      });
+      setPct(100);
+      await window.FY.saveBlob(blob, filename, (text, kind) => msg('#status', text, kind || ''));
+    } else if (f.mode === 'direct') {
+      // CDN 擋 CORS → 無法先抓成 blob；桌機用 <a download>，手機開新頁面存相簿
+      msg('#status', '準備下載…');
+      await window.FY.saveUrl(f.url, filename, (text, kind) => msg('#status', text, kind || ''));
+      setPct(100);
     } else {
-      const t0 = performance.now();
-      const resp = await fetch(f.url, { headers: f.headers || {} });
-      const total = Number(resp.headers.get('content-length')) || f.size || 0;
-      const reader = resp.body.getReader();
-      const chunks = []; let got = 0;
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value); got += value.length;
-        if (total) {
-          const p = Math.round(got / total * 100);
-          bar.style.width = p + '%'; $('#pct').textContent = p + '%';
-          const sec = (performance.now() - t0) / 1000;
-          if (sec > 0.5) $('#pspeed').textContent = fmtSize(got / sec) + t('tr_per_sec');
-        }
-      }
-      const blob = new Blob(chunks);
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = (state.info.title || 'video').slice(0, 40) + '.' + (f.ext || 'mp4');
-      a.click(); URL.revokeObjectURL(a.href);
-      $('#pct').textContent = t('dl_done'); $('#pspeed').textContent = fmtSize(got);
+      const blob = await window.FY.fetchWithProgress(f.url, {
+        headers: f.headers || {},
+        onProgress: ({ pct, speed }) => {
+          if (pct !== null) setPct(pct);
+          if (speed) $('#pspeed').textContent = fmtSize(speed) + t('tr_per_sec');
+        },
+      });
+      setPct(100);
+      await window.FY.saveBlob(blob, filename, (text, kind) => msg('#status', text, kind || ''));
     }
     saveHistory(state.info, f);
     api('/api/track/download', { method: 'POST', body: JSON.stringify({
       platform: state.info.platform, quality: f.label, size: f.size || null,
       mode: f.mode, url: state.info.source_url }) }).catch(() => {});
   } catch (err) {
-    $('#pspeed').textContent = t('dl_fail') + err.message;
+    // CORS 失敗 → 退回直接開連結（比整個失敗好）
+    if (f.mode === 'fetch' || f.mode === 'direct') {
+      try {
+        await window.FY.saveUrl(f.url, filename, (text, kind) => msg('#status', text, kind || ''));
+        return;
+      } catch { /* 繼續往下報錯 */ }
+    }
+    msg('#status', t('dl_fail') + err.message, 'err');
+    $('#pspeed').textContent = '';
+  } finally {
+    window.FY?.keepAwake?.(false);
   }
 });
 
@@ -450,6 +473,15 @@ $('#rp-send').addEventListener('click', async () => {
 });
 
 // ── 方案 ─────────────────────────────────────────
+let payReady = null;      // null=尚未載入；語言切換時要靠它重繪
+function renderPayStatus() {
+  if (payReady === null) return;
+  msg('#pay-status', payReady ? t('pay_ready') : t('pay_preparing'));
+}
+function clearTransient() {
+  // 一次性的提示訊息（解析中、登入成功…）在換語言時直接清掉，避免殘留舊語言
+  ['#status', '#m-msg', '#rp-status'].forEach((sel) => msg(sel, ''));
+}
 async function loadPlans() {
   try {
     const j = await api('/api/pay/plans');
@@ -457,8 +489,8 @@ async function loadPlans() {
       const el = document.querySelector(`[data-price="${id}"]`);
       if (el) el.textContent = p.price;
     });
-    const ready = Object.values(j.providers || {}).filter((p) => p.ready).length;
-    msg('#pay-status', ready ? t('pay_ready') : t('pay_preparing'));
+    payReady = Object.values(j.providers || {}).filter((p) => p.ready).length > 0;
+    renderPayStatus();
   } catch { /* 忽略 */ }
 }
 $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
@@ -468,9 +500,25 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   } catch (e) { msg('#pay-status', e.message, 'err'); }
 }));
 
+// ── App 內建瀏覽器提醒 ────────────────────────────
+function checkInApp() {
+  const notice = window.FY?.inAppNotice?.();
+  if (!notice) return;
+  const el = document.createElement('div');
+  el.className = 'msg err';
+  el.style.margin = '0 0 12px';
+  el.innerHTML = `${esc(notice.text)}<br><button class="big gh sm" style="margin-top:10px" id="ia-copy">複製本頁網址</button>`;
+  $('#wrap')?.prepend(el);
+  document.getElementById('ia-copy')?.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(location.href); el.querySelector('#ia-copy').textContent = '已複製，請貼到瀏覽器開啟'; }
+    catch { el.querySelector('#ia-copy').textContent = '請手動複製網址列'; }
+  });
+}
+
 // ── 啟動 ─────────────────────────────────────────
 (async function init() {
   await loadLang();
+  checkInApp();
   try { await loadConfig(); } catch (e) { console.warn(e); }
   await loadQuota();
   renderHistory();
