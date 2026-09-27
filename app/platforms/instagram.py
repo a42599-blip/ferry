@@ -35,7 +35,10 @@ class InstagramResolver(YtDlpResolver):
     name = "instagram"
     label = "Instagram"
     hosts = ("instagram.com", "instagr.am")
-    default_mode = "proxy"
+    # ⚠️ 一定要用 relay（不是 proxy）—— 2026-09-27 實測踩到：
+    #    proxy 會叫 yt-dlp「重新去解析一次 Instagram」→ IG 要登入 → 一定失敗。
+    #    但我們自己已經用 embed 方法拿到 CDN 網址了，直接轉發就好。
+    default_mode = "relay"
     ytdlp_extra = {"http_headers": {"User-Agent": _IPHONE_UA}}
 
     async def match(self, url: str) -> bool:
@@ -113,7 +116,7 @@ class InstagramResolver(YtDlpResolver):
                 u = node.get("display_url") or node.get("thumbnail_src")
                 if u:
                     fmts.append(Format(id=f"img{i}", label=f"圖 {i}", url=u, ext="jpg",
-                                       quality_score=50 - i, mode="proxy",
+                                       quality_score=50 - i, mode="relay",
                                        headers={"Referer": "https://www.instagram.com/"}))
 
         if not fmts:
@@ -165,7 +168,7 @@ class InstagramResolver(YtDlpResolver):
 
         return [
             Format(id=f"ig{i}", label=label, url=u, quality_score=score,
-                   mode="proxy", headers=hdrs)
+                   mode="relay", headers=hdrs)
             for i, (u, (label, score)) in enumerate(
                 sorted(found.items(), key=lambda kv: -kv[1][1]))
         ]

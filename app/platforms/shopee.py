@@ -81,7 +81,10 @@ class ShopeeResolver(Resolver):
                 url=u,
                 ext="m3u8" if ".m3u8" in u else "mp4",
                 quality_score=90 - i,
-                mode="proxy",
+                # ⚠️ 用 relay（不是 proxy）—— 2026-09-27 實測踩到：
+                #    proxy 會叫 yt-dlp 重抓蝦皮的網址 → 403 Forbidden。
+                #    我們已經從分享頁拿到 CDN 網址了，直接轉發即可。
+                mode="relay",
                 headers={"Referer": "https://shopee.tw/", "User-Agent": _UA},
             )
             for i, u in enumerate(uniq[:6])
