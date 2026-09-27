@@ -1048,11 +1048,29 @@ async function openMemberCard(mid) {
     + (r.result ? `　${r.result === 'ok' ? '✅' : '❌'}` : '') + '</div>').join('')
     || '<div class="dim">尚無活動</div>';
   $('#ml-cardtitle').textContent = `會員資料卡 — ${m.email || m.id}`;
+  // 會員種類要「一眼看得出來」（小羅 2026-09-27：資料卡沒寫他是哪一種會員）
+  const PTYPE = { free: '免費會員', monthly: '月會員', lifetime: '終身會員' };
+  const kindName = PTYPE[m.plan] || (m.plan_name || m.plan);
+  const isPaid = m.plan && m.plan !== 'free';
+  const totalDays = m.plan === 'monthly' ? 31 : null;
+  const pctLeft = (totalDays && m.remaining_days !== null)
+    ? Math.max(0, Math.min(100, Math.round(m.remaining_days / totalDays * 100))) : null;
   $('#ml-card').innerHTML = `
+    <div class="kindbar ${isPaid ? 'paid' : 'free'}">
+      <span class="ki">${isPaid ? '⭐' : '👤'}</span>
+      <span class="kn">${esc(kindName)}</span>
+      ${isPaid
+        ? `<span class="kd">US$ ${m.price}${totalDays ? ` / ${totalDays} 天` : '（永久）'}</span>`
+        : '<span class="kd">每日免費 5 次（下載／傳輸分開）</span>'}
+      ${isPaid && m.remaining_days !== null
+        ? `<span class="kleft">剩 ${m.remaining_days} 天</span>` : ''}
+    </div>
+    ${pctLeft !== null ? `<div class="klife"><i style="width:${pctLeft}%"></i></div>` : ''}
     <div class="mgrid">
       <div><span>會員 ID</span>${esc(m.id)}</div>
       <div><span>Email</span><b>${esc(m.email || '–')}</b></div>
-      <div><span>目前方案</span><b>${esc(m.plan_name)}</b>（US$ ${m.price}）</div>
+      <div><span>會員種類</span><b>${esc(kindName)}</b></div>
+      <div><span>方案價格</span>${isPaid ? `US$ ${m.price}` : '免費'}</div>
       <div><span>帳號狀態</span>${m.status === 'suspended'
           ? '<span class="badge err">已停權</span>' : '<span class="badge ok">正常</span>'}</div>
       <div><span>註冊時間</span>${fmtTime(m.created_at)}</div>

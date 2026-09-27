@@ -67,6 +67,11 @@ def register(email: str, password: str, *, device_id: str | None = None,
     events.link_member(device_id or "", mid, email)
     events.track("signup", device_id=device_id, meta={"method": "email", "member_id": mid})
     log_plan(mid, email, None, "free", reason="signup")
+    # ⚠️ 註冊完就是「第一次登入」（小羅 2026-09-27 抓到：
+    #    「他已經註冊了為什麼登錄次數是 0 次？」）
+    #    沒有這一行，後台的「最後登入」會空白、次數永遠從 0 開始，
+    #    客服會誤以為「這個帳號沒人用過」。
+    touch_login(mid)
     return {"id": mid, "email": email, "plan": "free"}
 
 

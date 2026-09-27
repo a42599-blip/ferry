@@ -239,3 +239,16 @@ textarea:focus{border-color:var(--acc)}
 .pghint{background:rgba(110,168,220,.08);border:1px solid rgba(110,168,220,.28);
   border-radius:10px;padding:12px 15px;font-size:12.5px;line-height:1.85;color:var(--text)}
 .pghint b{color:var(--acc)}
+
+/* ── 會員資料卡：會員種類橫幅（一眼看出是哪一種會員）── */
+.kindbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  border-radius:10px;padding:11px 15px;margin-bottom:10px;font-size:13px}
+.kindbar.paid{background:rgba(217,192,140,.12);border:1px solid rgba(217,192,140,.4)}
+.kindbar.free{background:rgba(255,255,255,.04);border:1px solid var(--line-soft)}
+.kindbar .ki{font-size:17px}
+.kindbar .kn{font-size:16px;font-weight:700;color:var(--acc)}
+.kindbar.free .kn{color:var(--text)}
+.kindbar .kd{color:var(--dim);font-size:12px}
+.kindbar .kleft{margin-left:auto;font-weight:700;color:var(--acc);font-size:13px}
+.klife{height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;margin-bottom:12px}
+.klife i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),rgba(217,192,140,.35))}
