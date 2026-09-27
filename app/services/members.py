@@ -739,3 +739,40 @@ def backfill_country() -> int:
             db.execute("UPDATE members SET country=? WHERE id=?", (cc.upper()[:2], r["id"]))
             fixed += 1
     return fixed
+
+
+def rebuild(email: str, device_id: str, *, created_at: float | None = None,
+            plan: str = "free", expires_at: float | None = None,
+            country: str | None = None) -> dict:
+    """用「已知的原始資料」把一位被刪掉的會員重建回來。
+
+    為什麼需要（小羅 2026-09-27：「我要你恢復剛剛那個會員和他的歷史資料」）：
+    plan_history 只有「新版本」才會寫；比較早期建立的會員被刪掉後，
+    plan_history 裡沒有紀錄 → restore_from_history() 救不回來。
+    但 devices / events 還留著（裝置、國家、活動時間），
+    所以可以用這些線索把帳號重建。
+    """
+    email = (email or "").strip().lower()
+    if not email:
+        raise BadRequest("缺少 email")
+    old = db.one("SELECT id FROM members WHERE email=?", (email,))
+    if old:
+        return dict(get(old["id"]) or {})     # 已經在，不用重建
+    mid = "u_" + secrets.token_hex(8)
+    born = float(created_at or time.time())
+    # 國家／首次活動時間可以從 devices 補
+    if not country:
+        country = db.scalar(
+            "SELECT country FROM devices WHERE device_id=?", (device_id,))
+    if not created_at:
+        fs = db.scalar("SELECT first_seen FROM devices WHERE device_id=?", (device_id,))
+        born = float(fs or born)
+    db.execute(
+        "INSERT INTO members(id, email, plan, device_id, created_at, expires_at,"
+        " country, status, login_count, last_login_at)"
+        " VALUES(?,?,?,?,?,?,?,'active',1,?)",
+        (mid, email, plan, device_id, born, expires_at,
+         (country or "").upper()[:2] or None, born))
+    log_plan(mid, email, None, plan, expires_at=expires_at, reason="restore",
+             note="從裝置紀錄重建（原本被刪除）")
+    return dict(get(mid) or {})

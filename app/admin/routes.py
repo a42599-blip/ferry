@@ -316,6 +316,20 @@ async def delete_test_member(member_id: str, _: dict = Depends(require_admin)) -
     return {"ok": True, "deleted": email}
 
 
+@router.post("/members/rebuild")
+async def rebuild_member(body: dict = Body(...),
+                         _: dict = Depends(require_admin)) -> dict:
+    """用已知的原始資料重建一位被刪掉的會員（含裝置／國家／時間）。"""
+    from ..services import members
+
+    m = members.rebuild(body.get("email") or "", body.get("device_id") or "",
+                        created_at=float(body["created_at"]) if body.get("created_at") else None,
+                        plan=body.get("plan") or "free",
+                        expires_at=float(body["expires_at"]) if body.get("expires_at") else None,
+                        country=body.get("country"))
+    return {"ok": True, "member": m, "stats": members.stats()}
+
+
 @router.post("/members/restore")
 async def restore_members(_: dict = Depends(require_admin)) -> dict:
     """從方案歷史把「被刪掉而消失」的會員重建回來。
