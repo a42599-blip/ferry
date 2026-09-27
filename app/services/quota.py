@@ -53,6 +53,12 @@ def used(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> int:
 
 
 def remaining(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> int:
+    """今天還可以用幾次。
+
+    ⚠️ 小羅 2026-09-27：「次數上限只有五次？我加 2 次他應該要有 7 次。」
+    所以「已用次數」可以變成**負數**（負數＝客服贈送的次數）：
+        已用 0、送 2 次 → 已用 -2 → 剩餘 = 5 - (-2) = 7 ✅
+    """
     if not _limit_on(kind) or _is_paid(subject):
         return 9999  # 不限（公測全開／該模組開關關掉／會員）
     return max(0, daily_limit(kind) - used(kind, subject, tz_name=tz_name))
@@ -214,7 +220,8 @@ def adjust(kind: str, subject: str, delta: int, *, tz_name: str = "Asia/Taipei")
                 "after": used(kind, subject, tz_name=tz_name), "changed": 0}
     dk = _date_key(tz_name)
     cur = used(kind, subject, tz_name=tz_name)
-    new = max(0, cur - n)          # 加次數＝把「已用」減掉；減次數＝把「已用」加上
+    # 加次數＝把「已用」減掉（可到負數＝贈送）；減次數＝把「已用」加上
+    new = cur - n
     db.execute(
         "INSERT INTO quotas(kind, subject, date_key, count, tz, updated_at)"
         " VALUES(?,?,?,?,?,?)"

@@ -72,8 +72,11 @@ async def my_replies(request: Request) -> dict:
     from .services import feedback as fb
 
     dev = _device(request)
-    items = fb.for_device(dev)
-    return {"ok": True, "items": items, "pending": fb.unhandled_for(dev)}
+    mid = auth.current_member_id(request)      # 已登入就一併查他帳號名下所有裝置
+    return {"ok": True,
+            "items": fb.for_device(dev, mid),
+            "pending": fb.unhandled_for(dev, mid),
+            "logged_in": bool(mid)}
 
 
 # ── 註銷帳號（**使用者自己**註銷；小羅 2026-09-27 要求）──────────

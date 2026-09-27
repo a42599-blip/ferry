@@ -333,4 +333,7 @@ input:focus{outline:none;border-color:var(--acc)}
 .rep b{color:#8fe8b8}
 .rep .rr{margin-top:2px}
 .rep .ra{margin-top:4px;color:var(--acc);font-size:11.5px}
+.rep.pend{background:rgba(217,182,74,.1);border-color:rgba(217,182,74,.3)}
+.rep.pend b{color:#e8d28a}
+.rep.pend .rr{color:var(--dim)}
 @media (min-width:900px){ .replybar{padding:10px 26px 0} }

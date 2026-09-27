@@ -103,21 +103,50 @@ def reply(fid: int, message: str, *, action: str = "",
     return dict(row) if row else None
 
 
-def for_device(device_id: str, limit: int = 5) -> list[dict]:
-    """某個裝置收到過的「已回覆」訊息（前台顯示給客戶看）。"""
-    if not device_id:
+def for_device(device_id: str, member_id: str | None = None, limit: int = 5) -> list[dict]:
+    """這個客戶收到的「已回覆」訊息（前台顯示給客戶看）。
+
+    ⚠️ 小羅 2026-09-27：「訪客是這個設備跟我對話；他是會員就直接回他帳號。」
+    所以兩種都要查：
+      · 訪客 → 用裝置 ID 找
+      · 會員 → 除了他的裝置，也把他帳號名下所有裝置的回報一起找出來
+        （這樣換裝置登入還是看得到客服回覆）
+    """
+    devs: list[str] = [device_id] if device_id else []
+    if member_id:
+        for r in db.query("SELECT device_id FROM members WHERE id=? AND device_id<>''",
+                          (member_id,)):
+            devs.append(r["device_id"])
+        for r in db.query("SELECT device_id FROM devices WHERE member_id=? AND device_id<>''",
+                          (member_id,)):
+            devs.append(r["device_id"])
+        for r in db.query("SELECT DISTINCT device_id FROM events"
+                          " WHERE device_id IS NOT NULL AND device_id<>'' AND meta LIKE ?",
+                          ("%" + member_id + "%",)):
+            devs.append(r["device_id"])
+    devs = [d for d in dict.fromkeys(devs) if d]
+    if not devs:
         return []
+    marks = ",".join("?" for _ in devs)
     rows = db.query(
         "SELECT id, message, reply, replied_at, action FROM feedback"
-        " WHERE device_id=? AND reply IS NOT NULL AND reply<>''"
-        " ORDER BY replied_at DESC LIMIT ?", (device_id, limit))
+        " WHERE device_id IN (" + marks + ") AND reply IS NOT NULL AND reply<>''"
+        " ORDER BY replied_at DESC LIMIT ?",
+        tuple(devs) + (limit,))
     return [dict(r) for r in rows]
 
 
-def unhandled_for(device_id: str) -> int:
-    """這個裝置還有幾則沒處理（客服可以優先處理）。"""
-    if not device_id:
+def unhandled_for(device_id: str, member_id: str | None = None) -> int:
+    """這個客戶還有幾則沒處理（前台可以提示「處理中」）。"""
+    devs = [device_id] if device_id else []
+    if member_id:
+        for r in db.query("SELECT device_id FROM members WHERE id=? AND device_id<>''",
+                          (member_id,)):
+            devs.append(r["device_id"])
+    devs = [d for d in dict.fromkeys(devs) if d]
+    if not devs:
         return 0
+    marks = ",".join("?" for _ in devs)
     return int(db.scalar(
-        "SELECT COUNT(*) FROM feedback WHERE device_id=?"
-        " AND (handled IS NULL OR handled=0)", (device_id,)) or 0)
+        "SELECT COUNT(*) FROM feedback WHERE device_id IN (" + marks + ")"
+        " AND (handled IS NULL OR handled=0)", tuple(devs)) or 0)

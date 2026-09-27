@@ -352,7 +352,7 @@ async function loadMyReplies() {
   let j;
   try { j = await api('/api/my-replies'); } catch { return; }
   const items = j.items || [];
-  if (!items.length) { bar.hidden = true; return; }
+  if (!items.length && !j.pending) { bar.hidden = true; return; }
   bar.innerHTML = items.slice(0, 3).map((x) => `
     <div class="rep">
       <span class="ri">💬</span>
@@ -361,7 +361,10 @@ async function loadMyReplies() {
         <div class="rr">${esc(x.reply)}</div>
         ${x.action ? `<div class="ra">${t('reply_action')}：${esc(x.action)}</div>` : ''}
       </div>
-    </div>`).join('');
+    </div>`).join('')
+    + (j.pending ? `<div class="rep pend"><span class="ri">⏳</span><div>`
+        + `<b>${t('reply_pending')}</b><div class="rr">已收到你的回報（共 ${j.pending} 則），`
+        + `我們會盡快處理並在這裡回覆你。</div></div></div>` : '');
   bar.hidden = false;
 }
 

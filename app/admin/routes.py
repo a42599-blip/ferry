@@ -274,10 +274,10 @@ async def adjust_member(member_id: str, body: dict = Body(...),
         members.extend_days(member_id, days, reason="gift", note=note)
         done.append(f"加 {days} 天")
     if q_dl:
-        quota.grant("download", f"user:{member_id}", q_dl)
+        quota.adjust("download", f"user:{member_id}", q_dl)
         done.append(f"下載次數 +{q_dl}")
     if q_tr:
-        quota.grant("transfer", f"user:{member_id}", q_tr)
+        quota.adjust("transfer", f"user:{member_id}", q_tr)
         done.append(f"傳輸次數 +{q_tr}")
 
     return {"ok": True, "done": done, "card": members.card(member_id)}
@@ -409,7 +409,7 @@ async def add_member_quota(member_id: str, body: dict = Body(...),
 
     kind = body.get("kind") or "download"
     n = int(body.get("n") or 1)
-    r = quota.grant(kind, f"user:{member_id}", n)
+    r = quota.adjust(kind, f"user:{member_id}", n)
     return {"ok": True, "result": r}
 
 
@@ -722,7 +722,7 @@ async def grant_quota(body: dict = Body(...), _: dict = Depends(require_admin)) 
         raise HTTPException(status_code=400, detail="缺少 subject（例如 dev:xxxx）")
     kind = body.get("kind") or "download"
     n = int(body.get("n") or 1)
-    row = quota.grant(kind, subject, n)
+    row = quota.adjust(kind, subject, n)      # 可超過每日上限（贈送）
     return {"ok": True, "result": row, "rows": quota.today_usage()}
 
 
@@ -843,7 +843,7 @@ async def grant_quota(body: dict = Body(...), _: dict = Depends(require_admin)) 
         raise HTTPException(status_code=400, detail="缺少 subject（例如 dev:xxxx）")
     kind = body.get("kind") or "download"
     n = int(body.get("n") or 1)
-    row = quota.grant(kind, subject, n)
+    row = quota.adjust(kind, subject, n)      # 可超過每日上限（贈送）
     return {"ok": True, "result": row, "rows": quota.today_usage()}
 
 
