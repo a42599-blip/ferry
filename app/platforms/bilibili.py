@@ -43,15 +43,44 @@ class BilibiliResolver(Resolver):
     async def match(self, url: str) -> bool:
         return bool(_URL_RE.search(url))
 
-    @staticmethod
-    async def _bvid_from_short(url: str) -> str | None:
-        """b23.tv 短連結 → 跟隨轉址取 BV 號。"""
-        try:
-            async with HttpClient(ua=_UA, timeout=15) as http:
-                resp = await http.get(url, headers=_HEADERS)
-                return BilibiliResolver._extract_bvid(str(resp.url))
-        except Exception:  # noqa: BLE001
-            return None
+    #: 短連結用的手機 UA（b23.tv 對資料中心 IP 較友善）
+    _UA_MOBILE = ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+                  "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1")
+
+    async def _bvid_from_short(self, url: str) -> str | None:
+        """b23.tv 短連結 → 取得 BV 號。
+
+        三條路都試（雲端 IP 有時會被短網址服務擋）：
+          ① 不跟隨轉址，直接讀 Location 標頭
+          ② 跟隨轉址後看最終網址
+          ③ 讀頁面內容找 BV 號
+        """
+        import httpx
+
+        for ua in (_UA, self._UA_MOBILE):
+            # ① 只讀 Location（最省、最不容易被擋）
+            try:
+                async with httpx.AsyncClient(timeout=12, follow_redirects=False,
+                                             headers={"User-Agent": ua, "Referer": "https://www.bilibili.com/"}) as c:
+                    r = await c.get(url)
+                    loc = r.headers.get("location") or ""
+                    bv = self._extract_bvid(loc)
+                    if bv:
+                        return bv
+            except Exception:  # noqa: BLE001
+                pass
+
+            # ② ③ 跟隨轉址 ／ 直接讀頁面
+            try:
+                async with httpx.AsyncClient(timeout=15, follow_redirects=True,
+                                             headers={"User-Agent": ua, "Referer": "https://www.bilibili.com/"}) as c:
+                    r = await c.get(url)
+                    bv = self._extract_bvid(str(r.url)) or self._extract_bvid(r.text)
+                    if bv:
+                        return bv
+            except Exception:  # noqa: BLE001
+                pass
+        return None
 
     async def resolve(self, url: str) -> VideoInfo:
         bvid = self._extract_bvid(url)

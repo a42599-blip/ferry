@@ -16,6 +16,7 @@ from ..core.errors import PlatformError
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
 from . import _weibo_visitor as wv
+from ._ssr import page_video_info
 from ._ytdlp import YtDlpResolver, quality_label
 
 _SHOW = "https://weibo.com/ajax/statuses/show"
@@ -36,8 +37,26 @@ class WeiboResolver(YtDlpResolver):
     async def match(self, url: str) -> bool:
         return bool(_URL_RE.search(url))
 
-    # ── 主流程：匿名 API → yt-dlp ─────────────────────
+    #: video.weibo.com / h5.video.weibo.com 的影片頁
+    #: 形式有兩種：?fid=1034:xxx 與 /show/1034:xxx → 直接抓「數字:數字」
+    _VIDEO_PAGE = re.compile(r"(?:video|h5\.video)\.weibo\.com/.*?(\d{3,6}:\d{10,25})")
+
+    # ── 主流程：影片頁(瀏覽器) → 匿名 API → yt-dlp ──────
     async def resolve(self, url: str) -> VideoInfo:
+        # ⓪ video.weibo.com 的影片頁是 JS 應用 → 用真瀏覽器讀 <video>
+        m = self._VIDEO_PAGE.search(url)
+        if m:
+            try:
+                info = await self._via_video_page(m.group(1))
+                if info is not None:
+                    info.source_url = url
+                if info is not None:
+                    return info
+            except PlatformError:
+                raise
+            except Exception:  # noqa: BLE001
+                pass
+        # ① 一般微博貼文 → 匿名訪客 API
         try:
             info = await self._via_ajax(url)
             if info is not None:
@@ -46,9 +65,31 @@ class WeiboResolver(YtDlpResolver):
             pass
         except Exception:  # noqa: BLE001
             pass
-        # yt-dlp 只認得 m.weibo.cn 形式（weibo.com/detail 會跳到訪客驗證頁）
+        # ② yt-dlp（m.weibo.cn 形式；weibo.com/detail 會跳訪客驗證頁）
         canonical = await self._canonical(url)
         return await YtDlpResolver.resolve(self, canonical)
+
+    async def _via_video_page(self, fid: str) -> VideoInfo | None:
+        """video.weibo.com 的影片頁 → 真瀏覽器讀 <video>。"""
+        data = await page_video_info(
+            f"https://h5.video.weibo.com/show/{fid}",
+            context_key="weibo",
+            wait_for=["mp4", "stream_url", "video_url"],
+            tries=22,
+        )
+        urls = data.get("urls") or []
+        if not urls:
+            return None
+        fmts = [
+            Format(id=f"wb{i}", label="原畫" if i == 0 else f"備援線路 {i}",
+                   url=u, quality_score=90 - i, mode="proxy",
+                   headers={"Referer": "https://weibo.com/"})
+            for i, u in enumerate(urls[:4])
+        ]
+        return VideoInfo(platform=self.name,
+                         title=(data.get("title") or "微博影片"),
+                         cover=data.get("poster") or "", source_url=data.get("source_url", ""),
+                         formats=fmts, extra={"route": "video-page"})
 
     async def _canonical(self, url: str) -> str:
         mid = await self._status_id(url)
