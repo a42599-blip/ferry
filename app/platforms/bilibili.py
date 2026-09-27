@@ -145,11 +145,12 @@ class BilibiliResolver(Resolver):
         )
 
     @staticmethod
-    def _extract_bvid(url: str) -> str:
+    def _extract_bvid(url: str) -> str | None:
+        """從網址抽 BV 號。找不到回 None（不要在這裡拋錯，
+        呼叫端才能接著試短連結轉址）。
+        """
         m = _BV_RE.search(url)
-        if m:
-            return m.group(1)
-        raise PlatformError("找不到 B 站影片編號（BV 號）", platform="bilibili")
+        return m.group(1) if m else None
 
     @staticmethod
     def _formats(data: dict) -> list[Format]:
