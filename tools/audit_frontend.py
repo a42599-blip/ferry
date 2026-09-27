@@ -421,6 +421,11 @@ async def main() -> None:
     print("\n▶ D. 網址路由審核（哪個連結該由哪個平台處理）")
     rep["issues"] += await audit_routing()
 
+    # E. 電腦版 vs 手機版「功能對等」（小羅 2026-09-27：
+    #    「電腦版有的所有功能，手機版都要有，兩邊是同步，只是顯示適配設備」）
+    print("\n▶ E. 功能對等審核（電腦版 vs 手機版）")
+    rep["issues"] += await audit_parity(args.base)
+
     print_report(rep)
     if args.json:
         Path(args.json).write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -429,3 +434,55 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+# ── E. 電腦版 vs 手機版「功能對等」檢查 ─────────────────────
+#  小羅 2026-09-27：「你要確保電腦版有的所有功能，手機版都要有，
+#                    兩邊是同步，只是顯示方式適配設備。」
+async def audit_parity(base: str) -> list[str]:
+    """回傳問題清單（給主流程加總）。"""
+    issues: list[str] = []
+
+    def bad_(_m): issues.append(f"[功能對等] {_m}")
+    def good_(_m): pass
+
+    from playwright.async_api import async_playwright
+
+    CHECKS = [
+        ("無水印下載", "#url"), ("貼上鈕", "#paste"), ("解析鈕", "#go"),
+        ("下載鈕", "#download"), ("畫質欄", "#qs"), ("平台圖示", "#plats"),
+        ("今日次數", "#q-left"), ("歷史記錄", "#history-box"),
+        ("回報問題", "#report-box"), ("回報送出", "#rp-send"),
+        ("無損傳輸頁", "#p-transfer"), ("傳輸配對鈕", "#tr-gen"),
+        ("選檔鈕", "#pick-files"), ("傳送鈕", "#tr-send"),
+        ("教學頁", "#p-teach"), ("方案頁", "#p-plans"), ("會員頁", "#p-member"),
+        ("語言切換", "#lang"), ("五個分頁", "#tabs"),
+    ]
+    async with async_playwright() as p:
+        br = await p.chromium.launch(headless=True, channel="chromium",
+                                     args=["--no-sandbox"])
+        results: dict[str, set] = {}
+        for label, vp, mobile in (("desktop", {"width": 1440, "height": 900}, False),
+                                  ("mobile", {"width": 390, "height": 844}, True)):
+            ctx = await br.new_context(viewport=vp, is_mobile=mobile, has_touch=mobile,
+                                       locale="zh-TW")
+            pg = await ctx.new_page()
+            await pg.goto(base, wait_until="domcontentloaded", timeout=45000)
+            await pg.wait_for_timeout(2500)
+            present = set()
+            for name, sel in CHECKS:
+                if await pg.locator(sel).count():
+                    present.add(name)
+            results[label] = present
+            await ctx.close()
+        await br.close()
+
+    only_desktop = results["desktop"] - results["mobile"]
+    only_mobile = results["mobile"] - results["desktop"]
+    if only_desktop:
+        issues.append(f"[功能對等] 手機版缺少：{sorted(only_desktop)}")
+    if only_mobile:
+        issues.append(f"[功能對等] 電腦版缺少：{sorted(only_mobile)}")
+    if not only_desktop and not only_mobile:
+        print(f"   ✔ 電腦版＝手機版（{len(results['desktop'])} 項功能兩邊都在）")
+    return issues

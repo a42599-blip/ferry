@@ -394,7 +394,6 @@ function renderReplyBar() {
     bar.innerHTML = '';
     return;
   }
-  const open = localStorage.getItem(REPLY_OPEN_KEY) !== '0';
   const items = _replyItems.map((x) => {
     const when = x.replied_at ? new Date(x.replied_at * 1000).toLocaleString() : '';
     return '<div class="ritem">'
