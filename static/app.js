@@ -291,18 +291,17 @@ function renderQuota(q) {
   if (!q) return;
   state.quota = q;
   const unlimited = q.unlimited || (q.download?.remaining ?? 0) >= 9999;
+  // ⚠️ 小羅 2026-09-27：「已使用次數」要**照實寫**，不要顯示一橫線。
+  //    沒用過就是 0，用過 1 次就是 1（∞ 只用在「剩餘」那一格）
+  const n = (v) => String(Number(v) || 0);
   const fill = (left, used, reset, part) => {
-    if (!left) return;
-    if (unlimited) {
-      left.textContent = '∞'; used.textContent = '–';
-      if (reset) reset.textContent = t('quota_unlimited');
-    } else {
-      left.textContent = part?.remaining ?? '–';
-      used.textContent = part?.used ?? '–';
-      if (reset) {
-        reset.textContent = t('quota_reset_pre') + ' ' + (part?.reset_hint || '00:00') + ' '
-          + t('quota_reset_suf');
-      }
+    if (!left || !used) return;
+    used.textContent = n(part?.used);                    // 永遠是實際數字
+    left.textContent = unlimited ? '∞' : n(part?.remaining);
+    if (reset) {
+      reset.textContent = unlimited
+        ? t('quota_unlimited')
+        : t('quota_reset_pre') + ' ' + (part?.reset_hint || '00:00') + ' ' + t('quota_reset_suf');
     }
   };
   // 下載頁的面板
@@ -337,20 +336,23 @@ $('#go').addEventListener('click', async () => {
 });
 $('#url').addEventListener('keydown', (e) => { if (e.key === 'Enter') doResolve(); });
 
-// ── 參考 v8i8 的貼上邏輯（小羅 2026-09-27 再次強調）──────────
-//   v8i8 的行為：貼上 = 直接覆蓋整個欄位 → 立刻自動解析
-//   → 使用者不必先刪掉上一筆連結，也不必再按「開始解析」
-$('#url').addEventListener('paste', (e) => {
-  // 只取「剛貼上的內容」，整欄覆蓋（否則新舊網址會黏在一起，解析到舊的）
-  const pasted = (e.clipboardData && e.clipboardData.getData('text')) || '';
-  if (!pasted) return;
-  e.preventDefault();
-  $('#url').value = extractUrl(pasted);
-  if ($('#url').value.includes('http')) doResolve();     // 自動解析
+// ── 貼上邏輯：完全照 v8i8（小羅 2026-09-27 第三次強調）───────
+//
+// ⚠️ 我原本的寫法錯了：去讀 event.clipboardData——iOS Safari 常常讀不到，
+//    讀到空的就 return，等於「貼上後完全不動」。v8i8 的做法是：
+//    **不阻止預設貼上**，等貼上真的發生後（300ms）再讀「輸入框的值」來解析。
+//
+// 另外小羅要求：「第二次用時不用刪掉上一個連結，貼上就自動換掉」
+//    → 貼上前先清空欄位，新內容貼進去就不會跟舊網址黏在一起。
+let _autoPasteTimer = null;
+$('#url').addEventListener('paste', () => {
+  $('#url').value = '';                 // 先清空（貼上會直接覆蓋，不會新舊混在一起）
+  clearTimeout(_autoPasteTimer);
+  _autoPasteTimer = setTimeout(() => {
+    const val = $('#url').value.trim();
+    if (val.includes('http')) doResolve();     // 貼上完成 → 自動解析
+  }, 320);
 });
-
-// 點欄位就全選 → 使用者按系統的「貼上」時會直接取代舊連結
-$('#url').addEventListener('focus', () => { if ($('#url').value) $('#url').select(); });
 
 
 /**

@@ -17,6 +17,7 @@ import yt_dlp
 from ..core import registry
 from ..core.config import settings
 from ..core.errors import PlatformChanged, PlatformTimeout, UnsupportedUrl
+from ..platforms._ytdlp import _DESKTOP_UA
 
 
 def build_selector(height: Optional[int], audio: bool) -> str:
@@ -60,7 +61,8 @@ async def fetch_to_temp(
         "merge_output_format": "mp4",
         "restrictfilenames": False,
         "nopart": False,
-        "http_headers": {"User-Agent": settings.user_agent},
+        # ⚠️ 桌面 UA（手機 UA 會被部分平台擋；見 _ytdlp.py 的說明）
+        "http_headers": {"User-Agent": _DESKTOP_UA},
     }
 
     from .cookies import cookiefile_for

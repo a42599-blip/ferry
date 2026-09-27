@@ -14,7 +14,6 @@ from typing import Any, Optional
 
 import yt_dlp
 
-from ..core.config import settings
 from ..core.errors import (
     PlatformBlocked,
     PlatformChanged,
@@ -46,6 +45,17 @@ def quality_label(height: int | None) -> str:
     return f"{height}P"
 
 
+# ⚠️ 一定要用「桌面瀏覽器」UA，不要用手機 UA（2026-09-27 實測踩到）：
+#    手機 UA 會讓 Facebook／TikTok／微博／今日頭條 回「沒有影片資料」的頁面：
+#      Facebook      手機 UA → 0 種畫質　桌面 UA → 1080P/720P ✅
+#      TikTok        手機 UA → 失敗　　　桌面 UA → 1920/1280 ✅
+#      微博          手機 UA → 無法解析　桌面 UA → 1080P/720P ✅
+#      今日頭條      手機 UA → Unsupported 桌面 UA → 1280/854 ✅
+_DESKTOP_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
+)
+
 _BASE_OPTS: dict[str, Any] = {
     "quiet": True,
     "no_warnings": True,
@@ -58,7 +68,7 @@ _BASE_OPTS: dict[str, Any] = {
     "cachedir": False,          # 容器內不需要快取
     "no_color": True,
     "http_headers": {
-        "User-Agent": settings.user_agent,
+        "User-Agent": _DESKTOP_UA,
         "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
     },
 }
