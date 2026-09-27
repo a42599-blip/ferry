@@ -64,7 +64,10 @@ class Settings:
 
     # 單次解析的「硬性」總逾時（秒）——保証不會卡死使用者
     # （抖音要走真瀏覽器，約 10～25 秒，所以給到 60）
-    resolve_timeout: int = field(default_factory=lambda: _env_int("RESOLVE_TIMEOUT", 60))
+    # ⚠️ 不可設太長：Cloudflare／Railway 的前置代理會先斷線，
+    #    使用者看到的是 502「伺服器忙碌中」而不是我們清楚的逾時訊息。
+    #    （小羅 2026-09-27：手機版常遇到）
+    resolve_timeout: int = field(default_factory=lambda: _env_int("RESOLVE_TIMEOUT", 40))
 
     # 資料（SQLite）。Railway 正式站請掛 Volume 並指向它（例：/data）
     data_dir: str = field(default_factory=lambda: os.getenv("DATA_DIR", ""))

@@ -253,5 +253,7 @@
   "pv_play": "播放",
   "btn_paste_only": "📋 贴上",
   "btn_parse_only": "🔍 开始解析",
-  "paste_empty": "剪贴板是空的"
+  "paste_empty": "剪贴板是空的",
+  "report_note": "任何平台下载不了都可以告诉我们（不用注册）。我们会汇总后尽快处理。",
+  "report_short": "请多描述一点（至少 4 个字）"
 }

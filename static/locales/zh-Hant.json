@@ -253,5 +253,7 @@
   "pv_play": "播放",
   "btn_paste_only": "📋 貼上",
   "btn_parse_only": "🔍 開始解析",
-  "paste_empty": "剪貼簿是空的"
+  "paste_empty": "剪貼簿是空的",
+  "report_note": "任何平台下載不了都可以告訴我們（不用註冊）。我們會彙總後盡快處理。",
+  "report_short": "請多描述一點（至少 4 個字）"
 }

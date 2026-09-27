@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, Body, HTTPException, Request
 
 from .services import auth, billing, members, notify
@@ -76,12 +78,33 @@ async def webhook(provider: str, request: Request) -> dict:
 # ── 使用者回報問題（規格書通知清單第 13 項）───────────
 @router.post("/api/report")
 async def report(request: Request, body: dict = Body(...)) -> dict:
-    msg = (body.get("message") or "").strip()[:800]
+    """收下使用者的回報（任何人都能送，不限會員）。
+
+    ⚠️ 小羅 2026-09-27 的要求：
+      1. 不是只有會員才能回報（免費用完次數的人也能送）
+      2. 信件要**彙總**，不要一則回報寄一封（會很恐怖）
+         → 靠 notify 的 30 分鐘冷卻：冷卻期間的回報會合併進下一封
+    """
+    from .core import db
+    from .services import feedback
+
+    msg = (body.get("message") or "").strip()[:1500]
     if len(msg) < 4:
         raise HTTPException(status_code=400, detail="請多描述一點")
-    await notify.notify("user_report", "使用者回報問題",
-                        f"內容：{msg}\n裝置：{_device(request)}\n"
-                        f"聯絡：{body.get('contact') or '（未提供）'}")
+    feedback.add(message=msg, device_id=_device(request), contact=body.get("contact"),
+                 platform=body.get("platform"), url=body.get("url"))
+
+    try:
+        since = float(db.get_setting("notify_last_report_ts") or 0)
+    except (TypeError, ValueError):
+        since = 0.0
+    since = since or (time.time() - 86400)
+    subject, digest = feedback.digest_since(since)
+    if subject:
+        n = len(feedback.unhandled_since(since))
+        r = await notify.notify("user_report", f"使用者回報（{n} 則）", digest)
+        if r.get("sent"):
+            db.set_setting("notify_last_report_ts", time.time())
     return {"ok": True, "message": "已收到，謝謝你！我們會盡快處理。"}
 
 

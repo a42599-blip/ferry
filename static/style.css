@@ -257,3 +257,11 @@ button.mini{min-height:32px}
 @media (max-width:899px){
   .pvid{max-height:46vh}
 }
+
+/* ── 回報問題（首頁，可收合；任何人都能用）── */
+.o-report{margin-top:16px;border-top:1px solid var(--line-soft);padding-top:12px}
+.o-report summary{cursor:pointer;font-size:13.5px;color:var(--acc);list-style:none;
+  display:flex;align-items:center;gap:6px}
+.o-report summary::-webkit-details-marker{display:none}
+.o-report summary::before{content:"＋";font-size:12px;color:var(--dim)}
+.o-report[open] summary::before{content:"－"}

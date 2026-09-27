@@ -54,6 +54,7 @@
       <button data-p="flags">平台開關</button>
       <button data-p="devices">會員與裝置</button>
       <button data-p="revenue">收益</button>
+      <button data-p="inbox">回報與額度</button>
       <button data-p="errors">錯誤與告警</button>
       <button data-p="system">系統</button>
     </nav>
@@ -138,6 +139,29 @@
           <div class="pnl"><div class="lbl">方案分佈</div><div id="rev-plans"></div></div>
           <div class="pnl grow2"><div class="lbl">訂單列表</div><div class="scroll" id="rev-orders"></div>
             <p class="note">金流為 P6 階段：程式與訂單流程已完成，設定金鑰後即可收款。</p></div>
+        </div>
+      </section>
+
+      <!-- 回報與額度 -->
+      <section class="pg" id="pg-inbox">
+        <div class="kpis" id="ib-kpis"></div>
+        <div class="pnl">
+          <div class="rowbetween">
+            <div class="lbl">使用者回報（任何人都能送，不限會員）</div>
+            <label class="chk"><input type="checkbox" id="ib-onlynew"> 只看未處理</label>
+          </div>
+          <p class="note">送出時會自動附帶「平台」與「輸入框連結」方便重現。
+            信件是<b>彙總</b>寄送（30 分鐘冷卻），不是一則回報寄一封。</p>
+          <div class="scroll" id="ib-list"></div>
+        </div>
+        <div class="pnl">
+          <div class="rowbetween">
+            <div class="lbl">免費次數（今日用量）</div>
+            <div><button class="gh" id="ib-reset-all">今日全部歸零</button></div>
+          </div>
+          <p class="note">解析<b>失敗不會扣次數</b>（扣次數在解析成功之後）。
+            若遇到例外狀況（逾時、平台風控）可在這裡<b>還他一次</b>。</p>
+          <div class="scroll" id="ib-quota"></div>
         </div>
       </section>
 

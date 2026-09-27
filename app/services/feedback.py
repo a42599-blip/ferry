@@ -1,0 +1,81 @@
+"""使用者回報問題（任何人都能送，不限會員）。
+
+小羅 2026-09-27 的要求：
+  1. 「回報問題」要拉出來到首頁 —— 不是只有會員才能用
+  2. 「客戶抖音下載不了可以回報給我，我馬上收到訊息」
+  3. ⚠️ **不要一則一封信**（會很恐怖）→ 用**彙總**寄
+"""
+from __future__ import annotations
+
+import time as _t
+from typing import Optional
+
+from ..core import db
+
+
+def add(*, message: str, device_id: Optional[str] = None, contact: Optional[str] = None,
+        platform: Optional[str] = None, url: Optional[str] = None,
+        app_version: Optional[str] = None) -> dict:
+    """寫入一則回報，回傳該筆資料。"""
+    now = _t.time()
+    db.execute(
+        "INSERT INTO feedback (ts, device_id, message, contact, platform, url, app_version)"
+        " VALUES (?,?,?,?,?,?,?)",
+        (now, device_id, message[:1500], (contact or "")[:200] or None,
+         platform, (url or "")[:500] or None, app_version))
+    row = db.one("SELECT * FROM feedback ORDER BY id DESC LIMIT 1")
+    return dict(row) if row else {}
+
+
+def list_all(*, days: int = 30, only_new: bool = False, limit: int = 300) -> list[dict]:
+    since = _t.time() - days * 86400
+    sql = "SELECT * FROM feedback WHERE ts>=?"
+    if only_new:
+        sql += " AND (handled IS NULL OR handled=0)"
+    sql += " ORDER BY ts DESC LIMIT ?"
+    out = []
+    for r in db.query(sql, (since, limit)):
+        row = dict(r)
+        row["when"] = _t.strftime("%m-%d %H:%M", _t.localtime(row["ts"]))
+        row["handled"] = bool(row.get("handled"))
+        out.append(row)
+    return out
+
+
+def counts(days: int = 30) -> dict:
+    since = _t.time() - days * 86400
+    total = int(db.scalar("SELECT COUNT(*) FROM feedback WHERE ts>=?", (since,)))
+    new = int(db.scalar(
+        "SELECT COUNT(*) FROM feedback WHERE ts>=? AND (handled IS NULL OR handled=0)", (since,)))
+    return {"total": total, "new": new, "handled": max(0, total - new)}
+
+
+def mark_handled(fid: int, note: str = "") -> bool:
+    db.execute("UPDATE feedback SET handled=1, note=? WHERE id=?", (note[:400], fid))
+    return True
+
+
+def unhandled_since(ts: float) -> list[dict]:
+    """某個時間點之後、還沒處理的回報（給彙總信／告警用）。"""
+    return [dict(r) for r in db.query(
+        "SELECT * FROM feedback WHERE ts>=? AND (handled IS NULL OR handled=0)"
+        " ORDER BY ts", (ts,))]
+
+
+def digest_since(ts: float) -> tuple[str, str]:
+    """把一段時間內的回報**彙總成一封信**（不是一則一封）。"""
+    rows = unhandled_since(ts)
+    if not rows:
+        return "", ""
+    lines = [f"【轉運站】使用者回報彙總（{len(rows)} 則）", ""]
+    for r in rows[:40]:
+        when = _t.strftime("%m-%d %H:%M", _t.localtime(r["ts"]))
+        plat = r.get("platform") or "未標示"
+        lines.append(f"• [{when}] ({plat}) {r['message'][:160]}")
+        if r.get("contact"):
+            lines.append(f"    聯絡：{r['contact']}")
+        if r.get("url"):
+            lines.append(f"    連結：{r['url'][:110]}")
+    if len(rows) > 40:
+        lines.append(f"…另有 {len(rows) - 40} 則，請到後台查看")
+    return f"【轉運站】使用者回報彙總（{len(rows)} 則）", "\n".join(lines)

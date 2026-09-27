@@ -45,18 +45,29 @@ class DouyinResolver(YtDlpResolver):
     async def match(self, url: str) -> bool:
         return bool(_URL_RE.search(url))
 
-    # ── 主流程：官方 API → 真瀏覽器 → tikwm → yt-dlp ──
+    # ── 主流程：多條路線「並行」，誰先成功用誰（照 v8i8 的做法）──
+    #
+    # ⚠️ 為什麼要並行（小羅 2026-09-27：手機版常回「伺服器忙碌」）：
+    #    原本是「官方失敗才試瀏覽器、再失敗才試 tikwm」→ 每條要 5～20 秒，
+    #    累積起來很容易超過 Cloudflare／Railway 的請求上限（502）。
+    #    並行後整體時間 ≈ 最快那一條，手機也不會逾時。
     async def resolve(self, url: str) -> VideoInfo:
         url = await self._normalize(url)      # iesdouyin 分享頁 → 標準 douyin 網址
-        for route in (self._via_official, self._via_browser, self._via_tikwm):
-            try:
-                info = await route(url)
+
+        routes = [self._via_official(url), self._via_browser(url), self._via_tikwm(url)]
+        tasks = [asyncio.create_task(r) for r in routes]
+        try:
+            for fut in asyncio.as_completed(tasks):
+                try:
+                    info = await fut
+                except Exception:  # noqa: BLE001 — 這條路掛了就等下一條
+                    continue
                 if info is not None:
                     return info
-            except PlatformError:
-                continue
-            except Exception:  # noqa: BLE001 — 換下一條路
-                continue
+        finally:
+            for t in tasks:
+                if not t.done():
+                    t.cancel()
 
         try:
             return await YtDlpResolver.resolve(self, url)

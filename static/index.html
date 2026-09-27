@@ -81,6 +81,21 @@
         <div class="lbl" id="plat-label"></div>
         <div class="plats" id="plats"></div>
       </div>
+
+      <!-- ── 回報問題（小羅 2026-09-27：拉到首頁，不限會員都能送）──
+           送出後會存進後台，並「彙總」寄信通知（不是一則一封） -->
+      <details class="o-report" id="report-box">
+        <summary data-i18n="report_title">回報問題</summary>
+        <p class="note" data-i18n="report_note">任何平台下載不了都可以告訴我們（不用註冊）。我們會彙總後盡快處理。</p>
+        <div class="inbar" style="margin-top:10px">
+          <input id="rp-msg" data-i18n-ph="report_ph" placeholder="例如：抖音貼連結沒反應">
+        </div>
+        <div class="inbar" style="margin-top:8px">
+          <input id="rp-contact" data-i18n-ph="report_contact" placeholder="聯絡方式（選填）">
+        </div>
+        <button class="big gh sm" id="rp-send" style="margin-top:10px" data-i18n="btn_submit">送出</button>
+        <div class="msg" id="rp-status" hidden></div>
+      </details>
     </div>
 
     <div class="col">
@@ -222,14 +237,6 @@
       <div id="m-info" hidden>
         <div class="kv" id="m-detail"></div>
         <button class="big gh sm" id="m-logout" style="margin-top:14px" data-i18n="btn_logout">登出</button>
-      </div>
-
-      <div id="report-box">
-        <h2 class="sec" data-i18n="report_title">回報問題</h2>
-        <div class="inbar" style="margin-top:10px"><input id="rp-msg" data-i18n-ph="report_ph" placeholder="例如：抖音貼連結沒反應"></div>
-        <div class="inbar" style="margin-top:10px"><input id="rp-contact" data-i18n-ph="report_contact" placeholder="聯絡方式（選填）"></div>
-        <button class="big gh sm" id="rp-send" style="margin-top:10px" data-i18n="btn_submit">送出</button>
-        <div class="msg" id="rp-status" hidden></div>
       </div>
 
       <div id="history-box">

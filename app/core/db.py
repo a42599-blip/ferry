@@ -93,6 +93,21 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
 
+-- 使用者回報問題（任何人都能送，不限會員）
+CREATE TABLE IF NOT EXISTS feedback (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          REAL    NOT NULL,
+    device_id   TEXT,
+    message     TEXT    NOT NULL,
+    contact     TEXT,
+    platform    TEXT,                      -- 送出時正在看哪個平台（自動附帶）
+    url         TEXT,                      -- 送出時輸入框的連結（方便重現）
+    app_version TEXT,
+    handled     INTEGER DEFAULT 0,         -- 0=未處理 1=已處理
+    note        TEXT                       -- 後台處理備註
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_ts ON feedback(ts);
+
 CREATE TABLE IF NOT EXISTS quotas (
     kind       TEXT NOT NULL,              -- download / transfer
     subject    TEXT NOT NULL,              -- dev:xxx / user:xxx / ip:xxx

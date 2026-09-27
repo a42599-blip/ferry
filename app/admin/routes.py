@@ -365,6 +365,61 @@ async def growth(days: int = Query(90, ge=7, le=730), _: dict = Depends(require_
     return {"ok": True, **events.growth(days)}
 
 
+# ── 使用者回報（任何人都能送，不限會員）───────────────
+@router.get("/feedback")
+async def get_feedback(days: int = Query(30), only_new: bool = Query(False),
+                       _: dict = Depends(require_admin)) -> dict:
+    from ..services import feedback
+
+    return {"ok": True, "counts": feedback.counts(days),
+            "rows": feedback.list_all(days=days, only_new=only_new)}
+
+
+@router.post("/feedback/{fid}/handled")
+async def mark_feedback(fid: int, body: dict = Body(default={}),
+                        _: dict = Depends(require_admin)) -> dict:
+    from ..services import feedback
+
+    feedback.mark_handled(fid, (body or {}).get("note") or "")
+    return {"ok": True, "counts": feedback.counts()}
+
+
+# ── 免費次數管理（可以手動還使用者一次）───────────────
+@router.get("/quota")
+async def get_quota_usage(_: dict = Depends(require_admin)) -> dict:
+    from ..services import quota
+
+    from ..core.config import settings
+
+    return {"ok": True, "rows": quota.today_usage(),
+            "limits": {"download": settings.free_download_per_day,
+                       "transfer": settings.free_transfer_per_day},
+            "enabled": settings.free_limit_enabled}
+
+
+@router.post("/quota/grant")
+async def grant_quota(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
+    """還使用者免費次數（例：解析失敗卻被扣了）。"""
+    from ..services import quota
+
+    subject = (body.get("subject") or "").strip()
+    if not subject:
+        raise HTTPException(status_code=400, detail="缺少 subject（例如 dev:xxxx）")
+    kind = body.get("kind") or "download"
+    n = int(body.get("n") or 1)
+    row = quota.grant(kind, subject, n)
+    return {"ok": True, "result": row, "rows": quota.today_usage()}
+
+
+@router.post("/quota/reset")
+async def reset_quota(body: dict = Body(default={}), _: dict = Depends(require_admin)) -> dict:
+    from ..services import quota
+
+    subject = (body or {}).get("subject") or None
+    quota.reset_today(subject)
+    return {"ok": True, "rows": quota.today_usage()}
+
+
 # ── 測試帳號清理（審核工具用；避免測試資料污染）────────
 @router.post("/members/cleanup-test")
 async def cleanup_test_members(_: dict = Depends(require_admin)) -> dict:

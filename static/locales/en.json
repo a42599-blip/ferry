@@ -253,5 +253,7 @@
   "pv_play": "Play",
   "btn_paste_only": "📋 Paste",
   "btn_parse_only": "🔍 Parse",
-  "paste_empty": "Clipboard is empty"
+  "paste_empty": "Clipboard is empty",
+  "report_note": "Any platform not working? Tell us (no sign-up needed). We review and fix quickly.",
+  "report_short": "Please describe a bit more (min 4 chars)"
 }

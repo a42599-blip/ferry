@@ -299,14 +299,14 @@ async function loadQuota() {
 // ── 解析 ─────────────────────────────────────────
 $('#go').addEventListener('click', () => doResolve());
 
-// 📋 貼上：讀剪貼簿 → 填入輸入框（照 v8i8 的 pasteAndParse 邏輯）
+// 📋 貼上：讀剪貼簿 → **整欄覆蓋** → **立刻自動解析**（完全照 v8i8 的 pasteAndParse）
 $('#paste').addEventListener('click', async () => {
   try {
     const text = await navigator.clipboard.readText();
     if (!text || !text.trim()) { msg('#status', t('paste_empty'), 'err'); return; }
-    $('#url').value = extractUrl(text);       // 支援整段分享文字
+    $('#url').value = extractUrl(text);       // 覆蓋舊連結；支援整段分享文字
     msg('#status', '');
-    $('#url').focus();
+    doResolve();                              // 使用者不必再按「開始解析」
   } catch {
     // 剪貼簿被拒（iOS Safari 有時要使用者手勢）→ 聚焦讓使用者自己長按貼上
     $('#url').focus();
@@ -315,15 +315,20 @@ $('#paste').addEventListener('click', async () => {
 });
 $('#url').addEventListener('keydown', (e) => { if (e.key === 'Enter') doResolve(); });
 
-// 參考 v8i8：使用者在輸入框「手動貼上」時自動解析（不用再按按鈕）
-let _autoPasteTimer = null;
-$('#url').addEventListener('paste', () => {
-  clearTimeout(_autoPasteTimer);
-  _autoPasteTimer = setTimeout(() => {
-    const val = $('#url').value.trim();
-    if (val && val.includes('http')) doResolve();
-  }, 320);
+// ── 參考 v8i8 的貼上邏輯（小羅 2026-09-27 再次強調）──────────
+//   v8i8 的行為：貼上 = 直接覆蓋整個欄位 → 立刻自動解析
+//   → 使用者不必先刪掉上一筆連結，也不必再按「開始解析」
+$('#url').addEventListener('paste', (e) => {
+  // 只取「剛貼上的內容」，整欄覆蓋（否則新舊網址會黏在一起，解析到舊的）
+  const pasted = (e.clipboardData && e.clipboardData.getData('text')) || '';
+  if (!pasted) return;
+  e.preventDefault();
+  $('#url').value = extractUrl(pasted);
+  if ($('#url').value.includes('http')) doResolve();     // 自動解析
 });
+
+// 點欄位就全選 → 使用者按系統的「貼上」時會直接取代舊連結
+$('#url').addEventListener('focus', () => { if ($('#url').value) $('#url').select(); });
 
 
 /**
@@ -636,13 +641,25 @@ $('#m-register').addEventListener('click', async () => {
 $('#m-logout').addEventListener('click', async () => {
   localStorage.removeItem(MKEY); await refreshMember(); await loadQuota();
 });
+// 回報問題（任何人都能送）→ 自動附帶「目前平台」與「輸入框連結」方便重現
 $('#rp-send').addEventListener('click', async () => {
+  const text = $('#rp-msg').value.trim();
+  if (text.length < 4) { msg('#rp-status', t('report_short'), 'err'); return; }
+  $('#rp-send').disabled = true;
   try {
-    const j = await api('/api/report', { method: 'POST', body: JSON.stringify({
-      message: $('#rp-msg').value, contact: $('#rp-contact').value }) });
+    const j = await api('/api/report', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: text,
+        contact: $('#rp-contact').value.trim(),
+        platform: state.info?.platform || '',
+        url: state.urlUsed || $('#url').value.trim(),
+      }),
+    });
     msg('#rp-status', j.message || 'OK', 'ok');
     $('#rp-msg').value = '';
   } catch (e) { msg('#rp-status', e.message, 'err'); }
+  finally { $('#rp-send').disabled = false; }
 });
 
 // ── 方案 ─────────────────────────────────────────

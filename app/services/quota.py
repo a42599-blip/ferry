@@ -125,3 +125,53 @@ def status(subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
         "timezone": tz_name,
         "unlimited": unlimited,
     }
+
+
+# ══════════════════════════════════════════════════════════════════
+#  後台工具：手動恢復／查看免費次數
+#
+#  小羅 2026-09-27：「用了一次免費次數但沒有解析成功，正常不該記次數；
+#                    如果記了，我是不是可以手動幫他恢復一次？」
+#  → 解析失敗本來就不會扣（扣次數在解析成功之後），
+#    但遇到例外狀況（逾時、平台風控）可以在後台幫他補回來。
+# ══════════════════════════════════════════════════════════════════
+
+def grant(kind: str, subject: str, n: int = 1, *, tz_name: str = "Asia/Taipei") -> dict:
+    """把某個主體的今日用量「減掉 n 次」（＝還他 n 次免費額度）。
+
+    不會減到負數；回傳還原後的狀態。
+    """
+    n = max(1, min(int(n), 50))
+    dk = _date_key(tz_name)
+    cur = used(kind, subject, tz_name=tz_name)
+    newv = max(0, cur - n)
+    db.execute(
+        "INSERT INTO quotas(kind, subject, date_key, count, tz, updated_at)"
+        " VALUES(?,?,?,?,?,?)"
+        " ON CONFLICT(kind, subject, date_key) DO UPDATE SET count=excluded.count,"
+        " updated_at=excluded.updated_at",
+        (kind, subject, dk, newv, tz_name, time.time()),
+    )
+    return {"kind": kind, "subject": subject, "before": cur, "after": newv, "gave_back": cur - newv,
+            "date": dk}
+
+
+def today_usage(*, tz_name: str = "Asia/Taipei", limit: int = 200) -> list[dict]:
+    """今天各主體用了幾次（後台用，看得出誰快用完）。"""
+    dk = _date_key(tz_name)
+    rows = db.query(
+        "SELECT kind, subject, count, updated_at FROM quotas WHERE date_key=?"
+        " ORDER BY count DESC LIMIT ?", (dk, limit))
+    lim = {k: daily_limit(k) for k in _KINDS}
+    return [{**dict(r), "limit": lim.get(r["kind"], 0)} for r in rows]
+
+
+def reset_today(subject: str | None = None, *, tz_name: str = "Asia/Taipei") -> int:
+    """把今天的用量歸零（不給 subject＝全部歸零）。回傳影響筆數。"""
+    dk = _date_key(tz_name)
+    if subject:
+        db.execute("UPDATE quotas SET count=0, updated_at=? WHERE date_key=? AND subject=?",
+                   (time.time(), dk, subject))
+    else:
+        db.execute("UPDATE quotas SET count=0, updated_at=? WHERE date_key=?", (time.time(), dk))
+    return int(db.scalar("SELECT COUNT(*) FROM quotas WHERE date_key=?", (dk,)))
