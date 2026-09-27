@@ -12,7 +12,7 @@ from ..core import registry
 from ..core.config import settings
 from ..core.errors import PlatformDisabled, PlatformTimeout, UnsupportedUrl
 from ..core.models import VideoInfo
-from . import flags
+from . import flags, probe
 
 
 async def resolve(url: str) -> VideoInfo:
@@ -41,6 +41,11 @@ async def resolve(url: str) -> VideoInfo:
     elapsed_ms = int((time.perf_counter() - started) * 1000)
 
     _validate(info)
+    # 有些平台只回「高清／原畫」沒給幾 P → 用 ffprobe 讀真實解析度再標籤
+    try:
+        await probe.enrich_dimensions(info)
+    except Exception:  # noqa: BLE001 — probe 失敗不影響解析
+        pass
     info.extra.setdefault("elapsed_ms", elapsed_ms)
     return info
 

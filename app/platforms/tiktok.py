@@ -50,10 +50,11 @@ class TiktokResolver(Resolver):
         music = d.get("music")
 
         if hd:
-            fmts.append(Format(id="hd", label="高清", url=_abs(hd), height=1080,
+            # ⚠️ 不要寫死高度！tikwm 沒回解析度 → 交給 probe.py 用 ffprobe 讀真實值
+            fmts.append(Format(id="hd", label="高清", url=_abs(hd),
                                size=d.get("hd_size"), quality_score=90, mode="fetch"))
         if play:
-            fmts.append(Format(id="origin", label="原畫", url=_abs(play), height=720,
+            fmts.append(Format(id="origin", label="原畫", url=_abs(play),
                                size=d.get("size"), quality_score=80, mode="fetch"))
         if music:
             fmts.append(Format(id="audio", label="純音訊", url=_abs(music), audio=True,

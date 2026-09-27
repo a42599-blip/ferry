@@ -308,28 +308,27 @@ const updateGoLabel = () => {
 $('#url').addEventListener('input', updateGoLabel);
 window._updateGoLabel = updateGoLabel;
 
-// 小羅 2026-09-27 要求：
-//   下載完第一支影片後，點輸入框就要「自動清掉舊連結 ＋ 恢復成貼上按鈕」，
-//   這樣貼新連結才不用先手動刪掉舊的。
-$('#url').addEventListener('focus', () => {
-  const hasResult = !!state.info;                 // 已經解析過 = 上一次任務完成
-  const sameAsParsed = state.info && state.urlUsed === $('#url').value.trim();
-  if (hasResult && sameAsParsed && $('#url').value.trim()) {
-    $('#url').value = '';
-    state.info = null;
-    state.urlUsed = null;
-    updateGoLabel();
-    // 結果區回到「還沒解析」的樣子，避免使用者以為還是舊的
-    $('#cover').hidden = true; $('#shade').hidden = true;
-    $('#pv-title').textContent = t('pv_empty');
-    $('#pv-plat').textContent = ''; $('#pv-dur').textContent = '';
-    $('#qs').innerHTML = '';
-    $('#download').disabled = true;
-    $('#download').textContent = t('btn_choose_quality');
-    $('#track').hidden = true; $('#pm').hidden = true;
-    msg('#status', '');
-  }
+// 參考 v8i8：使用者在輸入框「手動貼上」時自動解析（不用再按按鈕）
+let _autoPasteTimer = null;
+$('#url').addEventListener('paste', () => {
+  clearTimeout(_autoPasteTimer);
+  _autoPasteTimer = setTimeout(() => {
+    const val = $('#url').value.trim();
+    if (val && val.includes('http')) doResolve();
+  }, 320);
 });
+
+
+/**
+ * 從任意文字抽出網址（支援抖音/TikTok 的整段分享文字）。
+ * 參考 v8i8 的 extractUrl()：抓第一個 http… 並去掉尾端標點。
+ */
+function extractUrl(text) {
+  const t = (text || '').trim();
+  const m = t.match(/https?:\/\/[^\s一-鿿　-〿＀-￯]+/);
+  if (m) return m[0].replace(/[,，。！？、)）\]]+$/, '');
+  return t;
+}
 
 /** 從剪貼簿讀取網址（手機上要使用者手勢，所以只能綁在按鈕上） */
 async function readClipboard() {
@@ -364,7 +363,7 @@ function stopResolveProgress() {
 }
 
 async function doResolve() {
-  let url = $('#url').value.trim();
+  let url = extractUrl($('#url').value);
   // 輸入框空的 → 自動讀剪貼簿（一鍵「貼上並解析」）
   if (!url) {
     const text = await readClipboard();
@@ -372,7 +371,7 @@ async function doResolve() {
       msg('#status', t('paste_denied'), 'err');
       return;
     }
-    url = text;
+    url = extractUrl(text);
     $('#url').value = url;
     updateGoLabel();
   }
@@ -485,6 +484,13 @@ $('#download').addEventListener('click', async () => {
     api('/api/track/download', { method: 'POST', body: JSON.stringify({
       platform: state.info.platform, quality: f.label, size: f.size || null,
       mode: f.mode, url: state.info.source_url }) }).catch(() => {});
+    // 參考 v8i8：下載完成後清空輸入框 ＋ 聚焦 → 使用者直接貼下一個就行
+    const isTouch = window.FY?.env ? (window.FY.env.isIOS || window.FY.env.isAndroid) : false;
+    setTimeout(() => {
+      $('#url').value = '';
+      updateGoLabel();
+      if (!isTouch) $('#url').focus();
+    }, isTouch ? 400 : 1600);
   } catch (err) {
     // CORS 失敗 → 退回直接開連結（比整個失敗好）
     if (f.mode === 'fetch' || f.mode === 'direct') {
