@@ -269,5 +269,8 @@
   "pay_beta": "目前為公測期間，暫不收費",
   "pay_not_ready": "付費功能正在準備中。開通後這裡會出現信用卡／QR code 等付款方式。",
   "pay_qr_hint": "請用手機掃描 QR code 完成付款",
-  "pay_qr_ready": "已產生付款 QR code，請掃描"
+  "pay_qr_ready": "已產生付款 QR code，請掃描",
+  "tr_joined_note": "✅ 已用對方的配對碼連上，不用再產生自己的號碼。",
+  "tr_connected_send": "已連線。按下面的「開始傳送」，對方會自動接收（對方不用按任何東西）。",
+  "tr_connected_recv": "已連線。對方按「開始傳送」後，檔案會自動下載到這台裝置。"
 }

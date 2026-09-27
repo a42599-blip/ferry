@@ -269,5 +269,8 @@
   "pay_beta": "Free during beta — no charge for now",
   "pay_not_ready": "Payments are being set up. Card / QR code options will appear here.",
   "pay_qr_hint": "Scan the QR code with your phone to pay",
-  "pay_qr_ready": "Payment QR code ready — please scan"
+  "pay_qr_ready": "Payment QR code ready — please scan",
+  "tr_joined_note": "✅ Connected with the other device's code — no need to generate your own.",
+  "tr_connected_send": "Connected. Press “Start sending” below — the other device receives automatically.",
+  "tr_connected_recv": "Connected. The file will download automatically once the other device starts sending."
 }

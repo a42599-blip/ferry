@@ -133,8 +133,19 @@
     const j = await api('/join', { method: 'POST', body: JSON.stringify({
       code: code || null, peer_id: S.peerId, name: navigator.platform }) });
     S.code = j.code; S.known = j.known || [];
-    $('#mycode').textContent = j.code;
-    $('#codebox').hidden = false;
+
+    // ⚠️ 配對碼的角色不一樣（小羅 2026-09-27 反映「兩邊的數字怎麼一樣」）：
+    //   產生方 → 要顯示號碼讓對方輸入
+    //   加入方 → 不要顯示那組號碼（會被誤會成自己也要分享），改成「已連上」
+    if (code) {
+      $('#codebox').hidden = true;
+      $('#joined-note').hidden = false;
+      $('#joined-note').textContent = t('tr_joined_note');
+    } else {
+      $('#mycode').textContent = j.code;
+      $('#codebox').hidden = false;
+      $('#joined-note').hidden = true;
+    }
     renderKnown();
     if (j.peers?.length) { S.peer = j.peers[0]; onPeerFound(); }
     else { status(t('tr_waiting')); startPoll(); }
@@ -251,7 +262,8 @@
       const st = S.pc.connectionState;
       if (st === 'connected') {
       clearTimeout(S.connectTimer);
-      status(t('tr_connected'), 'ok');
+      // 讓「誰要做什麼」一目了然：送方按開始傳送，收方什麼都不用按
+      status(S.files.length ? t('tr_connected_send') : t('tr_connected_recv'), 'ok');
       renderPeers(t('tr_connected'));
       $('#tr-send').disabled = !S.files.length;
     } else if (st === 'failed') {

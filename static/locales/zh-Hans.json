@@ -269,5 +269,8 @@
   "pay_beta": "目前为公测期间，暂不收费",
   "pay_not_ready": "付费功能正在准备中。开通后这里会出现信用卡／QR code 等付款方式。",
   "pay_qr_hint": "请用手机扫描 QR code 完成付款",
-  "pay_qr_ready": "已产生付款 QR code，请扫描"
+  "pay_qr_ready": "已产生付款 QR code，请扫描",
+  "tr_joined_note": "✅ 已用对方的配对码连上，不用再产生自己的号码。",
+  "tr_connected_send": "已连线。按下面的「开始传送」，对方会自动接收（对方不用按任何东西）。",
+  "tr_connected_recv": "已连线。对方按「开始传送」后，档案会自动下载到这台装置。"
 }

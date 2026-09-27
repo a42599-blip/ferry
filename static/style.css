@@ -287,3 +287,7 @@ input:focus{outline:none;border-color:var(--acc)}
 .payway.on{border-color:var(--acc);background:rgba(217,192,140,.1);color:var(--acc)}
 .payqr{margin-top:14px;text-align:center}
 .payqr img,.payqr canvas{max-width:190px;border-radius:10px;background:#fff;padding:8px}
+
+/* ── 配對碼角色提示（加入方顯示；避免以為兩邊都要產生號碼）── */
+.joinednote{margin-top:10px;padding:10px 12px;border-radius:9px;font-size:12.5px;
+  background:rgba(63,191,127,.1);border:1px solid rgba(63,191,127,.28);color:#8fe8b8}
