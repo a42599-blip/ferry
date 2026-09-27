@@ -114,7 +114,24 @@ function _escHtml(v) {
  */
 async function saveBlob(blob, filename, onStatus) {
   const isMedia = /\.(mp4|mov|m4v|webm|mkv|jpe?g|png|gif|webp)$/i.test(filename);
-  const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+  // ⚠️ MIME type 一定要對（2026-09-27 小羅：「FB 說儲存成功，但相簿裡沒有」）
+  //    blob.type 常常是空的（伺服器沒回 Content-Type，或 proxy 轉發時掉了），
+  //    這時如果填 application/octet-stream，iOS 不會把它當成影片 → 存不進相簿，
+  //    而且**不會報錯**（看起來像成功），東西只在「檔案」App 裡。
+  //    → 依副檔名補上正確的 type。
+  const MIME = {
+    mp4: 'video/mp4', m4v: 'video/x-m4v', mov: 'video/quicktime', webm: 'video/webm',
+    mkv: 'video/x-matroska', avi: 'video/x-msvideo', ts: 'video/mp2t',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+    webp: 'image/webp', heic: 'image/heic',
+    mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', wav: 'audio/wav', ogg: 'audio/ogg',
+  };
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  let type = (blob.type || '').split(';')[0].trim();
+  if (!type || type === 'application/octet-stream' || type === 'binary/octet-stream') {
+    type = MIME[ext] || 'application/octet-stream';
+  }
+  const file = new File([blob], filename, { type });
 
   // ① iOS／App 內建瀏覽器：改成「顯示按鈕讓使用者自己按」
   //    （直接在這裡呼叫 share 會因為手勢過期而失敗 → 相簿不會有東西）

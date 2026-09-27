@@ -20,16 +20,32 @@ from ..core.errors import PlatformChanged, PlatformTimeout, UnsupportedUrl
 from ..platforms._ytdlp import _DESKTOP_UA
 
 
+#: 手機相容性最好的編碼（H.264 影像 ＋ AAC 音訊）
+#  ⚠️ 為什麼一定要指定（2026-09-27 小羅：「FB 說儲存成功，但相簿裡沒有」）：
+#     yt-dlp 預設可能挑到 **AV1／VP9** 或**超大檔**的串流，
+#     iPhone 不支援 AV1 → 存進相簿也播不出來（甚至存不進去），
+#     而且實測 FB 那支被抓成 233MB 且「沒有音訊」。
+#     v8i8 的做法就是永遠優先 `avc1 + m4a`，照它做。
+_H264 = "avc1"
+_AAC = "m4a"
+
+
 def build_selector(height: Optional[int], audio: bool) -> str:
-    """畫質 → yt-dlp format selector。"""
+    """畫質 → yt-dlp format selector（一律優先 H.264 + m4a）。"""
     if audio:
-        return "bestaudio/best"
+        return f"bestaudio[ext={_AAC}]/bestaudio/best"
     if height:
         return (
-            f"bestvideo[height<={height}]+bestaudio/"
-            f"best[height<={height}]/best"
+            f"bestvideo[height<={height}][ext=mp4][vcodec^={_H264}]+bestaudio[ext={_AAC}]/"
+            f"bestvideo[height<={height}][vcodec^={_H264}]+bestaudio/"
+            f"best[height<={height}][ext=mp4]/best[height<={height}]/"
+            f"bestvideo[ext=mp4][vcodec^={_H264}]+bestaudio[ext={_AAC}]/best"
         )
-    return "bestvideo+bestaudio/best"
+    return (
+        f"bestvideo[ext=mp4][vcodec^={_H264}]+bestaudio[ext={_AAC}]/"
+        f"bestvideo[vcodec^={_H264}]+bestaudio/"
+        f"best[ext=mp4]/best"
+    )
 
 
 def _filename_of(path: str, fallback: str) -> str:
@@ -59,6 +75,10 @@ async def fetch_to_temp(
         "format": build_selector(height, audio),
         "outtmpl": os.path.join(tmpdir, "%(title).80s.%(ext)s"),
         "merge_output_format": "mp4",
+        # 音訊轉 AAC（有些平台給 opus/ogg，iOS 播不出來）
+        "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "m4a"}] if audio else [],
+        # 讓輸出更容易被手機播放（faststart）
+        "postprocessor_args": {"merger": ["-movflags", "+faststart"]},
         "restrictfilenames": False,
         "nopart": False,
         # ⚠️ 桌面 UA（手機 UA 會被部分平台擋；見 _ytdlp.py 的說明）

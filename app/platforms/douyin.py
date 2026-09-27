@@ -295,7 +295,7 @@ class DouyinResolver(YtDlpResolver):
             fmts.append(Format(
                 id=f"v{h}", label=quality_label(h), url=u,
                 height=h, width=br.get("width") or None,
-                size=br.get("data_size") or None, quality_score=h, mode="fetch",
+                size=br.get("data_size") or None, quality_score=h, mode="relay",
             ))
 
         # ② play_addr（原畫）
@@ -309,7 +309,7 @@ class DouyinResolver(YtDlpResolver):
                         label="原畫" if key == "play_addr" else "下載版",
                         url=addr[0],
                         quality_score=85 if key == "play_addr" else 70,
-                        mode="fetch",
+                        mode="relay",
                     )
                 )
 
@@ -328,7 +328,7 @@ class DouyinResolver(YtDlpResolver):
         if music:
             fmts.append(
                 Format(id="audio", label="純音訊", url=music[0], audio=True,
-                       ext="mp3", quality_score=10, mode="fetch")
+                       ext="mp3", quality_score=10, mode="relay")
             )
 
         if not fmts:
@@ -366,13 +366,13 @@ class DouyinResolver(YtDlpResolver):
         hd, play, music = d.get("hdplay"), d.get("play"), d.get("music")
         if hd:
             fmts.append(Format(id="hd", label="高清", url=_abs(hd),
-                               size=d.get("hd_size"), quality_score=90, mode="fetch"))
+                               size=d.get("hd_size"), quality_score=90, mode="relay"))
         if play:
             fmts.append(Format(id="origin", label="原畫", url=_abs(play),
-                               size=d.get("size"), quality_score=80, mode="fetch"))
+                               size=d.get("size"), quality_score=80, mode="relay"))
         if music:
             fmts.append(Format(id="audio", label="純音訊", url=_abs(music), audio=True,
-                               ext="mp3", quality_score=10, mode="fetch"))
+                               ext="mp3", quality_score=10, mode="relay"))
 
         if not fmts:
             raise PlatformError("抖音沒有可下載的檔案", platform=self.name)
