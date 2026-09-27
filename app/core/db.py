@@ -93,6 +93,19 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
 
+-- 前台公告（小羅 2026-09-27：前台要留一個公告區塊）
+CREATE TABLE IF NOT EXISTS announcements (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          REAL    NOT NULL,
+    title       TEXT    NOT NULL,
+    body        TEXT    NOT NULL,
+    level       TEXT    DEFAULT 'info',   -- info / warn / critical
+    active      INTEGER DEFAULT 1,        -- 1=顯示中 0=隱藏
+    expires_at  REAL,                     -- 可設定自動下架時間
+    emailed     INTEGER DEFAULT 0         -- 有沒有同步寄給會員
+);
+CREATE INDEX IF NOT EXISTS idx_ann_ts ON announcements(ts);
+
 -- 提現紀錄（後台把收入提出來時記錄；實際撥款由金流商處理）
 CREATE TABLE IF NOT EXISTS payouts (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

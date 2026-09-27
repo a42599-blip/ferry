@@ -158,6 +158,45 @@ async def members_list(_: dict = Depends(require_admin)) -> dict:
     return {"ok": True, "stats": members.stats(), "members": members.list_full()}
 
 
+# ── 公告管理（小羅 2026-09-27：前台要留一個公告區塊）──────
+@router.get("/announcements")
+async def list_announcements(_: dict = Depends(require_admin)) -> dict:
+    from ..services import announce
+
+    return {"ok": True, "items": announce.list_all(), "levels": announce.LEVELS}
+
+
+@router.post("/announcements")
+async def create_announcement(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
+    from ..services import announce
+
+    title = (body.get("title") or "").strip()
+    content = (body.get("body") or "").strip()
+    if not title or len(content) < 2:
+        raise HTTPException(status_code=400, detail="標題與內容都要填")
+    hours = float(body.get("hours") or 0)
+    row = announce.add(title, content, level=body.get("level") or "info",
+                       expires_at=(time.time() + hours * 3600) if hours > 0 else None)
+    return {"ok": True, "row": row, "items": announce.list_all()}
+
+
+@router.post("/announcements/{aid}/active")
+async def toggle_announcement(aid: int, body: dict = Body(default={}),
+                              _: dict = Depends(require_admin)) -> dict:
+    from ..services import announce
+
+    announce.set_active(aid, bool((body or {}).get("on", True)))
+    return {"ok": True, "items": announce.list_all()}
+
+
+@router.delete("/announcements/{aid}")
+async def delete_announcement(aid: int, _: dict = Depends(require_admin)) -> dict:
+    from ..services import announce
+
+    announce.remove(aid)
+    return {"ok": True, "items": announce.list_all()}
+
+
 @router.get("/members/emails")
 async def members_emails(_: dict = Depends(require_admin)) -> dict:
     """會員 Email 名單（寄通知用）。"""

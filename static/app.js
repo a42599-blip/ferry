@@ -311,6 +311,24 @@ function renderQuota(q) {
   // 傳輸頁的面板（與下載**分開**計算，各自 5 次／日）
   fill($('#t-left'), $('#t-used'), $('#t-reset'), q.transfer);
 }
+// ── 前台公告（系統更新／平台故障／平台取消…）──────────────
+async function loadAnnouncements() {
+  const bar = $('#annbar');
+  if (!bar) return;
+  let items = [];
+  try { items = (await api('/api/announcements')).items || []; } catch { return; }
+  if (!items.length) { bar.hidden = true; return; }
+  const ICON = { info: 'ℹ️', warn: '⚠️', critical: '🔴' };
+  // 明寫 class 名稱（不要字串拼接，否則看不出用了哪些樣式、工具也掃不到）
+  const LV = { info: 'lv-info', warn: 'lv-warn', critical: 'lv-critical' };
+  bar.innerHTML = items.map((a) => `
+    <div class="ann ${LV[a.level] || LV.info}">
+      <span class="ai">${ICON[a.level] || 'ℹ️'}</span>
+      <div class="ac"><b>${esc(a.title)}</b><div class="ab">${esc(a.body)}</div></div>
+    </div>`).join('');
+  bar.hidden = false;
+}
+
 async function loadQuota() {
   try { renderQuota((await api('/api/quota')).quota); } catch { /* 忽略 */ }
 }
@@ -809,6 +827,7 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   await loadLang();
   try { await loadConfig(); } catch (e) { console.warn(e); }
   await loadQuota();
+  loadAnnouncements();
   loadPayWays();
   renderHistory();
 })();

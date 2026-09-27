@@ -308,3 +308,15 @@ input:focus{outline:none;border-color:var(--acc)}
   width:100%;font-size:13px;padding:10px}
 .big.danger:hover{background:rgba(217,106,106,.12)}
 .dangerbox .dnote{margin:8px 0 0;font-size:11.5px;color:var(--dim);line-height:1.7}
+
+/* ── 前台公告（後台發布，這裡自動顯示）── */
+.annbar{flex:0 0 auto;padding:8px 16px 0;display:flex;flex-direction:column;gap:7px}
+.ann{display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:9px;
+  font-size:12.5px;line-height:1.65;border:1px solid}
+.ann .ai{flex:0 0 auto;font-size:13px;line-height:1.4}
+.ann .ac b{display:block;margin-bottom:2px}
+.ann .ab{color:var(--dim);white-space:pre-wrap}
+.ann.lv-info{background:rgba(120,170,220,.09);border-color:rgba(120,170,220,.3)}
+.ann.lv-warn{background:rgba(217,182,74,.1);border-color:rgba(217,182,74,.32)}
+.ann.lv-critical{background:rgba(217,106,106,.12);border-color:rgba(217,106,106,.4)}
+@media (min-width:900px){ .annbar{padding:10px 26px 0} }

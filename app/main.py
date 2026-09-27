@@ -263,6 +263,17 @@ async def debug_youtube(v: str = Query("mw-kKYRSEOU")):
             "results": out}
 
 
+@app.get("/api/announcements")
+async def get_announcements():
+    """前台公告（系統更新／平台故障／平台取消…）。
+
+    ⚠️ 公告是前台看得到的；Email 是另外「手動」發的（不要每次改東西就寄一次）。
+    """
+    from .services import announce
+
+    return {"ok": True, "items": announce.active()}
+
+
 @app.get("/api/platforms")
 async def get_platforms():
     return {"ok": True, "platforms": await resolve_service.supported_platforms()}

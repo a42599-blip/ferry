@@ -490,6 +490,49 @@ async function pgDevices() {
     { t: '綁定裝置', v: (r) => esc(String(r.device_id || '–').slice(0, 20)) },
   ], ms.members, '目前還沒有註冊會員') : '<div class="dim">目前還沒有註冊會員</div>';
 
+  // ── 前台公告管理 ──
+  const renderAnn = (items) => {
+    $('#an-list').innerHTML = (items || []).length ? table([
+      { t: '時間', v: (r) => esc(r.when) },
+      { t: '等級', v: (r) => `<span class="badge ${r.level === 'critical' ? 'err' : r.level === 'warn' ? 'warn' : ''}">${esc(r.level_label)}</span>`, html: true },
+      { t: '標題', v: (r) => esc(r.title) },
+      { t: '狀態', v: (r) => r.expired ? '<span class="badge">已過期</span>'
+          : r.active ? '<span class="badge ok">顯示中</span>' : '<span class="badge">已隱藏</span>', html: true },
+      { t: '前台', v: (r) => (!r.active || r.expired)
+          ? `<button class="gh" data-an-on="${r.id}">顯示</button>`
+          : `<button class="gh" data-an-off="${r.id}">隱藏</button>`, html: true },
+      { t: '', v: (r) => `<button class="gh" data-an-del="${r.id}">刪除</button>`, html: true },
+    ], items, '目前沒有公告') : '<div class="dim">目前沒有公告</div>';
+    $$('#an-list [data-an-on]').forEach((b) => b.addEventListener('click', async () => {
+      await api('/announcements/' + b.dataset.anOn + '/active', { method: 'POST', body: JSON.stringify({ on: true }) });
+      renderAnn((await api('/announcements')).items); queue('公告已顯示');
+    }));
+    $$('#an-list [data-an-off]').forEach((b) => b.addEventListener('click', async () => {
+      await api('/announcements/' + b.dataset.anOff + '/active', { method: 'POST', body: JSON.stringify({ on: false }) });
+      renderAnn((await api('/announcements')).items); queue('公告已隱藏');
+    }));
+    $$('#an-list [data-an-del]').forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('刪除這則公告？')) return;
+      await api('/announcements/' + b.dataset.anDel, { method: 'DELETE' });
+      renderAnn((await api('/announcements')).items); queue('公告已刪除');
+    }));
+  };
+  const ann = await api('/announcements');
+  renderAnn(ann.items);
+  $('#an-add').onclick = async () => {
+    const title = $('#an-title').value.trim(), content = $('#an-body').value.trim();
+    if (!title || content.length < 2) return alert('標題與內容都要填');
+    try {
+      const r = await api('/announcements', { method: 'POST', body: JSON.stringify({
+        title, body: content, level: $('#an-level').value,
+        hours: Number($('#an-hours').value || 0) }) });
+      $('#an-title').value = ''; $('#an-body').value = ''; $('#an-hours').value = '';
+      renderAnn(r.items);
+      $('#an-status').textContent = '✅ 已發布，前台立刻看得到';
+      queue('公告已發布（前台立刻顯示）');
+    } catch (e) { $('#an-status').textContent = '❌ ' + e.message; }
+  };
+
   // ── 對會員發 Email（小羅 2026-09-27）──
   const me = await api('/members/emails');
   $('#mem-mailcount').textContent =
