@@ -252,3 +252,16 @@ textarea:focus{border-color:var(--acc)}
 .kindbar .kleft{margin-left:auto;font-weight:700;color:var(--acc);font-size:13px}
 .klife{height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;margin-bottom:12px}
 .klife i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),rgba(217,192,140,.35))}
+
+/* ── 客戶回報：可展開處理的卡片 ── */
+.fcard{border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px;margin-bottom:11px;
+  background:rgba(255,255,255,.02)}
+.fhead{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:12.5px;margin-bottom:7px}
+.fmsg{font-size:13.5px;line-height:1.75;padding:9px 11px;border-radius:8px;
+  background:rgba(255,255,255,.04);white-space:pre-wrap}
+.furl{margin-top:5px;font-size:11px;word-break:break-all}
+.freply{margin-top:8px;font-size:12.5px;line-height:1.7;padding:8px 11px;border-radius:8px;
+  background:rgba(63,191,127,.1);border:1px solid rgba(63,191,127,.28);color:#8fe8b8}
+.fact{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px}
+.fact input[type=number]{width:110px}
+.fact .freply-in{flex:1;min-width:200px}

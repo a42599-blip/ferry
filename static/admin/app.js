@@ -227,42 +227,62 @@ async function pgReports() {
     kpi('已處理', fmtN(c.handled), ''),
   ].join('');
   const rows = d.rows || [];
-  $('#rp-list').innerHTML = rows.length ? table([
-    { t: '時間', v: (r) => esc(r.when) },
-    { t: '平台', v: (r) => esc(r.platform || '（未指定）') },
-    { t: '客戶寫的內容', v: (r) => esc(r.message) },
-    { t: '聯絡方式', v: (r) => esc(r.contact || '未留') },
-    { t: '當時的連結', v: (r) => (r.url
-        ? '<span class="dim">' + esc(r.url.slice(0, 44)) + '</span>' : '–'), html: true },
-    { t: '狀態', v: (r) => (r.handled ? '<span class="badge ok">已處理</span>'
-        : '<button class="gh" data-fb="' + r.id + '">標記已處理</button>'), html: true },
-  ], rows) : (`<div class="dim">目前沒有客戶回報 🎉</div>
+  // 每一列都可以「點開處理」：加減次數 ＋ 回覆客戶 ＋ 標記完成
+  // （小羅 2026-09-27：「我點這個回報就能直接幫他加次數、回訊息給他」）
+  $('#rp-list').innerHTML = rows.length ? rows.map((r) => `
+    <div class="fcard" data-fid="${r.id}">
+      <div class="fhead">
+        <span class="badge ${r.handled ? 'ok' : 'warn'}">${r.handled ? '已處理' : '未處理'}</span>
+        <b>${esc(r.platform || '（未指定平台）')}</b>
+        <span class="dim">${esc(r.when)}</span>
+        ${r.contact ? `<span class="dim">聯絡：${esc(r.contact)}</span>` : ''}
+      </div>
+      <div class="fmsg">${esc(r.message)}</div>
+      ${r.url ? `<div class="furl dim">${esc(r.url)}</div>` : ''}
+      ${r.reply ? `<div class="freply">💬 已回覆：${esc(r.reply)}${r.action ? `　<span class="dim">（${esc(r.action)}）</span>` : ''}</div>` : ''}
+      <div class="fact">
+        <label class="tinylabel">下載次數</label>
+        <input type="number" step="1" value="" placeholder="+3 或 -1" data-dl="${r.id}">
+        <label class="tinylabel">傳輸次數</label>
+        <input type="number" step="1" value="" placeholder="+3 或 -1" data-tr="${r.id}">
+        <label class="tinylabel">加天數</label>
+        <input type="number" step="1" value="" placeholder="+7" data-days="${r.id}">
+      </div>
+      <div class="fact">
+        <input class="freply-in" placeholder="回覆客戶的訊息（例：很抱歉，已幫你補回次數）" data-reply="${r.id}">
+        <button class="big sm" data-handle="${r.id}">處理並回覆</button>
+        ${r.handled ? '' : `<button class="gh" data-done="${r.id}">只標記已處理</button>`}
+      </div>
+    </div>`).join('') : (`<div class="dim">目前沒有客戶回報 🎉</div>
     <div class="adjustbox" style="margin-top:12px">
-      <div class="lbl2">如果客人是用其他方式（電話／私訊）反映，也可以在這裡補登並直接處理</div>
+      <div class="lbl2">客人在電話／私訊反映？也可以在這裡補登</div>
       <div class="inrow">
-        <input id="rp-new-msg" placeholder="客戶反映的內容（例：抖音貼連結沒反應）">
+        <input id="rp-new-msg" placeholder="客戶反映的內容">
         <button class="big sm" id="rp-new-add">補登一筆</button>
       </div>
-      <div class="dim" style="font-size:11.5px">補登後會出現在上面的清單，並可標記已處理。</div>
     </div>`);
-  $$('#rp-list [data-fb]').forEach((b) => b.addEventListener('click', async () => {
-    await api('/feedback/' + b.dataset.fb + '/handled', { method: 'POST', body: '{}' });
-    queue('已標記回報 #' + b.dataset.fb + ' 為已處理');
-    pgReports();
+
+  $$('#rp-list [data-handle]').forEach((b) => b.addEventListener('click', async () => {
+    const id = b.dataset.handle;
+    const dl = Number(document.querySelector(`[data-dl="${id}"]`)?.value || 0);
+    const tr = Number(document.querySelector(`[data-tr="${id}"]`)?.value || 0);
+    const dy = Number(document.querySelector(`[data-days="${id}"]`)?.value || 0);
+    const rp = document.querySelector(`[data-reply="${id}"]`)?.value.trim() || '';
+    if (!dl && !tr && !dy && !rp) return alert('至少要填一個數字或寫回覆');
+    b.disabled = true;
+    try {
+      const r = await api(`/feedback/${id}/handle`, { method: 'POST', body: JSON.stringify({
+        download: dl, transfer: tr, days: dy, reply: rp }) });
+      queue('已處理 #' + id + (r.actions?.length ? '：' + r.actions.join('、') : '')
+            + (r.email ? '（會員 ' + r.email + '）' : '（訪客裝置）'));
+      pgReports(); loadMemberList?.();
+    } catch (e) { alert(e.message); } finally { b.disabled = false; }
   }));
-  // ⚠️ 「補登」區只有在「沒有回報」時才存在 → 一定要先檢查再綁事件
-  //    （實際踩到：有回報時 #rp-new-add 是 null，整個頁面變「載入失敗」）
-  const addBtn = $('#rp-new-add');
-  if (addBtn) {
-    addBtn.onclick = async () => {
-      const el = $('#rp-new-msg');
-      const msg = el ? el.value.trim() : '';
-      if (msg.length < 4) return alert('請至少寫 4 個字');
-      await api('/report', { method: 'POST', body: JSON.stringify({ message: msg }) });
-      queue('已補登一筆客戶回報');
-      pgReports();
-    };
-  }
+  $$('#rp-list [data-done]').forEach((b) => b.addEventListener('click', async () => {
+    await api(`/feedback/${b.dataset.done}/handled`, { method: 'POST', body: '{}' });
+    queue('已標記 #' + b.dataset.done + ' 為已處理'); pgReports();
+  }));
+
   queue(`客戶回報 ${fmtN(c.total)} 則（未處理 ${fmtN(c.new)}）`);
 }
 $('#rp-onlynew').addEventListener('change', () => { if (curPage === 'reports') pgReports(); });
