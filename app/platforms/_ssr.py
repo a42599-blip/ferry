@@ -118,3 +118,138 @@ def meta_content(html: str, prop: str, *, limit: int = 600_000) -> str:
             return html_lib.unescape(attrs.get("content", ""))
     return ""
 
+
+
+# ── 從「真的渲染過的頁面」找影片（抖音系／頭條／小紅書…都適用）──
+#: HTML 裡常見的影片網址欄位名
+_VIDEO_KEYS = (
+    "main_url", "backup_url", "play_addr", "playAddr", "masterUrl",
+    "originVideoKey", "video_url", "contentUrl", "backupUrls",
+)
+_VIDEO_URL_RE = re.compile(
+    r'"?(?:' + "|".join(_VIDEO_KEYS) + r')"?\s*:\s*"([^"]{20,600}?)"'
+)
+
+
+async def page_video_info(
+    url: str,
+    *,
+    context_key: str,
+    wait_for: Iterable[str] = (),
+    tries: int = 30,
+    user_agent: str | None = None,
+    budget: float = 30.0,
+) -> dict:
+    """開頁 → 等影片出現 → 回傳 {title, poster, urls[], html_len}。
+
+    作法（兩條路一起用，命中率最高）：
+      ① 讀 `<video>` 元素的 src（真瀏覽器才有）
+      ② 從 HTML 抓 main_url / backup_url / playAddr … 等欄位
+    """
+    try:
+        return await asyncio.wait_for(
+            _page_video(url, context_key=context_key, wait_for=wait_for,
+                        tries=tries, user_agent=user_agent),
+            timeout=budget,
+        )
+    except asyncio.TimeoutError:
+        return {"urls": [], "title": "", "poster": "", "html_len": 0}
+
+
+#: 影片網址的特徵（用來濾掉封面圖、頁面網址等雜訊）
+_VIDEO_HINT = ("/video/tos/", ".mp4", "douyinvod", "toutiaovod", "xhscdn.com",
+               "douyinpic.com/aweme", "sns-video")
+
+
+def _looks_video(u: str) -> bool:
+    low = u.lower()
+    return any(h in low for h in _VIDEO_HINT)
+
+
+def _clean_url(raw: str) -> str:
+    """把抓到的值變成可用的網址。
+
+    ⚠️ 抖音系／頭條的欄位值常是 **URL 編碼**（`https%3A%2F%2F…`）
+       或 JSON 轉義（`/`），要先還原才能用。
+    """
+    if not raw:
+        return ""
+    u = raw.strip().replace("\u002F", "/").replace("\/", "/")
+    if u.startswith("http%3A") or "%2F" in u[:40]:
+        from urllib.parse import unquote
+
+        u = unquote(u)
+    if not u.startswith("http"):
+        return ""
+    # 去掉尾端 JSON 殘留
+    u = u.split('"')[0].split("\\")[0].strip()
+    return u
+
+
+async def _page_video(url: str, *, context_key: str, wait_for: Iterable[str],
+                      tries: int, user_agent: str | None) -> dict:
+    from ..services.browser import get_context
+
+    kwargs = {"user_agent": user_agent} if user_agent else {}
+    ctx = await get_context(context_key, **kwargs)
+    page = await ctx.new_page()
+    try:
+        try:
+            await page.goto(url, wait_until="domcontentloaded", timeout=25000)
+        except Exception:  # noqa: BLE001
+            pass
+
+        wanted = list(wait_for)
+        info: dict = {"urls": [], "title": "", "poster": "", "html_len": 0}
+        for _ in range(tries):
+            await asyncio.sleep(0.6)
+            try:
+                info = await page.evaluate("""() => {
+                  const v = document.querySelector('video');
+                  const urls = [];
+                  if (v) {
+                    const s = v.src || v.currentSrc || '';
+                    if (s.startsWith('http')) urls.push(s);
+                    v.querySelectorAll('source').forEach((el) => {
+                      if (el.src && el.src.startsWith('http')) urls.push(el.src);
+                    });
+                  }
+                  return {
+                    urls,
+                    title: (document.title || '').replace(/\s*-\s*今日头条\s*$/, '').replace(/\s*-\s*小红书\s*$/, ''),
+                    poster: v ? (v.poster || '') : '',
+                    html_len: document.documentElement.innerHTML.length,
+                  };
+                }""")
+            except Exception:  # noqa: BLE001
+                continue
+            if info.get("urls"):
+                break
+            # 註：就算 HTML 已經出現關鍵字，影片元素也可能還沒載入 → 繼續等
+
+        # ② 從 HTML 補抓欄位式的影片網址
+        try:
+            html = await page.content()
+        except Exception:  # noqa: BLE001
+            html = ""
+        info["html_len"] = len(html)
+        for raw in _VIDEO_URL_RE.findall(html):
+            u = _clean_url(raw)
+            if u and _looks_video(u) and u not in info["urls"]:
+                info["urls"].append(u)
+        # 兜底：整頁掃「被 URL 編碼的影片網址」（頭條的 main_url 是這種）
+        for raw in re.findall(r"https?%3A%2F%2F[^\"']{30,400}", html):
+            u = _clean_url(raw)
+            if u and _looks_video(u) and u not in info["urls"]:
+                info["urls"].append(u)
+        # 影像封面（安全版）
+        if not info.get("poster"):
+            info["poster"] = meta_content(html, "og:image")
+        if not info.get("title"):
+            info["title"] = meta_content(html, "og:title")
+        return info
+    finally:
+        try:
+            await asyncio.wait_for(page.close(), timeout=5)
+        except Exception:  # noqa: BLE001
+            pass

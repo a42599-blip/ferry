@@ -16,7 +16,7 @@ import re
 from ..core.errors import PlatformChanged, PlatformError
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
-from ._ssr import meta_content, render_html
+from ._ssr import meta_content, page_video_info, render_html
 from ._ytdlp import YtDlpResolver
 
 _URL_RE = re.compile(r"https?://(?:www\.|m\.)?xiaohongshu\.com/|https?://xhslink\.com/", re.I)
@@ -59,16 +59,21 @@ class XiaohongshuResolver(YtDlpResolver):
         except Exception:  # noqa: BLE001
             pass
 
-        # ② 真瀏覽器渲染（有些貼文要 JS）
+        # ② 真瀏覽器渲染（筆記頁的資料是 JS 載入的）
         try:
-            html = await render_html(url, context_key="xiaohongshu",
-                                     wait_for=["masterUrl", "originVideoKey", "backupUrls"],
-                                     tries=20, user_agent=_IPHONE_UA)
-            if html:
-                info = self._build(url, html)
-                if info:
-                    info.extra["route"] = "browser"
-                    return info
+            data = await page_video_info(url, context_key="xiaohongshu",
+                                         wait_for=["masterUrl", "originVideoKey"],
+                                         tries=22, user_agent=_IPHONE_UA)
+            if data.get("urls"):
+                fmts = [
+                    Format(id=f"xhs{i}", label="原畫" if i == 0 else f"備援線路 {i}",
+                           url=u, quality_score=90 - i, mode="fetch", headers=dict(_HDRS))
+                    for i, u in enumerate(data["urls"][:6])
+                ]
+                return VideoInfo(platform=self.name,
+                                 title=data.get("title") or "小紅書影片",
+                                 cover=data.get("poster") or "", source_url=url,
+                                 formats=fmts, extra={"route": "browser"})
         except Exception:  # noqa: BLE001
             pass
 
