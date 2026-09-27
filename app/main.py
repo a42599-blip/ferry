@@ -245,7 +245,22 @@ async def debug_youtube(v: str = Query("mw-kKYRSEOU")):
 
     for label, c, sk, ex in combos:
         out.append(await asyncio.to_thread(probe, label, c, sk, ex))
-    return {"ok": True, "video": v, "results": out}
+
+    # 把容器裡的版本一起回報（Deno 版本不對會讓 yt-dlp 解不了 YouTube 的 JS 驗證）
+    import shutil
+    import subprocess
+
+    def ver(cmd: list[str]) -> str:
+        try:
+            return subprocess.run(cmd, capture_output=True, text=True, timeout=10).stdout.strip()[:60]
+        except Exception:  # noqa: BLE001
+            return "（找不到）"
+
+    return {"ok": True, "video": v,
+            "deno": ver([shutil.which("deno") or "deno", "--version"]) or "（找不到）",
+            "yt_dlp": yt_dlp.version.__version__,
+            "deno_path": shutil.which("deno") or "（不在 PATH）",
+            "results": out}
 
 
 @app.get("/api/platforms")
