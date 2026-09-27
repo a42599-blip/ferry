@@ -211,3 +211,17 @@ git add -A && git commit -m "..." && git push origin main
   （實際踩到：為了修抖音，我把「所有影片都改走伺服器轉發」→ 動到全部平台）
 - ✅ 正確做法：讓那個平台的模塊「自己標記」（例：抖音自己在 douyin.py 標 `mode="relay"`）
 - 共用層只放「大家都需要的正確行為」（例：下載一律優先 H.264，因為 iPhone 不支援 AV1）
+
+### 鐵律七：改前台的 JS/CSS，**一定要升版本號**（小羅 2026-09-27 實際踩到）
+
+> 小羅：「你都沒改，還跟我講你改好了，到底是怎麼回事？」
+
+改完 `static/*.js`／`static/*.css`／`static/admin/*` 之後，**必須**把
+`static/index.html` 與 `static/admin/index.html` 裡的 `?v=` 數字 +1，
+並把 `static/sw.js` 的快取名稱換一個（例如 v3 → v4）。
+
+**為什麼**：瀏覽器會快取同一個網址的 JS/CSS。程式改了但版本號沒升，
+使用者的手機／電腦**還是跑舊的程式** → 會出現「你說改了但我看到的還是舊的」。
+（實際踩到：免費次數開關的中文標籤、save.js 的 MIME 修正都因為這樣沒生效）
+
+檢查方式：`curl -s https://ferry.v8i8.com/admin/ | grep -o "app.js?v=[0-9]*"`
