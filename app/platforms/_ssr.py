@@ -174,7 +174,11 @@ def _clean_url(raw: str) -> str:
     """
     if not raw:
         return ""
-    u = raw.strip().replace("\u002F", "/").replace("\/", "/")
+    # ⚠️ 必須用 raw string：非 raw 的 "\u002F" 會被 Python 直接變成 "/"，等於沒轉換
+    #    （抖音／頭條的影片網址就是這種格式，弄錯會讓網址被截斷）
+    u = raw.strip()
+    for _esc in (r"\u002F", r"\u002f", r"\/"):
+        u = u.replace(_esc, "/")
     if u.startswith("http%3A") or "%2F" in u[:40]:
         from urllib.parse import unquote
 
@@ -204,7 +208,7 @@ async def _page_video(url: str, *, context_key: str, wait_for: Iterable[str],
         for _ in range(tries):
             await asyncio.sleep(0.6)
             try:
-                info = await page.evaluate("""() => {
+                info = await page.evaluate(r"""() => {
                   const v = document.querySelector('video');
                   const urls = [];
                   if (v) {

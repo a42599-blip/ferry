@@ -28,9 +28,6 @@ def login(*_args, **_kwargs) -> dict:
     raise NotImplementedError("登入功能尚未實作（P5 階段）")
 
 
-def logout(*_args, **_kwargs) -> None:
-    raise NotImplementedError("登入功能尚未實作（P5 階段）")
-
 
 def current_subject(request=None) -> str:
     """回傳「這次請求的代表者」＝會員ID（已登入）或裝置ID（未登入）。

@@ -51,6 +51,7 @@ function applyLang() {
   renderQuota(state.quota);
   renderHistory();
   // ⚠️ 動態訊息不會被 data-i18n 涵蓋 → 語言切換時必須重新產生
+  updateGoLabel();
   renderPayStatus();
   $('.msg:not([hidden])') && clearTransient();
   if (state.info) renderResult(state.info);
@@ -222,14 +223,33 @@ const MKEY = 'fy_member_token';
 const memberToken = () => localStorage.getItem(MKEY) || '';
 
 const api = async (url, opt = {}) => {
-  const r = await fetch(url, {
-    ...opt,
-    headers: {
-      'Content-Type': 'application/json', 'X-Device-Id': deviceId(), 'X-Timezone': state.tz,
-      ...(memberToken() ? { 'X-Member-Token': memberToken() } : {}),
-      ...(opt.headers || {}),
-    },
-  });
+  // 伺服器若掛住，最久等 90 秒就放棄（避免使用者一直看轉圈）
+  const ctl = new AbortController();
+  const timeout = setTimeout(() => ctl.abort(), 90000);
+  let r;
+  try {
+    r = await fetch(url, {
+      ...opt,
+      signal: ctl.signal,
+      headers: {
+        'Content-Type': 'application/json', 'X-Device-Id': deviceId(), 'X-Timezone': state.tz,
+        ...(memberToken() ? { 'X-Member-Token': memberToken() } : {}),
+        ...(opt.headers || {}),
+      },
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err && err.name === 'AbortError') {
+      const e = new Error(t('err_TIMEOUT'));
+      e.code = 'TIMEOUT';
+      throw e;
+    }
+    const e = new Error(t('err_NETWORK'));
+    e.code = 'NETWORK';
+    throw e;
+  }
+  clearTimeout(timeout);
+
   const j = await r.json().catch(() => ({}));
   if (!r.ok || j.ok === false) throw apiError(j, r.status);
   return j;
@@ -238,10 +258,17 @@ const api = async (url, opt = {}) => {
 // 後端錯誤 → 依錯誤碼翻成使用者語言（後端訊息一律當後備）
 function apiError(j, status) {
   const code = j.code || (j.detail && j.detail.code) || '';
-  const local = code ? state.L['err_' + code] : '';
-  const message = local || j.detail?.message || j.detail || j.message || ('HTTP ' + status);
-  const e = new Error(typeof message === 'string' ? message : ('HTTP ' + status));
-  e.code = code;
+  // ① 先找錯誤碼翻譯（例：err_QUOTA_EXCEEDED）
+  let message = code ? t('err_' + code, '') : '';
+  // ② 再找 HTTP 狀態碼翻譯（例：502 被 Cloudflare 擋下時沒有 JSON）
+  if (!message) message = t('err_HTTP_' + status, '');
+  // ③ 最後才用後端訊息
+  if (!message) {
+    const raw = j.detail?.message || j.detail || j.message;
+    message = (typeof raw === 'string' && raw) ? raw : `HTTP ${status}`;
+  }
+  const e = new Error(message);
+  e.code = code || String(status);
   return e;
 }
 
@@ -271,8 +298,49 @@ async function loadQuota() {
 }
 
 // ── 解析 ─────────────────────────────────────────
-$('#go').addEventListener('click', doResolve);
+$('#go').addEventListener('click', () => doResolve());
 $('#url').addEventListener('keydown', (e) => { if (e.key === 'Enter') doResolve(); });
+// 輸入框有內容 → 按鈕顯示「解析」；空的 → 顯示「貼上並解析」（小羅要求：一進頁面就能一鍵貼上解析）
+const updateGoLabel = () => {
+  const has = $('#url').value.trim().length > 0;
+  $('#go').textContent = has ? t('btn_parse') : t('btn_paste');
+};
+$('#url').addEventListener('input', updateGoLabel);
+window._updateGoLabel = updateGoLabel;
+
+// 小羅 2026-09-27 要求：
+//   下載完第一支影片後，點輸入框就要「自動清掉舊連結 ＋ 恢復成貼上按鈕」，
+//   這樣貼新連結才不用先手動刪掉舊的。
+$('#url').addEventListener('focus', () => {
+  const hasResult = !!state.info;                 // 已經解析過 = 上一次任務完成
+  const sameAsParsed = state.info && state.urlUsed === $('#url').value.trim();
+  if (hasResult && sameAsParsed && $('#url').value.trim()) {
+    $('#url').value = '';
+    state.info = null;
+    state.urlUsed = null;
+    updateGoLabel();
+    // 結果區回到「還沒解析」的樣子，避免使用者以為還是舊的
+    $('#cover').hidden = true; $('#shade').hidden = true;
+    $('#pv-title').textContent = t('pv_empty');
+    $('#pv-plat').textContent = ''; $('#pv-dur').textContent = '';
+    $('#qs').innerHTML = '';
+    $('#download').disabled = true;
+    $('#download').textContent = t('btn_choose_quality');
+    $('#track').hidden = true; $('#pm').hidden = true;
+    msg('#status', '');
+  }
+});
+
+/** 從剪貼簿讀取網址（手機上要使用者手勢，所以只能綁在按鈕上） */
+async function readClipboard() {
+  try {
+    if (!navigator.clipboard?.readText) return '';
+    const text = await navigator.clipboard.readText();
+    return (text || '').trim();
+  } catch {
+    return '';
+  }
+}
 
 let _resolveTimer = null;
 
@@ -296,13 +364,24 @@ function stopResolveProgress() {
 }
 
 async function doResolve() {
-  const url = $('#url').value.trim();
-  if (!url) return;
+  let url = $('#url').value.trim();
+  // 輸入框空的 → 自動讀剪貼簿（一鍵「貼上並解析」）
+  if (!url) {
+    const text = await readClipboard();
+    if (!text) {
+      msg('#status', t('paste_denied'), 'err');
+      return;
+    }
+    url = text;
+    $('#url').value = url;
+    updateGoLabel();
+  }
   $('#go').disabled = true;
   startResolveProgress();
   try {
     const res = await api('/api/resolve', { method: 'POST', body: JSON.stringify({ url }) });
     state.info = res.data;
+    state.urlUsed = url;                 // 記住這次用的網址（判斷要不要清空用）
     stopResolveProgress();
     renderResult(res.data);
     loadQuota();
@@ -518,7 +597,8 @@ async function loadPlans() {
       if (el) el.textContent = p.price;
     });
     payReady = Object.values(j.providers || {}).filter((p) => p.ready).length > 0;
-    renderPayStatus();
+    updateGoLabel();
+  renderPayStatus();
   } catch { /* 忽略 */ }
 }
 $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
@@ -528,25 +608,9 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   } catch (e) { msg('#pay-status', e.message, 'err'); }
 }));
 
-// ── App 內建瀏覽器提醒 ────────────────────────────
-function checkInApp() {
-  const notice = window.FY?.inAppNotice?.();
-  if (!notice) return;
-  const el = document.createElement('div');
-  el.className = 'msg err';
-  el.style.margin = '0 0 12px';
-  el.innerHTML = `${esc(notice.text)}<br><button class="big gh sm" style="margin-top:10px" id="ia-copy">複製本頁網址</button>`;
-  $('#wrap')?.prepend(el);
-  document.getElementById('ia-copy')?.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(location.href); el.querySelector('#ia-copy').textContent = '已複製，請貼到瀏覽器開啟'; }
-    catch { el.querySelector('#ia-copy').textContent = '請手動複製網址列'; }
-  });
-}
-
 // ── 啟動 ─────────────────────────────────────────
 (async function init() {
   await loadLang();
-  checkInApp();
   try { await loadConfig(); } catch (e) { console.warn(e); }
   await loadQuota();
   renderHistory();

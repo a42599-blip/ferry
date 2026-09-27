@@ -247,5 +247,13 @@
   "resolve_s1": "Connecting to the platform…",
   "resolve_s2": "Parsing…",
   "resolve_s3": "Still working — some platforms are just slow…",
-  "resolve_elapsed": "Waiting"
+  "resolve_elapsed": "Waiting",
+  "btn_paste": "Paste & parse",
+  "paste_denied": "Can't read the clipboard — long-press the box to paste",
+  "err_HTTP_502": "The server is busy. Please try again.",
+  "err_HTTP_524": "The platform took too long. Please try again.",
+  "err_HTTP_500": "Server error. Please try again.",
+  "err_TIMEOUT": "Timed out. Please try again.",
+  "err_HTTP_503": "Service temporarily unavailable. Please try againlater.",
+  "quota_beta": "Free during public beta — no charges"
 }

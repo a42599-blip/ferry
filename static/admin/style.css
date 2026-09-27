@@ -18,7 +18,7 @@ button,input,select{font-family:var(--font);font-size:14px;color:inherit}
 button{background:none;border:0;cursor:pointer}
 a{color:var(--acc);text-decoration:none}
 .br{font-family:var(--brnd);font-weight:700}
-.num,.fra{font-family:var(--num);font-variant-numeric:tabular-nums}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums}
 .dim{color:var(--dim)}
 .lbl{font-size:10.5px;letter-spacing:.18em;color:var(--lab)}
 .note{margin-top:10px;font-size:11.5px;color:var(--dim);line-height:1.75}

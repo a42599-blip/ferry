@@ -152,12 +152,18 @@ async def audit_functional(pg, base: str) -> list[dict]:
     await pg.wait_for_timeout(1800)
 
     # 1) 語言切換真的換字
-    for lang, expect in (("en", "Parse"), ("zh-Hans", "解析"), ("zh-Hant", "解析")):
+    #    ⚠️ 「解析」按鈕會依輸入框是否有內容而變身（空白＝貼上並解析）→ 兩種都接受
+    ALLOW = {
+        "en": {"Parse", "Paste & parse"},
+        "zh-Hans": {"解析", "粘贴并解析"},
+        "zh-Hant": {"解析", "貼上並解析"},
+    }
+    for lang, expects in ALLOW.items():
         await pg.locator(f'#lang button[data-lang="{lang}"]:visible').first.click()
         await pg.wait_for_timeout(600)
         got = (await pg.inner_text("#go")).strip()
-        if got != expect:
-            bad("語言切換", f"{lang} 期望「{expect}」得到「{got}」")
+        if got not in expects:
+            bad("語言切換", f"{lang} 期望 {sorted(expects)} 得到「{got}」")
         else:
             good(f"語言切換 → {lang}（{got}）")
 

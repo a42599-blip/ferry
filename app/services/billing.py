@@ -240,9 +240,6 @@ def handle_webhook(provider: str, raw: bytes, headers: dict) -> dict:
     return activate(str(oid))
 
 
-def list_orders(limit: int = 200) -> list[dict]:
-    return db.query("SELECT * FROM orders ORDER BY created_at DESC LIMIT ?", (limit,))  # type: ignore[return-value]
-
 
 def summary(days: int = 30) -> dict:
     from . import events

@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import re
 
-from ..core.errors import PlatformChanged, PlatformError
+from ..core.errors import PlatformError
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
-from ._ssr import meta_content, page_video_info, render_html
+from ._ssr import meta_content, page_video_info
 from ._ytdlp import YtDlpResolver
 
 _URL_RE = re.compile(r"https?://(?:www\.|m\.)?xiaohongshu\.com/|https?://xhslink\.com/", re.I)

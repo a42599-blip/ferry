@@ -120,7 +120,3 @@ def overview() -> list[dict]:
 
     return [detail(n) for n in registry.platform_names()]
 
-
-def reinit() -> None:
-    """cookies 目錄改變後呼叫（目前無快取，保留給未來使用）。"""
-    return None

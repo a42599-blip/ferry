@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from ..core.errors import PlatformChanged, PlatformError
+from ..core.errors import PlatformError
 from ..core.models import Format, VideoInfo
 from ._ssr import page_video_info
 from ._ytdlp import YtDlpResolver
