@@ -324,3 +324,13 @@ input:focus{outline:none;border-color:var(--acc)}
 /* ── 模塊被關掉時的提示（會員登入／付費訂閱）── */
 .offbox{padding:14px 16px;border-radius:10px;font-size:13px;line-height:1.8;
   background:rgba(110,168,220,.08);border:1px solid rgba(110,168,220,.28);color:var(--text)}
+
+/* ── 客服給我的回覆 ── */
+.replybar{flex:0 0 auto;padding:8px 16px 0;display:flex;flex-direction:column;gap:7px}
+.rep{display:flex;gap:9px;align-items:flex-start;padding:11px 13px;border-radius:10px;
+  font-size:12.5px;line-height:1.7;background:rgba(63,191,127,.1);border:1px solid rgba(63,191,127,.3)}
+.rep .ri{font-size:14px;flex:0 0 auto}
+.rep b{color:#8fe8b8}
+.rep .rr{margin-top:2px}
+.rep .ra{margin-top:4px;color:var(--acc);font-size:11.5px}
+@media (min-width:900px){ .replybar{padding:10px 26px 0} }

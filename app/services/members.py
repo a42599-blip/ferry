@@ -332,20 +332,65 @@ def list_full(limit: int = 300) -> list[dict]:
     return out
 
 
-def delete(member_id: str) -> bool:
-    """註銷帳號（小羅要求：要能讓會員自己註銷）。
+def delete(member_id: str, *, hard: bool = False) -> bool:
+    """註銷帳號。
 
-    ⚠️ 只刪「帳號」本身；這個裝置的匿名統計（events）保留，
-       因為那是「不記名的流量數字」，刪掉會讓後台數字對不上。
-       但會把裝置與帳號的關聯切斷。
+    ⚠️ 預設是**軟刪除**（小羅 2026-09-27 的教訓）：
+       我以前寫成硬刪除（DELETE FROM members）→ 資料直接消失、撈不回來。
+       改成軟刪除後：狀態標記為 deleted、保留資料，
+       要復原隨時可以（restore()）；也符合個資法「保留一段時間可追溯」。
+
+    hard=True 才會真的刪（只給後台清理測試帳號用）。
     """
     m = get(member_id)
     if not m:
         return False
-    db.execute("UPDATE members SET device_id=NULL WHERE id=?", (member_id,))
-    db.execute("DELETE FROM members WHERE id=?", (member_id,))
-    # token 是自帶簽章的（沒有查表），所以不用另外清
+    if hard:
+        db.execute("DELETE FROM members WHERE id=?", (member_id,))
+        return True
+    db.execute(
+        "UPDATE members SET status='deleted', deleted_at=?"
+        " WHERE id=?", (time.time(), member_id))
     return True
+
+
+def restore(member_id: str) -> bool:
+    """復原被軟刪除的會員。"""
+    row = db.one("SELECT id FROM members WHERE id=?", (member_id,))
+    if not row:
+        return False
+    db.execute("UPDATE members SET status='active', deleted_at=NULL"
+               " WHERE id=?", (member_id,))
+    return True
+
+
+def restore_from_history() -> dict:
+    """從 plan_history 把「被硬刪除而消失」的會員重建回來。
+
+    小羅 2026-09-27：「把歷史資料再給我撈出來再回來。」
+    plan_history 記了每一次方案變更（含 email、方案、時間），
+    所以即使 members 表被硬刪除，還是能從這裡把帳號重建。
+    """
+    rebuilt = []
+    rows = db.query(
+        "SELECT member_id, email, MIN(at) AS born FROM plan_history"
+        " WHERE member_id IS NOT NULL GROUP BY member_id")
+    for r in rows:
+        mid = r["member_id"]
+        if db.one("SELECT id FROM members WHERE id=?", (mid,)):
+            continue                      # 還在，不用重建
+        _l = db.one(
+            "SELECT to_plan, expires_at FROM plan_history WHERE member_id=?"
+            " ORDER BY at DESC LIMIT 1", (mid,))
+        latest = dict(_l) if _l else {}
+        plan = latest.get("to_plan") or "free"
+        db.execute(
+            "INSERT INTO members(id, email, plan, created_at, expires_at, status)"
+            " VALUES(?,?,?,?,?,'active')",
+            (mid, r["email"], plan, r["born"],
+             latest.get("expires_at")))
+        rebuilt.append({"id": mid, "email": r["email"], "plan": plan})
+    return {"rebuilt": len(rebuilt), "rows": rebuilt}
 
 
 def remaining_days(m: dict) -> int | None:

@@ -62,6 +62,20 @@ async def me(request: Request) -> dict:
             "unlimited": billing.is_unlimited(f"user:{mid}")}
 
 
+@router.get("/api/my-replies")
+async def my_replies(request: Request) -> dict:
+    """客戶看自己送出回報後，客服給的回覆。
+
+    小羅 2026-09-27：客服在後台回覆後，客戶要能看得到
+    （例如「很抱歉，已幫你補回下載次數 3 次」）。
+    """
+    from .services import feedback as fb
+
+    dev = _device(request)
+    items = fb.for_device(dev)
+    return {"ok": True, "items": items, "pending": fb.unhandled_for(dev)}
+
+
 # ── 註銷帳號（**使用者自己**註銷；小羅 2026-09-27 要求）──────────
 #    ⚠️ 不是後台代為註銷 —— 要讓使用者自己決定。
 #    警語在**前端**跳（依有沒有付費給不同警告）：

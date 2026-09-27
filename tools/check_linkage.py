@@ -182,8 +182,12 @@ def main() -> int:
     msg = f"聯動測試回報 {stamp}：抖音不能下載"
     code, r = http(base, "/api/report", method="POST",
                    body={"message": msg, "contact": "link@test", "platform": "douyin"}, headers=D)
+    fb_id = None
     if isinstance(r, dict) and r.get("ok"):
         code, fb = http(base, "/admin/api/feedback?days=7&only_new=false", headers=A)
+        for x in ((fb or {}).get("rows") or []):
+            if msg[:20] in (x.get("message") or ""):
+                fb_id = x.get("id")
         found = any(msg[:20] in (x.get("message") or "") for x in ((fb or {}).get("rows") or []))
         if found:
             good("後台「客戶回報」看得到這則回報")

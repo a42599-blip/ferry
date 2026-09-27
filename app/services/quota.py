@@ -198,3 +198,28 @@ def reset_today(subject: str | None = None, *, tz_name: str = "Asia/Taipei") -> 
     else:
         db.execute("UPDATE quotas SET count=0, updated_at=? WHERE date_key=?", (time.time(), dk))
     return int(db.scalar("SELECT COUNT(*) FROM quotas WHERE date_key=?", (dk,)))
+
+
+def adjust(kind: str, subject: str, delta: int, *, tz_name: str = "Asia/Taipei") -> dict:
+    """加或減次數（delta 可為正可為負）。
+
+    小羅 2026-09-27：「當然能加也能減。」
+    加的用法：客人反映「失敗還扣我次數」→ delta=+3 補回來。
+    減的用法：濫用時把次數收回 → delta=-5。
+    次數不會低於 0。
+    """
+    n = int(delta or 0)
+    if not n:
+        return {"kind": kind, "subject": subject, "before": used(kind, subject, tz_name=tz_name),
+                "after": used(kind, subject, tz_name=tz_name), "changed": 0}
+    dk = _date_key(tz_name)
+    cur = used(kind, subject, tz_name=tz_name)
+    new = max(0, cur - n)          # 加次數＝把「已用」減掉；減次數＝把「已用」加上
+    db.execute(
+        "INSERT INTO quotas(kind, subject, date_key, count, tz, updated_at)"
+        " VALUES(?,?,?,?,?,?)"
+        " ON CONFLICT(kind, subject, date_key) DO UPDATE SET count=excluded.count,"
+        " updated_at=excluded.updated_at",
+        (kind, subject, dk, new, tz_name, time.time()))
+    return {"kind": kind, "subject": subject, "before": cur, "after": new,
+            "changed": cur - new}

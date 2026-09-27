@@ -155,7 +155,10 @@ CREATE TABLE IF NOT EXISTS feedback (
     url         TEXT,                      -- 送出時輸入框的連結（方便重現）
     app_version TEXT,
     handled     INTEGER DEFAULT 0,         -- 0=未處理 1=已處理
-    note        TEXT                       -- 後台處理備註
+    note        TEXT,                      -- 後台處理備註（內部）
+    reply       TEXT,                      -- 回給客戶的訊息（客戶看得到）
+    replied_at  REAL,
+    action      TEXT                       -- 處理了什麼（例：補下載 3 次）
 );
 CREATE INDEX IF NOT EXISTS idx_feedback_ts ON feedback(ts);
 
@@ -231,6 +234,12 @@ def _migrate(c: sqlite3.Connection) -> None:
             "member_id": "TEXT",
             "member_email": "TEXT",
             "source": "TEXT",
+        },
+        # 客戶回報（小羅 2026-09-27：要能直接回覆客戶＋記錄處理了什麼）
+        "feedback": {
+            "reply": "TEXT",
+            "replied_at": "REAL",
+            "action": "TEXT",
         },
         "orders": {
             "fee": "REAL DEFAULT 0",

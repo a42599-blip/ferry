@@ -250,13 +250,19 @@ async function pgReports() {
     queue('已標記回報 #' + b.dataset.fb + ' 為已處理');
     pgReports();
   }));
-  $('#rp-new-add').onclick = async () => {
-    const msg = $('#rp-new-msg').value.trim();
-    if (msg.length < 4) return alert('請至少寫 4 個字');
-    await api('/report', { method: 'POST', body: JSON.stringify({ message: msg }) });
-    queue('已補登一筆客戶回報');
-    pgReports();
-  };
+  // ⚠️ 「補登」區只有在「沒有回報」時才存在 → 一定要先檢查再綁事件
+  //    （實際踩到：有回報時 #rp-new-add 是 null，整個頁面變「載入失敗」）
+  const addBtn = $('#rp-new-add');
+  if (addBtn) {
+    addBtn.onclick = async () => {
+      const el = $('#rp-new-msg');
+      const msg = el ? el.value.trim() : '';
+      if (msg.length < 4) return alert('請至少寫 4 個字');
+      await api('/report', { method: 'POST', body: JSON.stringify({ message: msg }) });
+      queue('已補登一筆客戶回報');
+      pgReports();
+    };
+  }
   queue(`客戶回報 ${fmtN(c.total)} 則（未處理 ${fmtN(c.new)}）`);
 }
 $('#rp-onlynew').addEventListener('change', () => { if (curPage === 'reports') pgReports(); });
@@ -1065,7 +1071,8 @@ async function loadMemberList() {
   $('#ml-list').innerHTML = d.rows.length ? table([
     { t: 'Email', v: (r) => `<span class="rowlink" data-mid="${esc(r.id)}">${esc(r.email || r.id)}</span>`, html: true },
     { t: '方案', v: (r) => `<span class="badge ${r.paid ? 'ok' : ''}">${esc(r.plan_name)}</span>`
-        + (r.status === 'suspended' ? ' <span class="badge err">停權</span>' : ''), html: true },
+        + (r.status === 'suspended' ? ' <span class="badge err">停權</span>' : '')
+        + (r.status === 'deleted' ? ' <span class="badge err">已註銷</span>' : ''), html: true },
     { t: '註冊', v: (r) => fmtTime(r.created_at) },
     { t: '付費起', v: (r) => (r.plan_started_at ? fmtTime(r.plan_started_at) : '–') },
     { t: '到期', v: (r) => (r.expires_at ? fmtTime(r.expires_at) : '永久') },
@@ -1207,6 +1214,15 @@ function bindMemberPage() {
   $('#ml-prev').onclick = () => { if (ML.page > 1) { ML.page--; loadMemberList(); } };
   $('#ml-next').onclick = () => { if (ML.page < ML.pages) { ML.page++; loadMemberList(); } };
   $('#ml-cardclose').onclick = () => { $('#ml-cardbox').hidden = true; };
+  $('#ml-restore').onclick = async () => {
+    if (!confirm('從「方案歷史」把以前被刪掉的會員重建回來？
+（不會動到現有會員）')) return;
+    try {
+      const r = await api('/members/restore', { method: 'POST', body: '{}' });
+      queue(`已復原 ${r.rebuilt} 位會員`);
+      loadMemberList();
+    } catch (e) { alert(e.message); }
+  };
   $('#ml-backfill').onclick = async () => {
     if (!confirm('把早期會員的「登入次數／最後登入／地區」從紀錄補回來？（不會覆蓋已有資料）')) return;
     const r = await api('/members/backfill', { method: 'POST', body: '{}' });

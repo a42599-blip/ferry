@@ -345,6 +345,26 @@ async function loadAnnouncements() {
   bar.hidden = false;
 }
 
+// ── 客服給我的回覆（小羅 2026-09-27：我回了客戶，客戶要看得到）──
+async function loadMyReplies() {
+  const bar = $('#replybar');
+  if (!bar) return;
+  let j;
+  try { j = await api('/api/my-replies'); } catch { return; }
+  const items = j.items || [];
+  if (!items.length) { bar.hidden = true; return; }
+  bar.innerHTML = items.slice(0, 3).map((x) => `
+    <div class="rep">
+      <span class="ri">💬</span>
+      <div>
+        <b>${t('reply_title')}</b>
+        <div class="rr">${esc(x.reply)}</div>
+        ${x.action ? `<div class="ra">${t('reply_action')}：${esc(x.action)}</div>` : ''}
+      </div>
+    </div>`).join('');
+  bar.hidden = false;
+}
+
 async function loadQuota() {
   try { renderQuota((await api('/api/quota')).quota); } catch { /* 忽略 */ }
 }
@@ -850,6 +870,7 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   try { await loadConfig(); } catch (e) { console.warn(e); }
   await loadQuota();
   loadAnnouncements();
+  loadMyReplies();
   loadPayWays();
   renderHistory();
 })();

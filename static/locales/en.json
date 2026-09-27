@@ -280,5 +280,7 @@
   "delete_confirm_final": "Final check: really delete your account?\n(This cannot be undone)",
   "delete_done": "Account deleted. Thanks for using our service.",
   "auth_off": "Member features are coming soon.",
-  "billing_off": "Free during beta — all features are free to use for now."
+  "billing_off": "Free during beta — all features are free to use for now.",
+  "reply_title": "Reply from support",
+  "reply_action": "We did"
 }

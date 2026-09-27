@@ -312,8 +312,32 @@ async def delete_test_member(member_id: str, _: dict = Depends(require_admin)) -
     if not email.endswith(("@example.com", "@ferry.local", "@test", "@test.com")):
         raise HTTPException(status_code=400,
                             detail="只允許刪除測試帳號（@example.com 等），避免誤刪真人")
-    members.delete(member_id)
+    members.delete(member_id, hard=True)     # 測試帳號才真刪
     return {"ok": True, "deleted": email}
+
+
+@router.post("/members/restore")
+async def restore_members(_: dict = Depends(require_admin)) -> dict:
+    """從方案歷史把「被刪掉而消失」的會員重建回來。
+
+    小羅 2026-09-27：「把歷史資料再給我撈出來再回來。」
+    plan_history 記了每次方案變更（含 email／方案／時間），
+    所以 members 表被硬刪除也救得回來。
+    """
+    from ..services import members
+
+    r = members.restore_from_history()
+    return {"ok": True, **r, "stats": members.stats()}
+
+
+@router.post("/members/{member_id}/restore")
+async def restore_one(member_id: str, _: dict = Depends(require_admin)) -> dict:
+    """復原一位被「軟刪除」的會員。"""
+    from ..services import members
+
+    if not members.restore(member_id):
+        raise HTTPException(status_code=404, detail="找不到這個會員")
+    return {"ok": True, "member": members.get(member_id) or {}}
 
 
 @router.get("/members/search")
@@ -637,6 +661,140 @@ async def get_feedback(days: int = Query(30), only_new: bool = Query(False),
 
     return {"ok": True, "counts": feedback.counts(days),
             "rows": feedback.list_all(days=days, only_new=only_new)}
+
+
+@router.delete("/feedback-test/{fid}")
+async def delete_test_feedback(fid: int, _: dict = Depends(require_admin)) -> dict:
+    """刪除「測試」回報（只允許內容含『測試』字樣的，避免誤刪真實客戶）。"""
+    row = db.one("SELECT message, contact FROM feedback WHERE id=?", (fid,))
+    if not row:
+        return {"ok": True, "already": True}
+    blob = ((row["message"] or "") + (row["contact"] or ""))
+    if "測試" not in blob and "test" not in blob.lower():
+        raise HTTPException(status_code=400, detail="這不是測試回報，不允許刪除")
+    db.execute("DELETE FROM feedback WHERE id=?", (fid,))
+    return {"ok": True, "deleted": fid}
+
+
+@router.post("/feedback/{fid}/handled")
+async def mark_feedback(fid: int, body: dict = Body(default={}),
+                        _: dict = Depends(require_admin)) -> dict:
+    from ..services import feedback
+
+    feedback.mark_handled(fid, (body or {}).get("note") or "")
+    return {"ok": True, "counts": feedback.counts()}
+
+
+# ── 免費次數管理（可以手動還使用者一次）───────────────
+@router.get("/quota")
+async def get_quota_usage(_: dict = Depends(require_admin)) -> dict:
+    from ..services import quota
+
+    from ..core.config import settings
+
+    return {"ok": True, "rows": quota.today_usage(),
+            "limits": {"download": settings.free_download_per_day,
+                       "transfer": settings.free_transfer_per_day},
+            "enabled": settings.free_limit_enabled}
+
+
+@router.post("/quota/grant")
+async def grant_quota(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
+    """還使用者免費次數（例：解析失敗卻被扣了）。"""
+    from ..services import quota
+
+    subject = (body.get("subject") or "").strip()
+    if not subject:
+        raise HTTPException(status_code=400, detail="缺少 subject（例如 dev:xxxx）")
+    kind = body.get("kind") or "download"
+    n = int(body.get("n") or 1)
+    row = quota.grant(kind, subject, n)
+    return {"ok": True, "result": row, "rows": quota.today_usage()}
+
+
+@router.post("/quota/reset")
+async def reset_quota(body: dict = Body(default={}), _: dict = Depends(require_admin)) -> dict:
+    from ..services import quota
+
+    subject = (body or {}).get("subject") or None
+    quota.reset_today(subject)
+    return {"ok": True, "rows": quota.today_usage()}
+
+
+# ── 測試帳號清理（審核工具用；避免測試資料污染）────────
+@router.post("/members/cleanup-test")
+async def cleanup_test_members(_: dict = Depends(require_admin)) -> dict:
+    n = int(db.scalar("SELECT COUNT(*) FROM members WHERE email LIKE 'audit%@ferry.local'"))
+    db.execute("DELETE FROM members WHERE email LIKE 'audit%@ferry.local'")
+    return {"ok": True, "deleted": n}
+
+
+@router.post("/feedback/{fid}/handle")
+async def handle_feedback(fid: int, body: dict = Body(...),
+                          _: dict = Depends(require_admin)) -> dict:
+    """從「客戶回報」直接處理：加減次數 ＋ 回覆客戶 ＋ 標記完成。
+
+    小羅 2026-09-27：「我點這個回報就能直接幫他加次數、回訊息給他，
+                      能加也能減。」
+    """
+    from ..services import feedback as fb
+    from ..services import members as mem
+    from ..services import quota
+
+    row = db.one("SELECT * FROM feedback WHERE id=?", (fid,))
+    if not row:
+        raise HTTPException(status_code=404, detail="找不到這則回報")
+    f = dict(row)
+    # 裝置 ID 可能長成 dev:xxx 或 dev_xxx 或純 IP；by_device 只認原本存的值
+    did = f.get("device_id") or ""
+    dev = did
+    m = mem.by_device(dev) or {}
+    if not m.get("id"):
+        # 再試去掉 dev: 前綴的版本
+        for cand in (did.replace("dev:", ""), did[len("dev"):] if did.startswith("dev") else ""):
+            if cand:
+                m = mem.by_device(cand) or {}
+                if m.get("id"):
+                    dev = cand
+                    break
+    mid = m.get("id")
+    subject = f"user:{mid}" if mid else (f"dev:{dev}" if dev else "")
+
+    dl = int(body.get("download") or 0)
+    tr = int(body.get("transfer") or 0)
+    days = int(body.get("days") or 0)
+    actions: list[str] = []
+    if subject and dl:
+        quota.adjust("download", subject, dl)
+        actions.append(("下載次數 +" if dl > 0 else "下載次數 ") + str(dl))
+    if subject and tr:
+        quota.adjust("transfer", subject, tr)
+        actions.append(("傳輸次數 +" if tr > 0 else "傳輸次數 ") + str(tr))
+    if mid and days:
+        mem.extend_days(mid, abs(days), reason="gift",
+                        note=f"客服從回報 #{fid} 補償")
+        actions.append(f"加 {abs(days)} 天")
+
+    msg = (body.get("reply") or "").strip()
+    if actions and not msg:
+        msg = "很抱歉造成不便，已幫你" + "、".join(actions) + "。"
+    out = fb.reply(fid, msg, action="、".join(actions),
+                   mark_handled=bool(body.get("handled", True)))
+    return {"ok": True, "actions": actions, "row": out,
+            "subject": subject, "member": mid or "", "email": m.get("email") or ""}
+
+
+@router.delete("/feedback-test/{fid}")
+async def delete_test_feedback(fid: int, _: dict = Depends(require_admin)) -> dict:
+    """刪除「測試」回報（只允許內容含『測試』字樣的，避免誤刪真實客戶）。"""
+    row = db.one("SELECT message, contact FROM feedback WHERE id=?", (fid,))
+    if not row:
+        return {"ok": True, "already": True}
+    blob = ((row["message"] or "") + (row["contact"] or ""))
+    if "測試" not in blob and "test" not in blob.lower():
+        raise HTTPException(status_code=400, detail="這不是測試回報，不允許刪除")
+    db.execute("DELETE FROM feedback WHERE id=?", (fid,))
+    return {"ok": True, "deleted": fid}
 
 
 @router.post("/feedback/{fid}/handled")

@@ -79,3 +79,45 @@ def digest_since(ts: float) -> tuple[str, str]:
     if len(rows) > 40:
         lines.append(f"…另有 {len(rows) - 40} 則，請到後台查看")
     return f"【轉運站】使用者回報彙總（{len(rows)} 則）", "\n".join(lines)
+
+
+# ══════════════════════════════════════════════════════════════════
+#  客服處理（小羅 2026-09-27）
+#  「我點這個回報，就能直接幫他加次數、回訊息給他」
+#  「能加也能減」
+# ══════════════════════════════════════════════════════════════════
+
+def reply(fid: int, message: str, *, action: str = "",
+          mark_handled: bool = True) -> dict | None:
+    """回覆客戶並記錄「處理了什麼」。
+
+    action 例：「補回下載次數 3 次」「加 7 天」
+    → 客戶下次進站會在公告區看到這則回覆。
+    """
+    db.execute(
+        "UPDATE feedback SET reply=?, replied_at=?, action=?, handled=?"
+        " WHERE id=?",
+        ((message or "")[:1500], _t.time(), (action or "")[:200],
+         1 if mark_handled else 0, fid))
+    row = db.one("SELECT * FROM feedback WHERE id=?", (fid,))
+    return dict(row) if row else None
+
+
+def for_device(device_id: str, limit: int = 5) -> list[dict]:
+    """某個裝置收到過的「已回覆」訊息（前台顯示給客戶看）。"""
+    if not device_id:
+        return []
+    rows = db.query(
+        "SELECT id, message, reply, replied_at, action FROM feedback"
+        " WHERE device_id=? AND reply IS NOT NULL AND reply<>''"
+        " ORDER BY replied_at DESC LIMIT ?", (device_id, limit))
+    return [dict(r) for r in rows]
+
+
+def unhandled_for(device_id: str) -> int:
+    """這個裝置還有幾則沒處理（客服可以優先處理）。"""
+    if not device_id:
+        return 0
+    return int(db.scalar(
+        "SELECT COUNT(*) FROM feedback WHERE device_id=?"
+        " AND (handled IS NULL OR handled=0)", (device_id,)) or 0)
