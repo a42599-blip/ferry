@@ -66,6 +66,57 @@ _UA_BROWSER = (
     ("Safari/", "Safari"),
 )
 
+#: App 內建瀏覽器 → 這就是「使用者從哪裡點進來」最準的線索
+_UA_APP = (
+    ("MicroMessenger", "微信"), ("Weixin", "微信"),
+    ("Line/", "LINE"), ("LIFF", "LINE"),
+    ("FBAN", "Facebook App"), ("FBAV", "Facebook App"), ("FB_IAB", "Facebook App"),
+    ("Instagram", "Instagram App"),
+    ("Twitter", "X App"), ("KAKAOTALK", "KakaoTalk"),
+    ("Telegram", "Telegram"), ("SnapChat", "Snapchat"),
+    ("DingTalk", "釘釘"), ("QQ/", "QQ"), ("Weibo", "微博 App"),
+    ("TikTok", "TikTok App"), ("BiliApp", "B站 App"),
+)
+
+#: 來源網域 → 顯示名稱（讓後台一眼看得懂）
+_REF_SOURCE = (
+    ("google.", "Google 搜尋"), ("bing.", "Bing"), ("yahoo.", "Yahoo"),
+    ("duckduckgo.", "DuckDuckGo"), ("baidu.", "百度"),
+    ("douyin.com", "抖音"), ("tiktok.com", "TikTok"),
+    ("bilibili.com", "B站"), ("xiaohongshu.com", "小紅書"),
+    ("weibo.com", "微博"), ("zhihu.com", "知乎"), ("toutiao.com", "今日頭條"),
+    ("facebook.com", "Facebook"), ("instagram.com", "Instagram"),
+    ("x.com", "X"), ("twitter.com", "X"), ("threads.", "Threads"),
+    ("youtube.com", "YouTube"), ("line.me", "LINE"), ("telegram.", "Telegram"),
+    ("shopee.", "蝦皮"), ("pinterest.", "Pinterest"), ("reddit.", "Reddit"),
+)
+
+
+def source_of(request: Request) -> str | None:
+    """判斷「這個訪客從哪裡來的」。
+
+    優先序：
+      1. App 內建瀏覽器（微信／LINE／FB／IG…）← 最準，因為就醫時 referrer 常是空的
+      2. referrer 的網域（Google／抖音／小紅書…）
+      3. 有 referrer 但認不出 → 原網域
+    """
+    ua = request.headers.get("user-agent", "") or ""
+    for key, name in _UA_APP:
+        if re.search(re.escape(key), ua, re.I):
+            return name
+
+    ref = (request.headers.get("referer") or "").strip()
+    if not ref:
+        return None                                  # 後台顯示為「(直接進入)」
+    low = ref.lower()
+    if "ferry" in low or "v8i8.com" in low:
+        return None                                  # 站內跳轉不算來源
+    for key, name in _REF_SOURCE:
+        if key in low:
+            return name
+    m = re.match(r"https?://([^/]+)", ref)
+    return m.group(1) if m else None
+
 
 def _client_info(request: Request) -> dict:
     ua = request.headers.get("user-agent", "") or ""
@@ -89,19 +140,19 @@ async def _track(request: Request, call_next):
             info0 = _client_info(request)
             events.touch_meta(info0["device_id"], country=info0["country"],
                               os_name=info0["os_name"], browser=info0["browser"],
-                              source=(request.headers.get("referer") or "")[:300] or None)
+                              source=source_of(request))
         if request.method == "GET" and path in ("/", "/index.html", "/admin", "/admin/"):
             info = _client_info(request)
+            src = source_of(request)
             is_new = events.touch_device(
                 info["device_id"], country=info["country"],
-                os_name=info["os_name"], browser=info["browser"],
-                source=request.headers.get("referer"),
+                os_name=info["os_name"], browser=info["browser"], source=src,
             )
             events.track(
                 "page_view", device_id=info["device_id"], path=path,
                 country=info["country"], os_name=info["os_name"],
                 browser=info["browser"], is_new=is_new,
-                referrer=(request.headers.get("referer") or "")[:300] or None,
+                referrer=(src or (request.headers.get("referer") or ""))[:300] or None,
                 utm=(request.url.query or "")[:200] or None,
             )
     except Exception:  # noqa: BLE001 — 記錄失敗不影響回應

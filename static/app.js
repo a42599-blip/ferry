@@ -274,17 +274,40 @@ async function loadQuota() {
 $('#go').addEventListener('click', doResolve);
 $('#url').addEventListener('keydown', (e) => { if (e.key === 'Enter') doResolve(); });
 
+let _resolveTimer = null;
+
+/** 解析進度：伺服器端在做，我們無法知道真實百分比 → 用不確定進度條 ＋ 已等待秒數 ＋ 階段文案 */
+function startResolveProgress() {
+  const t0 = performance.now();
+  $('#rtrack').hidden = false; $('#rpm').hidden = false;
+  $('#status').hidden = true;
+  const setStage = () => {
+    const sec = (performance.now() - t0) / 1000;
+    $('#rmsg').textContent = sec < 3 ? t('resolve_s1') : sec < 10 ? t('resolve_s2') : t('resolve_s3');
+    $('#rsec').textContent = `${t('resolve_elapsed')} ${sec.toFixed(0)}s`;
+  };
+  setStage();
+  clearInterval(_resolveTimer);
+  _resolveTimer = setInterval(setStage, 300);
+}
+function stopResolveProgress() {
+  clearInterval(_resolveTimer); _resolveTimer = null;
+  $('#rtrack').hidden = true; $('#rpm').hidden = true;
+}
+
 async function doResolve() {
   const url = $('#url').value.trim();
   if (!url) return;
-  msg('#status', t('parsing'));
   $('#go').disabled = true;
+  startResolveProgress();
   try {
     const res = await api('/api/resolve', { method: 'POST', body: JSON.stringify({ url }) });
     state.info = res.data;
+    stopResolveProgress();
     renderResult(res.data);
     loadQuota();
   } catch (err) {
+    stopResolveProgress();
     msg('#status', err.message, 'err');
   } finally {
     $('#go').disabled = false;
@@ -391,6 +414,11 @@ $('#download').addEventListener('click', async () => {
         return;
       } catch { /* 繼續往下報錯 */ }
     }
+    // 回報下載失敗（後台「平台表現」才看得到失敗率）
+    api('/api/track/download', { method: 'POST', body: JSON.stringify({
+      platform: state.info.platform, quality: f.label, size: f.size || null,
+      mode: f.mode, ok: false, error: String(err.message).slice(0, 80),
+      url: state.info.source_url }) }).catch(() => {});
     msg('#status', t('dl_fail') + err.message, 'err');
     $('#pspeed').textContent = '';
   } finally {

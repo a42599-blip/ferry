@@ -63,15 +63,31 @@ function kpi(label, value, sub, cls = '') {
     <div class="d ${cls}">${sub || ''}</div></div>`;
 }
 
-function chart(series, hiLast = true) {
+/**
+ * 長條圖（每根柱子都顯示數值與日期）。
+ * @param series [{d:'2026-09-27', c:3}, …]
+ * @param unit   單位（人／次）→ 顯示在 title 與圖例
+ *
+ * 天數變多時：柱子自動變窄（flex 均分）→ 就是「慢慢縮小、塞滿整個框」。
+ * 但日期標籤會擠 → 超過 16 天就跳著顯示（最後一根一定顯示）。
+ */
+function chart(series, unit = '次', extra = '') {
   if (!series || !series.length) return '<p class="note">還沒有資料</p>';
-  const max = Math.max(1, ...series.map((x) => x.c));
-  return series.map((x, i) => {
-    const h = Math.round(x.c / max * 100);
-    const hi = hiLast && i === series.length - 1;
-    return `<div class="bar${hi ? ' hi' : ''}" style="height:${Math.max(2, h)}%" title="${x.d}: ${x.c}">
-      ${hi ? `<b>${x.c}</b>` : ''}<i>${String(x.d).slice(5)}</i></div>`;
+  const data = series.filter((x) => x && x.d !== undefined && x.c !== undefined);
+  if (!data.length) return '<p class="note">還沒有資料</p>';
+  const max = Math.max(1, ...data.map((x) => x.c));
+  const n = data.length;
+  const skip = n > 16 ? Math.ceil(n / 12) : 1;
+  const bars = data.map((x, i) => {
+    const h = Math.max(3, Math.round((x.c / max) * 100));
+    const hi = i === n - 1;
+    const showDate = i % skip === 0 || hi;
+    return `<div class="bar${hi ? ' hi' : ''}" style="height:${h}%" title="${x.d}：${x.c} ${unit}">
+      <b>${x.c}</b>${showDate ? `<i>${String(x.d).slice(5)}</i>` : ''}</div>`;
   }).join('');
+  const total = data.reduce((a, x) => a + x.c, 0);
+  return bars +
+    `<div class="chart-legend">共 ${fmtN(total)} ${unit}　最高 ${fmtN(max)} ${unit}　（${data[0].d.slice(5)} ～ ${data[n - 1].d.slice(5)}）${extra ? '　' + extra : ''}</div>`;
 }
 
 // ── API ──────────────────────────────────────────
@@ -94,6 +110,7 @@ const api = async (path, opt = {}) => {
 function showLogin() {
   $('#app').hidden = true; $('#login').hidden = false;
   localStorage.removeItem(TKEY);
+  prepareLogin();
 }
 $('#login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -107,7 +124,17 @@ $('#login-form').addEventListener('submit', async (e) => {
     start();
   } catch (err) { msg.textContent = err.message; }
 });
-$('#logout').addEventListener('click', showLogin);
+$('#logout').addEventListener('click', () => {
+  const ok = confirm(
+    '確定要登出嗎？' + String.fromCharCode(10) + String.fromCharCode(10) +
+    '━━━ 登出後要用這組重新登入 ━━━' + String.fromCharCode(10) +
+    '帳號：admin' + String.fromCharCode(10) +
+    '密碼：Ferry-C2cPqk-1827' + String.fromCharCode(10) + String.fromCharCode(10) +
+    '（也記錄在：桌面/記憶目錄_備份/小羅的人設.md）' + String.fromCharCode(10) + String.fromCharCode(10) +
+    '按「確定」登出，按「取消」留在後台'
+  );
+  if (ok) showLogin();
+});
 
 // ── 分頁 ─────────────────────────────────────────
 let curPage = 'overview';
@@ -115,11 +142,48 @@ function go(page) {
   curPage = page;
   $$('#side button').forEach((b) => b.classList.toggle('on', b.dataset.p === page));
   $$('.pg').forEach((p) => p.classList.toggle('on', p.id === 'pg-' + page));
+  syncRangeLabel();
   render();
 }
 $$('#side button').forEach((b) => b.addEventListener('click', () => go(b.dataset.p)));
-$('#refresh').addEventListener('click', () => render());
-$('#days').addEventListener('change', () => render());
+let _lastUpdate = null;
+
+function stamp() {
+  _lastUpdate = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+  return _lastUpdate;
+}
+
+$('#refresh').addEventListener('click', async () => {
+  const btn = $('#refresh');
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '更新中…';
+  btn.style.borderColor = 'var(--acc)';
+  try {
+    syncRangeLabel();
+    await render();
+    btn.textContent = '✔ 已更新';
+    queue(`已更新（${stamp()}）　區間：${$('#days').selectedOptions[0].textContent}`);
+  } catch (e) {
+    btn.textContent = '✖ 失敗';
+    queue('更新失敗：' + e.message);
+  }
+  setTimeout(() => { btn.textContent = old; btn.disabled = false; btn.style.borderColor = ''; }, 1600);
+});
+
+/** 把「目前區間」同步到頂欄標籤 */
+function syncRangeLabel() {
+  const rl = document.getElementById('range-label');
+  if (rl) rl.textContent = '· ' + ($('#days').selectedOptions[0]?.textContent || '最近 30 天');
+}
+
+$('#days').addEventListener('change', async () => {
+  const label = $('#days').selectedOptions[0].textContent;
+  syncRangeLabel();
+  queue(`切換為「${label}」，載入中…`);
+  await render();
+  queue(`已切換為「${label}」（${stamp()}）`);
+});
 
 async function render() {
   try {
@@ -145,12 +209,19 @@ async function pgOverview() {
     kpi('下載次數', fmtN(s.downloads), fmtBytes(s.download_bytes)),
     kpi('傳輸次數 / 總量', fmtN(s.transfers), `${fmtBytes(s.transfer_bytes)}　成功率 ${t.success_rate ?? '–'}%`),
   ].join('');
-  $('#ov-chart').innerHTML = chart(d.series.page_view || []);
+  const aud = d.summary.audience || {};
+  $('#ov-chart').innerHTML = chart(d.series.page_view || [], '人次',
+    `訪客 ${fmtN(aud.visitors)} 人　會員 ${fmtN(aud.members)} 人${aud.paid_members ? '（付費 ' + fmtN(aud.paid_members) + '）' : ''}`);
+  // ⚠️ 解析與下載分開看：解析成功不等於下載成功
   $('#ov-plat').innerHTML = table([
-    { t: '平台', v: 'platform' }, { t: '次數', v: 'total', num: true },
-    { t: '成功', v: 'ok', num: true }, { t: '失敗', v: 'fail', num: true },
-    { t: '成功率', v: (r) => rateBadge(r.success_rate), html: true },
-    { t: '平均耗時', v: (r) => r.avg_ms ? (r.avg_ms / 1000).toFixed(1) + 's' : '–', num: true },
+    { t: '平台', v: (r) => esc(r.platform) },
+    { t: '解析<br><small class="dim">成功 / 失敗</small>', v: (r) =>
+        `<b>${fmtN(r.resolve_ok)}</b> / ${fmtN(r.resolve_fail)}<br><small class="dim">共 ${fmtN(r.resolve_total)} 次</small>`, html: true },
+    { t: '解析成功率', v: (r) => rateBadge(r.resolve_rate), html: true },
+    { t: '下載<br><small class="dim">成功 / 失敗</small>', v: (r) =>
+        `<b>${fmtN(r.download_ok)}</b> / ${fmtN(r.download_fail)}<br><small class="dim">共 ${fmtN(r.download_total)} 次</small>`, html: true },
+    { t: '下載成功率', v: (r) => rateBadge(r.download_rate), html: true },
+    { t: '解析平均耗時', v: (r) => r.avg_ms ? (r.avg_ms / 1000).toFixed(1) + 's' : '–', num: true },
   ], d.platforms);
   $('#ov-country').innerHTML = table(
     [{ t: '國家', v: 'country' }, { t: '訪客', v: 'visitors', num: true }], d.countries);
@@ -172,7 +243,7 @@ async function pgGrowth() {
     kpi('下載次數', fmtN(d.download.current), `前一期 ${fmtN(d.download.previous)}　${pct(d.download.change_pct)}`, ''),
     kpi('傳輸次數', fmtN(d.transfer.current), `前一期 ${fmtN(d.transfer.previous)}　${pct(d.transfer.change_pct)}`, ''),
   ].join('');
-  $('#gr-chart').innerHTML = chart(d.series.resolve || []);
+  $('#gr-chart').innerHTML = chart(d.series.resolve || [], '次');
   const maxN = Math.max(1, f.visitors, f.resolvers, f.downloaders, f.members, f.paid);
   const step = (label, n) => `<div class="fstep"><span class="n">${label}</span>
     <span class="track"><i style="width:${Math.round(n / maxN * 100)}%"></i></span>
@@ -206,9 +277,11 @@ async function pgFlags() {
   $('#platform-list').innerHTML = table([
     { t: '平台', v: (r) => `${esc(r.label)} <span class="dim">${esc(r.id)}</span>`, html: true },
     { t: '狀態', v: (r) => r.enabled ? '<span class="badge ok">啟用</span>' : '<span class="badge err">關閉</span>', html: true },
-    { t: '近 7 天解析', v: 'today_total', num: true },
-    { t: '成功率', v: (r) => rateBadge(r.success_rate), html: true },
-    { t: '平均耗時', v: (r) => r.avg_ms ? (r.avg_ms / 1000).toFixed(1) + 's' : '–', num: true },
+    { t: '解析（成功/失敗）', v: (r) => `<b>${fmtN(r.resolve_ok)}</b> / ${fmtN(r.resolve_fail)}`, html: true },
+    { t: '解析成功率', v: (r) => rateBadge(r.resolve_rate), html: true },
+    { t: '下載（成功/失敗）', v: (r) => `<b>${fmtN(r.download_ok)}</b> / ${fmtN(r.download_fail)}`, html: true },
+    { t: '下載成功率', v: (r) => rateBadge(r.download_rate), html: true },
+    { t: '解析耗時', v: (r) => r.avg_ms ? (r.avg_ms / 1000).toFixed(1) + 's' : '–', num: true },
     { t: '開關', v: (r) => `<button type="button" class="toggle${r.enabled ? ' on' : ''}" data-platform="${esc(r.id)}" aria-pressed="${r.enabled}"><span></span></button>`, html: true },
   ], d.platforms);
   $('#auto-off').checked = !!d.auto_off;
@@ -344,9 +417,11 @@ async function pgErrors() {
     { t: '平台', v: 'platform' }, { t: '錯誤碼', v: 'error_code' }, { t: '次數', v: 'count', num: true },
   ], d.top_errors, '沒有失敗紀錄');
   $('#err-plat').innerHTML = table([
-    { t: '平台', v: 'platform' }, { t: '總次數', v: 'total', num: true },
-    { t: '失敗', v: 'fail', num: true },
-    { t: '成功率', v: (r) => rateBadge(r.success_rate), html: true },
+    { t: '平台', v: (r) => esc(r.platform) },
+    { t: '解析失敗', v: 'resolve_fail', num: true },
+    { t: '解析成功率', v: (r) => rateBadge(r.resolve_rate), html: true },
+    { t: '下載失敗', v: 'download_fail', num: true },
+    { t: '下載成功率', v: (r) => rateBadge(r.download_rate), html: true },
   ], d.platforms);
 
   const t = d.transfer;
@@ -465,9 +540,24 @@ const queue = (text) => { $('#queue').textContent = text || ''; };
 
 // ── 啟動 ─────────────────────────────────────────
 async function start() {
+  localStorage.setItem('fy_admin_user', $('#l-user').value || 'admin');
   $('#login').hidden = true; $('#app').hidden = false;
   go('overview');
 }
+
+/** 登入頁：預填上次帳號 ＋ 顯示帳密提示（小羅常忘記） */
+function prepareLogin() {
+  const last = localStorage.getItem('fy_admin_user');
+  if (last && !$('#l-user').value) $('#l-user').value = last;
+  const hint = document.getElementById('pw-hint');
+  if (hint) hint.hidden = false;
+}
+document.getElementById('pw-hint')?.addEventListener('click', () => {
+  alert('後台帳密：' + String.fromCharCode(10) + String.fromCharCode(10) +
+        '帳號：admin' + String.fromCharCode(10) +
+        '密碼：Ferry-C2cPqk-1827' + String.fromCharCode(10) + String.fromCharCode(10) +
+        '（記錄在：桌面/記憶目錄_備份/小羅的人設.md）');
+});
 (async () => {
   if (!localStorage.getItem(TKEY)) return showLogin();
   try { await api('/session'); start(); } catch { showLogin(); }

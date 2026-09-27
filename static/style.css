@@ -235,3 +235,10 @@ input:focus{outline:none;border-color:var(--acc)}
 button.mini{min-height:32px}
 .pick button,.inbar .go{min-height:48px}
 .q{min-height:46px}
+
+/* ── 解析進度：不確定進度條（伺服器端在做，我們只知道「有在動」）── */
+.track i.indet{width:34%;animation:indet 1.2s ease-in-out infinite}
+@keyframes indet{
+  0%{margin-left:-34%}
+  100%{margin-left:100%}
+}

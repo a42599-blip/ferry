@@ -92,6 +92,8 @@ async def track_download(request: Request, body: dict = Body(...)) -> dict:
 
     events.track("download", device_id=auth._device_id(request),
                  platform=body.get("platform"), quality=body.get("quality"),
-                 size=body.get("size"), mode=body.get("mode"), result="ok",
+                 size=body.get("size"), mode=body.get("mode"),
+                 result="ok" if body.get("ok", True) else "fail",
+                 error_code=body.get("error"),
                  url=body.get("url"))
     return {"ok": True}

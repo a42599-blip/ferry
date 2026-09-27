@@ -243,5 +243,9 @@
       "We fall back to the system share sheet. If that fails, open the page in a real browser (⋯ → Open in browser)."
     ]
   ],
-  "teach_save_note": "Phones save to the photo library, desktops save where you choose. We never touch your files."
+  "teach_save_note": "Phones save to the photo library, desktops save where you choose. We never touch your files.",
+  "resolve_s1": "Connecting to the platform…",
+  "resolve_s2": "Parsing…",
+  "resolve_s3": "Still working — some platforms are just slow…",
+  "resolve_elapsed": "Waiting"
 }

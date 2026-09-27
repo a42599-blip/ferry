@@ -163,8 +163,21 @@ def overview(days: int = 30) -> dict:
     errors = db.scalar(
         "SELECT COUNT(*) FROM events WHERE kind='resolve' AND result='fail' AND ts>=?", (since,))
 
+    # 訪客 vs 會員（以裝置為單位）
+    member_devices = int(db.scalar(
+        "SELECT COUNT(DISTINCT e.device_id) FROM events e"
+        " JOIN members m ON m.device_id = e.device_id"
+        " WHERE e.ts>=? AND e.device_id IS NOT NULL", (since,)))
+    paid_devices = int(db.scalar(
+        "SELECT COUNT(*) FROM members WHERE plan<>'free'"))
+
     return {
         "days": days,
+        "audience": {
+            "members": member_devices,
+            "visitors": max(0, devices - member_devices),
+            "paid_members": paid_devices,
+        },
         "page_views": pv,
         "visitors": devices,
         "new_visitors": new_devices,
@@ -186,40 +199,63 @@ def overview(days: int = 30) -> dict:
 
 
 def daily_series(kind: str = "page_view", days: int = 14) -> list[dict]:
-    """每日趨勢（預設 14 天）。"""
-    rows = db.query(
-        "SELECT date(ts, 'unixepoch', '+8 hours') AS d, COUNT(*) AS c"
-        " FROM events WHERE kind=? AND ts>=? GROUP BY d ORDER BY d",
-        (kind, _since(days)),
-    )
-    return [{"date": r["d"], "count": r["c"]} for r in rows]
+    """每日趨勢。
+
+    ⚠️ 欄位名固定用 `d`（日期）與 `c`（次數），與 `_bucket_rows()` 一致
+       —— 之前用 date/count 造成前端圖表讀不到值（全顯示 undefined）。
+    """
+    return _bucket_rows(days, kind)
 
 
 def by_platform(days: int = 7) -> list[dict]:
-    """各平台解析次數與成功率（後台「功能與平台開關」頁用）。"""
+    """各平台的**解析**與**下載**表現（後台「平台表現」用）。
+
+    ⚠️ 兩件事要分開看，不能混在一起：
+        解析成功 ≠ 下載成功（可能解析到了，但下載時連結失效／被擋）
+    """
     since = _since(days)
     rows = db.query(
-        "SELECT platform,"
+        "SELECT platform, kind,"
         " SUM(CASE WHEN result='ok' THEN 1 ELSE 0 END) AS ok,"
         " SUM(CASE WHEN result='fail' THEN 1 ELSE 0 END) AS fail,"
         " AVG(CASE WHEN result='ok' THEN latency_ms END) AS avg_ms,"
         " COUNT(*) AS total"
-        " FROM events WHERE kind='resolve' AND platform IS NOT NULL AND ts>=?"
-        " GROUP BY platform",
+        " FROM events"
+        " WHERE kind IN ('resolve','download') AND platform IS NOT NULL"
+        "   AND platform <> '' AND ts>=?"
+        " GROUP BY platform, kind",
         (since,),
     )
-    out = []
+    agg: dict[str, dict] = {}
     for r in rows:
-        total = r["total"] or 0
-        ok = r["ok"] or 0
-        out.append({
+        p = agg.setdefault(r["platform"], {
             "platform": r["platform"],
-            "ok": ok,
-            "fail": r["fail"] or 0,
-            "total": total,
-            "success_rate": round(ok / total * 100, 1) if total else None,
-            "avg_ms": int(r["avg_ms"]) if r["avg_ms"] else None,
+            "resolve_ok": 0, "resolve_fail": 0, "resolve_ms": None,
+            "download_ok": 0, "download_fail": 0,
         })
+        if r["kind"] == "resolve":
+            p["resolve_ok"] = r["ok"] or 0
+            p["resolve_fail"] = r["fail"] or 0
+            p["resolve_ms"] = int(r["avg_ms"]) if r["avg_ms"] else None
+        else:
+            p["download_ok"] = r["ok"] or 0
+            p["download_fail"] = r["fail"] or 0
+
+    out = []
+    for p in agg.values():
+        rt = p["resolve_ok"] + p["resolve_fail"]
+        dt = p["download_ok"] + p["download_fail"]
+        p["resolve_total"] = rt
+        p["download_total"] = dt
+        p["resolve_rate"] = round(p["resolve_ok"] / rt * 100, 1) if rt else None
+        p["download_rate"] = round(p["download_ok"] / dt * 100, 1) if dt else None
+        p["avg_ms"] = p["resolve_ms"]
+        p["total"] = rt + dt
+        p["ok"] = p["resolve_ok"] + p["download_ok"]
+        p["fail"] = p["resolve_fail"] + p["download_fail"]
+        # 相容舊欄位（其他頁面還在用 success_rate）
+        p["success_rate"] = p["resolve_rate"]
+        out.append(p)
     return sorted(out, key=lambda x: -x["total"])
 
 
