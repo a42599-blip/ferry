@@ -91,8 +91,9 @@ async def relay(video: str, audio: Optional[str], headers: dict, range_header: s
     if resp.status_code >= 400:
         await resp.aclose()
         await client.aclose()
+        # ⚠️ 不用 5xx：Cloudflare 會攔截並換成自己的錯誤頁（使用者看不到原因）
         return StreamingResponse(
-            iter([b""]), status_code=502,
+            iter([b""]), status_code=422,
             media_type="application/json",
             headers={"X-Relay-Error": f"CDN {resp.status_code}"},
         )

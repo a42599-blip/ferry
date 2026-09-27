@@ -60,10 +60,17 @@ class NotFound(AppError):
 # ── 平台端錯誤（會記錄、但不一定是我們的錯）────────
 
 class PlatformError(AppError):
-    """平台解析失敗的根。各平台模組失敗一律丟這個（或其子類）。"""
+    """平台解析失敗的根。各平台模組失敗一律丟這個（或其子類）。
+
+    ⚠️ 狀態碼**不可用 5xx**（2026-09-27 實際踩到）：
+       本站前面有 Cloudflare，它會攔截 origin 的 5xx，換成自己的
+       純文字錯誤頁（`error code: 502`）→ 使用者看不到我們的說明，
+       前端也 parsing 不到 JSON。
+       改用 422（語意也對：平台回得出東西，只是我們處理不了）。
+    """
 
     code = "PLATFORM_ERROR"
-    http_status = 502
+    http_status = 422
 
     def __init__(self, message: str = "", *, detail: str | None = None, platform: str = "",
                  code: str | None = None):

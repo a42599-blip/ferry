@@ -442,6 +442,11 @@ async function doResolve() {
   } catch (err) {
     stopResolveProgress();
     msg('#status', err.message, 'err');
+    // ⚠️ 失敗也要回報 —— 手機若在「請求還沒到伺服器」就逾時／被 Cloudflare 擋，
+    //    伺服器端完全不會有紀錄，後台成功率就會假性 100%。
+    api('/api/track/resolve', { method: 'POST', body: JSON.stringify({
+      result: 'fail', code: err.code || 'CLIENT_ERROR',
+      error: String(err.message).slice(0, 90), url }) }).catch(() => {});
   } finally {
     $('#go').disabled = false;
   }

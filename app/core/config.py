@@ -78,7 +78,7 @@ class Settings:
     admin_password: str = field(
         default_factory=lambda: os.getenv("ADMIN_PASSWORD", "ferry-admin")
     )
-    admin_token_ttl: int = field(default_factory=lambda: _env_int("ADMIN_TOKEN_TTL", 43200))
+    admin_token_ttl: int = field(default_factory=lambda: _env_int("ADMIN_TOKEN_TTL", 2592000))  # 30 天
     # 通知收件人（逗號分隔；可在後台改）
     notify_emails: str = field(
         default_factory=lambda: os.getenv("NOTIFY_EMAILS", "a42599@gmail.com")

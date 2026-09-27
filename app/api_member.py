@@ -108,7 +108,24 @@ async def report(request: Request, body: dict = Body(...)) -> dict:
     return {"ok": True, "message": "已收到，謝謝你！我們會盡快處理。"}
 
 
-# ── 下載事件（前端下載完成後回報，用於後台統計）──────
+# ── 解析事件（前端回報；特別是「請求還沒到伺服器」的失敗）──────
+@router.post("/api/track/resolve")
+async def track_resolve(request: Request, body: dict = Body(...)) -> dict:
+    """讓前端補報解析結果。
+
+    為什麼需要：手機在「請求還沒送到伺服器」就逾時、或 Cloudflare 直接回 502 時，
+    後端完全不會有紀錄 → 後台成功率會假性 100%（小羅 2026-09-27 發現）。
+    """
+    from .services import events
+
+    events.track("resolve", device_id=auth._device_id(request),
+                 platform=body.get("platform") or "",
+                 result="ok" if body.get("result") == "ok" else "fail",
+                 error_code=body.get("code") or body.get("error") or "CLIENT_ERROR",
+                 url=body.get("url"),
+                 country=request.headers.get("cf-ipcountry"))
+    return {"ok": True}
+
 @router.post("/api/track/download")
 async def track_download(request: Request, body: dict = Body(...)) -> dict:
     from .services import events

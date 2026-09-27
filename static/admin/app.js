@@ -100,17 +100,25 @@ const api = async (path, opt = {}) => {
       ...(opt.headers || {}),
     },
   });
-  if (r.status === 401) { showLogin(); throw new Error('請重新登入'); }
+  if (r.status === 401) {
+    // 只有「權杖真的無效／過期」才會到這裡（有效期限 30 天）
+    showLogin('登入已過期，請重新登入（帳號密碼都是 admin）');
+    throw new Error('請重新登入');
+  }
   const j = await r.json().catch(() => ({}));
   if (!r.ok || j.ok === false) throw new Error(j.detail || j.message || `HTTP ${r.status}`);
   return j;
 };
 
 // ── 登入 ─────────────────────────────────────────
-function showLogin() {
+function showLogin(why) {
   $('#app').hidden = true; $('#login').hidden = false;
   localStorage.removeItem(TKEY);
   prepareLogin();
+  if (why) {
+    const m = $('#login-msg');
+    if (m) m.textContent = why;
+  }
 }
 $('#login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -186,6 +194,8 @@ $('#days').addEventListener('change', async () => {
 });
 
 async function render() {
+  // ⚠️ 先清掉上一頁留下的訊息，否則切頁時會看到「載入失敗」殘留在左下角
+  $('#queue').innerHTML = '';
   try {
     if (curPage === 'overview') await pgOverview();
     else if (curPage === 'growth') await pgGrowth();
