@@ -1,6 +1,6 @@
 {
   "brand": "Ferry",
-  "topline": "No upload　No storage　No install",
+  "topline": "No uploads, no storage, no install",
   "tab_download": "Download",
   "tab_transfer": "Transfer",
   "tab_teach": "How to",
@@ -42,7 +42,7 @@
   "tr_lede": "Files travel device-to-device. They never touch our server, are never compressed or converted, and are verified with SHA-256.",
   "tr_pick_photo": "From Photos",
   "tr_pick_files": "From Files",
-  "tr_pick_folder": "Pick folder",
+  "tr_pick_folder": "Pick a folder",
   "tr_drop": "Drop files here (you can drop a whole folder on desktop)",
   "tr_no_files": "No file selected yet",
   "tr_selected": "Selected",
@@ -55,7 +55,7 @@
   "btn_send": "Start sending",
   "tr_progress": "Progress",
   "tr_recv": "Receiving",
-  "tr_known": "Paired before",
+  "tr_known": "Previously paired",
   "tr_reconnect": "Reconnect",
   "tr_waiting": "Waiting for the other device… (share this code)",
   "tr_found": "Device found — establishing direct connection…",
@@ -81,29 +81,29 @@
   "tr_status_bad": "Hash mismatch",
   "tr_per_sec": "/s",
   "teach_title": "How to use",
-  "teach_dl": "Downloading",
-  "teach_tr": "Transferring",
+  "teach_dl": "Download",
+  "teach_tr": "Transfer",
   "teach_os": "Supported systems",
   "teach_faq": [
     [
-      "iPhone transfer stops on big files",
-      "Browser memory limit — use a desktop for files over 1 GB, or send in batches."
+      "iPhone transfers stop on large files",
+      "A browser memory limit. Use a computer for files over 1 GB, or send them in batches."
     ],
     [
-      "Office / school Wi-Fi won't connect",
-      "That's AP isolation. Use one phone as a hotspot and join it from both devices."
+      "Office or school Wi-Fi won't connect",
+      "That network uses AP isolation, so the two devices can't see each other. Turn on one phone's hotspot and connect both devices to it."
     ],
     [
       "iCloud photos won't transfer",
-      "Download them to the device first (shown as downloaded in Photos), then pick them."
+      "Download them to the device first (Photos will show them as downloaded), then select them here."
     ],
     [
-      "How are qualities chosen?",
-      "We list exactly what the platform offers (up to 8K). If there is only one, that's the only option."
+      "How are the qualities chosen?",
+      "We list exactly what the platform offers — up to 8K. If a video only has one quality, that's the only option."
     ],
     [
       "Do you store my files?",
-      "No. Downloads come from the platform CDN; transfers are peer-to-peer. We never touch your files."
+      "No. Downloads come straight from the platform's CDN, and transfers go directly between your devices. We never touch your files."
     ]
   ],
   "plans_title": "Pricing",
@@ -114,13 +114,13 @@
   "plan_current": "Current plan",
   "btn_subscribe": "Subscribe",
   "plan_per_month": "/mo",
-  "plan_early": "early bird · first 200",
-  "pay_preparing": "Payments are being set up: the full checkout and order flow is ready — it goes live as soon as the payment gateway keys are configured.",
-  "pay_ready": "Payment gateway is configured — you can start charging.",
+  "plan_early": "Early bird, limited to 200",
+  "pay_preparing": "Payments aren't live yet — the checkout flow is ready and goes live once the payment gateway is connected.",
+  "pay_ready": "Payment gateway connected. You can start charging.",
   "member_title": "Account",
   "member_lede": "Sign in to keep your quota across devices; paid plans get unlimited downloads and transfers.",
   "member_email": "Email",
-  "member_pass": "Password (min 6 chars)",
+  "member_pass": "Password (at least 6 characters)",
   "btn_login": "Sign in",
   "btn_register": "Sign up",
   "btn_logout": "Sign out",
@@ -198,7 +198,7 @@
   "q_hd": "HD",
   "q_sd": "SD",
   "q_audio": "Audio only",
-  "q_download": "Download ver.",
+  "q_download": "Downloadable",
   "q_backup": "Backup",
   "q_line": "Line",
   "err_UNSUPPORTED_URL": "That link isn't supported yet.",
@@ -223,24 +223,24 @@
   "err_NEED_6_DIGITS": "Please enter 6 digits.",
   "err_MAINTENANCE": "Under maintenance. Please try again later.",
   "err_NETWORK": "Network error. Please check your connection.",
-  "err_FEATURE_DISABLED": "This feature is currently turned off",
+  "err_FEATURE_DISABLED": "This feature is currently turned off.",
   "teach_save_title": "Where does it save?",
   "teach_save_list": [
     [
       "iPhone / iPad",
-      "Tap <b>Download</b> → choose <b>Save to Photos</b> in the system sheet → the video lands in your camera roll"
+      "Tap <b>Download</b>, then choose <b>Save to Photos</b> in the system sheet — the video goes into your camera roll."
     ],
     [
       "Android",
-      "Tap <b>Download</b> → it goes to your <b>Downloads</b> folder (Chrome shows a download notification)"
+      "Tap <b>Download</b> — it saves to your <b>Downloads</b> folder (Chrome shows a download notification)."
     ],
     [
       "Windows / Mac / Linux",
-      "Tap <b>Download</b> → your browser <b>asks where to save</b> (or uses the default Downloads folder)"
+      "Tap <b>Download</b> — your browser <b>asks where to save it</b> (or uses the default Downloads folder)."
     ],
     [
-      "In-app browsers (WeChat / LINE)",
-      "It falls back to the system share sheet; if that fails, open the page in a real browser"
+      "In-app browsers (WeChat, LINE)",
+      "We fall back to the system share sheet. If that fails, open the page in a real browser (⋯ → Open in browser)."
     ]
   ],
   "teach_save_note": "Phones save to the photo library, desktops save where you choose. We never touch your files."
