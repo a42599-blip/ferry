@@ -278,7 +278,8 @@ async function pgReports() {
     const tr = Number(document.querySelector(`[data-tr="${id}"]`)?.value || 0);
     const dy = Number(document.querySelector(`[data-days="${id}"]`)?.value || 0);
     const rp = document.querySelector(`[data-reply="${id}"]`)?.value.trim() || '';
-    if (!dl && !tr && !dy && !rp) return alert('至少要填一個數字或寫回覆');
+    // ⚠️ 完全留空也可以 —— 後端會自動產生回覆（小羅 2026-09-28：
+    //    「我如果沒特別的事就不打字，直接用預設的回覆信息回覆就好。」）
     b.disabled = true;
     try {
       const r = await api(`/feedback/${id}/handle`, { method: 'POST', body: JSON.stringify({

@@ -340,7 +340,7 @@ input:focus{outline:none;border-color:var(--acc)}
   color:#8fe8b8;font-size:12.5px;border-bottom:1px solid rgba(63,191,127,.2)}
 .repbar .rhead .ri{font-size:14px}
 .repbar .rhead .rt{font-weight:600}
-.repbar .rbody{height:190px;max-height:190px;overflow-y:auto;padding:0 12px 10px;
+.repbar .rbody{height:150px;max-height:150px;overflow-y:auto;padding:0 12px 8px;
   -webkit-overflow-scrolling:touch;scrollbar-width:thin}
 .repbar .rbody::-webkit-scrollbar{width:5px}
 .repbar .rbody::-webkit-scrollbar-thumb{background:rgba(63,191,127,.45);border-radius:3px}
@@ -354,7 +354,6 @@ input:focus{outline:none;border-color:var(--acc)}
 .repbadge{margin-left:8px;background:rgba(63,191,127,.2);color:#8fe8b8;
   border-radius:9px;padding:1px 8px;font-size:11px;font-weight:600}
 
-/* 回覆框：固定高度（手機稍高一點 240px，約 4 筆），內容超過就在框內滑動
-   —— 小羅 2026-09-28：「不是一直往下累計，是要往下滑，
-      不然我的網頁會越來越長」 */
-@media (max-width:899px){ .repbar .rbody{height:240px;max-height:240px} }
+/* 回覆框：只顯示約 2 條訊息，之前的往下滑才看到（框不會越長越長）
+   —— 小羅 2026-09-28：「只保留 2 條訊息在顯示狀態，之前的信息需要往下滑」 */
+@media (max-width:899px){ .repbar .rbody{height:160px;max-height:160px} }
