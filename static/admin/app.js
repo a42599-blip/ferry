@@ -1226,6 +1226,9 @@ const renderRecent = (list) => (list || []).slice(0, 15).map((r) =>
   || '<div class="dim">尚無活動（他做任何事（解析／下載）都會馬上出現在這裡）</div>';
 
 async function openMemberCard(mid) {
+  // 不論從哪裡點（次數管理／客服／會員清單）→ 先切到「會員資料」分頁，
+  // 不然卡片會開在別的分頁裡、使用者看不到（小羅 2026-09-29 回報）
+  if (curPage !== 'members') go('members');
   const d = await api(`/members/${mid}/card`);
   const m = d.card;
   const q = m.quota || {};

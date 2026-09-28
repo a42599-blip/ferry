@@ -79,6 +79,61 @@ async def change_password(request: Request, body: dict = Body(...)) -> dict:
     return {"ok": True, "message": "密碼已更新，下次請用新密碼登入"}
 
 
+@router.post("/api/member/forgot")
+async def forgot_password(request: Request, body: dict = Body(...)) -> dict:
+    """忘記密碼：寄一封重設信。
+
+    小羅 2026-09-29：「前台登入頁是不是也應該有一個忘記密碼，
+    那這個忘記密碼也要真實有效，可以恢復或者是重設密碼。」
+
+    ⚠️ 不管這個 Email 有沒有註冊，回覆都一樣（避免被拿去探測帳號）。
+    """
+    from .services import notify
+
+    email = str(body.get("email") or "").strip().lower()
+    r = members.create_reset(email)
+    same_msg = ("如果這個 Email 有在我們這裡註冊，"
+                "我們已經寄出重設信，請去收信（也看一下垃圾信匣）。重設連結 30 分鐘內有效。")
+    if not r:
+        return {"ok": True, "message": same_msg}
+    base = str(request.base_url).rstrip("/")
+    link = f"{base}/?reset={r['token']}"
+    text = ("你好，\n\n"
+            "我們收到你在「轉運站」的重設密碼申請。\n"
+            "請點下面的連結設定新密碼（30 分鐘內有效，只能用一次）：\n\n"
+            f"{link}\n\n"
+            "如果不是你本人申請，忽略這封信就好，你的密碼不會被更改。\n\n"
+            "轉運站  https://scefo.com\n")
+    try:
+        await notify.send_now("[轉運站] 重設你的密碼", text, to=[r["email"]])
+    except Exception:  # noqa: BLE001
+        pass          # 寄不出去也不讓外界知道（後台通知紀錄看得到）
+    return {"ok": True, "message": same_msg}
+
+
+@router.post("/api/member/reset")
+async def reset_password(body: dict = Body(...)) -> dict:
+    """用重設碼設定新密碼（一次性、30 分鐘內有效）。"""
+    r = members.use_reset(str(body.get("token") or ""),
+                          str(body.get("password") or ""))
+    return {"ok": True, "email": r.get("email") or "",
+            "message": "密碼已重設，請用新密碼登入"}
+
+
+@router.post("/api/member/find-account")
+async def find_account(body: dict = Body(...)) -> dict:
+    """忘記帳號：用喱稱找回（只回**打碼後**的 Email，不洩漏完整帳號）。"""
+    nk = str(body.get("nickname") or "").strip()
+    if len(nk) < 2:
+        raise BadRequest("請至少輸入 2 個字的喱稱")
+    rows = members.find_account(nk)
+    if not rows:
+        return {"ok": True, "found": [],
+                "message": "找不到這個喱稱的帳號。也可能是你沒設過喱稱，請試試 Email 前幾碼，或聯絡客服。"}
+    return {"ok": True, "found": rows,
+            "message": "這是符合的帳號（有打碼保護）："}
+
+
 @router.get("/api/member/me")
 async def me(request: Request) -> dict:
     mid = auth._member_from_request(request)

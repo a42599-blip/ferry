@@ -192,6 +192,17 @@ CREATE TABLE IF NOT EXISTS pairings (
     times      INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY (device_a, device_b)
 );
+
+-- 忘記密碼重設碼（小羅 2026-09-29：前台登入頁要有「忘記密碼」且要真的有效）
+CREATE TABLE IF NOT EXISTS password_resets (
+    token      TEXT PRIMARY KEY,           -- 隨機碼（連結裡的那串）
+    member_id  TEXT NOT NULL,
+    email      TEXT,
+    created_at REAL NOT NULL,
+    expires_at REAL NOT NULL,              -- 30 分鐘後失效
+    used       INTEGER NOT NULL DEFAULT 0  -- 1=已用過（不能再用）
+);
+CREATE INDEX IF NOT EXISTS idx_pwreset_member ON password_resets(member_id);
 """
 
 

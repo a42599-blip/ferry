@@ -959,6 +959,68 @@ $('#m-pw-save').addEventListener('click', async () => {
   finally { btn.disabled = false; }
 });
 
+// ── 忘記密碼 ／ 忘記帳號 ／ 重設密碼（小羅 2026-09-29）─────────────
+//   小羅：「會員登錄的時候是不是也應該有一個忘記密碼？
+//          這個忘記密碼也要真實有效…忘記密碼跟忘記帳號都要。」
+const showForgot = (on) => {
+  $('#m-forgot').hidden = !on;
+  if (on) { $('#m-findacc').hidden = true; $('#m-forgot-email').focus(); }
+};
+const showFindAcc = (on) => {
+  $('#m-findacc').hidden = !on;
+  if (on) { $('#m-forgot').hidden = true; $('#m-findacc-nick').focus(); }
+};
+$('#m-forgot-go').onclick = () => showForgot(true);
+$('#m-forgot-back').onclick = () => showForgot(false);
+$('#m-findacc-go').onclick = () => showFindAcc(true);
+$('#m-findacc-back').onclick = () => showFindAcc(false);
+$('#m-forgot-send').onclick = async () => {
+  const btn = $('#m-forgot-send');
+  const email = $('#m-forgot-email').value.trim();
+  if (!email) { msg('#m-forgot-msg', t('member_email'), 'err'); return; }
+  btn.disabled = true;
+  try {
+    const j = await api('/api/member/forgot', { method: 'POST', body: JSON.stringify({ email }) });
+    msg('#m-forgot-msg', j.message || '', 'ok');
+  } catch (e) { msg('#m-forgot-msg', e.message, 'err'); }
+  finally { btn.disabled = false; }
+};
+$('#m-findacc-do').onclick = async () => {
+  const btn = $('#m-findacc-do');
+  const nickname = $('#m-findacc-nick').value.trim();
+  if (nickname.length < 2) { msg('#m-findacc-msg', t('findacc_ph'), 'err'); return; }
+  btn.disabled = true;
+  try {
+    const j = await api('/api/member/find-account', { method: 'POST', body: JSON.stringify({ nickname }) });
+    const list = (j.found || []).join('、');
+    const ok = (j.found || []).length > 0;
+    msg('#m-findacc-msg', ok ? `${j.message} ${list}` : (j.message || ''), ok ? 'ok' : 'err');
+  } catch (e) { msg('#m-findacc-msg', e.message, 'err'); }
+  finally { btn.disabled = false; }
+};
+
+// 重設密碼：從信件連結進來的（?reset=xxx）→ 自動切到會員頁、顯示設定新密碼
+const _resetToken = new URLSearchParams(location.search).get('reset');
+if (_resetToken) {
+  $('[data-tab="member"]')?.click();
+  $('#m-reset').hidden = false;
+  const pick = $('#m-login')?.closest('.pick');
+  if (pick) pick.hidden = true;
+  $('#m-reset-pw')?.focus();
+}
+$('#m-reset-do').onclick = async () => {
+  const btn = $('#m-reset-do');
+  const pw = $('#m-reset-pw').value;
+  if ((pw || '').length < 6) { msg('#m-reset-msg', t('password_new'), 'err'); return; }
+  btn.disabled = true;
+  try {
+    const j = await api('/api/member/reset', { method: 'POST',
+      body: JSON.stringify({ token: _resetToken, password: pw }) });
+    msg('#m-reset-msg', j.message || '', 'ok');
+    setTimeout(() => { location.href = location.pathname; }, 2000);
+  } catch (e) { msg('#m-reset-msg', e.message, 'err'); btn.disabled = false; }
+};
+
 // 登出（頂部那顆）
 $('#who-out').addEventListener('click', async () => {
   localStorage.removeItem(MKEY);

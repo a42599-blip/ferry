@@ -99,10 +99,14 @@ def _recipients() -> list[str]:
     return ev.notify_recipients()
 
 
-def _send_sync(subject: str, body: str) -> tuple[bool, str]:
-    """實際寄送。回傳 (成功, 說明)。"""
+def _send_sync(subject: str, body: str, to: list[str] | None = None) -> tuple[bool, str]:
+    """實際寄送。回傳 (成功, 說明)。
+
+    `to` 不給＝寄給後台設定的管理員收件人；
+    給了＝寄給指定的人（會員忘記密碼的重設信就用這個）。
+    """
     t = transport()
-    to = _recipients()
+    to = to or _recipients()
     if not to:
         return False, "沒有設定收件人"
 
@@ -160,11 +164,12 @@ def _send_sync(subject: str, body: str) -> tuple[bool, str]:
     return False, "尚未設定寄送方式（Resend／SMTP／Webhook）"
 
 
-async def send_now(subject: str, body: str) -> dict:
-    """立刻寄（管理員測試按鈕用）。"""
-    ok, note = await asyncio.to_thread(_send_sync, subject, body)
+async def send_now(subject: str, body: str, to: list[str] | None = None) -> dict:
+    """立刻寄（管理員測試按鈕／會員重設信都用這個）。"""
+    ok, note = await asyncio.to_thread(_send_sync, subject, body, to)
     _log(subject, body, ok, note)
-    return {"ok": ok, "transport": transport(), "note": note, "to": _recipients()}
+    return {"ok": ok, "transport": transport(), "note": note,
+            "to": to or _recipients()}
 
 
 def _log(subject: str, body: str, ok: bool, note: str, event: str | None = None) -> None:

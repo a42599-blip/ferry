@@ -828,6 +828,75 @@ def check_password(member_id: str, password: str) -> bool:
     return bool(row) and _verify(password or "", row["password"] or "")
 
 
+# ══════════════════════════════════════════════════════════
+#  忘記密碼 ／ 忘記帳號（小羅 2026-09-29：前台登入頁要有這兩個，
+#  而且「忘記密碼也要真實有效」，不能只是好看的按钮）
+# ══════════════════════════════════════════════════════════
+RESET_TTL = 1800          # 重設連結有效 30 分鐘
+
+
+def _mask(s: str) -> str:
+    """把帳號打碼：a42599 → a****9（只留頭尾，不洩漏完整信箱）。"""
+    s = s or ""
+    if len(s) <= 2:
+        return (s[:1] or "*") + "*"
+    return s[0] + "*" * (len(s) - 2) + s[-1]
+
+
+def create_reset(email: str) -> dict | None:
+    """產生「忘記密碼」重設碼。
+
+    找不到會員就回 None（**不告訴對方帳號存不存在**，避免被拿去探測帳號）。
+    """
+    email = (email or "").strip().lower()
+    if "@" not in email:
+        return None
+    row = db.one("SELECT id, email FROM members WHERE email=?"
+                 " AND COALESCE(status,'active')='active'", (email,))
+    if not row:
+        return None
+    token = secrets.token_urlsafe(24)
+    now = time.time()
+    db.execute(
+        "INSERT INTO password_resets(token, member_id, email, created_at, expires_at)"
+        " VALUES(?,?,?,?,?)", (token, row["id"], email, now, now + RESET_TTL))
+    return {"token": token, "email": email, "expires_at": now + RESET_TTL}
+
+
+def use_reset(token: str, new_password: str) -> dict:
+    """用重設碼改密碼（一次性、30 分鐘內有效）。"""
+    token = (token or "").strip()
+    if len(new_password or "") < 6:
+        raise BadRequest("密碼至少 6 個字", code="WEAK_PASSWORD")
+    row = db.one("SELECT * FROM password_resets WHERE token=?", (token,))
+    if not row:
+        raise BadRequest("這個重設連結無效，請重新申請", code="BAD_RESET")
+    if row["used"]:
+        raise BadRequest("這個重設連結已經用過了，請重新申請", code="RESET_USED")
+    if float(row["expires_at"]) < time.time():
+        raise BadRequest("重設連結已過期（30 分鐘），請重新申請", code="RESET_EXPIRED")
+    db.execute("UPDATE password_resets SET used=1 WHERE token=?", (token,))
+    db.execute("UPDATE members SET password=? WHERE id=?",
+               (_hash(new_password), row["member_id"]))
+    return {"member_id": row["member_id"], "email": row["email"] or ""}
+
+
+def find_account(nickname: str) -> list[str]:
+    """忘記帳號：用喱稱找回（只回**打碼後**的 Email，不洩漏完整帳號）。"""
+    nk = (nickname or "").strip()
+    if len(nk) < 2:
+        return []
+    rows = db.query("SELECT email FROM members WHERE COALESCE(nickname,'') LIKE ?"
+                    " AND COALESCE(status,'active')='active' LIMIT 10", (f"%{nk}%",))
+    out = []
+    for r in rows:
+        e = (r["email"] or "").strip()
+        if "@" in e:
+            u, dom = e.split("@", 1)
+            out.append(f"{_mask(u)}@{dom}")
+    return out
+
+
 def tier_of(member_id: str | None) -> str:
     """身分等級：guest（未登入）／free／monthly／lifetime。
 
