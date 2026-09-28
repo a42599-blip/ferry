@@ -330,11 +330,6 @@ input:focus{outline:none;border-color:var(--acc)}
 .offbox{padding:14px 16px;border-radius:10px;font-size:13px;line-height:1.8;
   background:rgba(110,168,220,.08);border:1px solid rgba(110,168,220,.28);color:var(--text)}
 
-@media (min-width:900px){ .replybar{padding:10px 26px 0} }
-
-/* 手機：留在底部但不要蓋住太多 */
-@media (max-width:899px){ .replybar{padding:0 8px 6px} .repbar .rbody{max-height:26vh} }
-
 /* ── 客服回覆（放在「回報問題」區塊內；不固定、不遮按鈕）────────
    小羅 2026-09-27：「回覆框會擋到按鍵，我希望放在回報問題裡面。」 */
 #replybar{margin:10px 0 4px}
@@ -345,10 +340,11 @@ input:focus{outline:none;border-color:var(--acc)}
   color:#8fe8b8;font-size:12.5px;border-bottom:1px solid rgba(63,191,127,.2)}
 .repbar .rhead .ri{font-size:14px}
 .repbar .rhead .rt{font-weight:600}
-.repbar .rhead .rn{background:rgba(63,191,127,.22);color:#8fe8b8;border-radius:9px;
-  padding:1px 7px;font-size:11px}
-.repbar .rbody{max-height:220px;overflow-y:auto;padding:0 12px 10px;
-  -webkit-overflow-scrolling:touch}
+.repbar .rbody{max-height:132px;overflow-y:auto;padding:0 12px 10px;
+  -webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.repbar .rbody::-webkit-scrollbar{width:5px}
+.repbar .rbody::-webkit-scrollbar-thumb{background:rgba(63,191,127,.45);border-radius:3px}
+.repbar .rhead .rhint{margin-left:auto;font-size:10.5px;color:var(--dim);font-weight:400}
 .repbar .ritem{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);
   font-size:12.5px;line-height:1.7}
 .repbar .ritem:last-child{border-bottom:0}

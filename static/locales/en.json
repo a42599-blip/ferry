@@ -283,5 +283,6 @@
   "billing_off": "Free during beta — all features are free to use for now.",
   "reply_title": "Reply from support",
   "reply_action": "We did",
-  "reply_pending": "We received your report"
+  "reply_pending": "We received your report",
+  "reply_scroll": "scroll for more"
 }

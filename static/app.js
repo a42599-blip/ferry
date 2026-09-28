@@ -375,14 +375,16 @@ function markRepliesRead() {
 function renderReplyBar() {
   const bar = document.getElementById('replybar');
   if (!bar) return;
-  // 「回報問題」標題後面顯示**未讀**數量（小羅 2026-09-27：
-  //  「打開看過、再關起來，數字就要消失；下次有新回覆才會再出現 1」）
+
+  // 「回報問題」標題後面的**未讀**徽章（小羅 2026-09-28：
+  //  「外層有數字，點開後數字要消失，就表示沒有未讀訊息了」）
   const badge = document.getElementById('rep-badge');
   if (badge) {
     badge.hidden = !_unread;
     badge.textContent = _unread ? `💬 ${_unread}` : '';
     badge.title = _replyItems.length ? '有客服回覆你（點開查看）' : '你的回報處理中';
   }
+
   if (!_replyItems.length) {
     if (_replyPending) {                       // 沒有回覆但還有處理中的回報 → 細提示
       bar.hidden = false;
@@ -394,6 +396,7 @@ function renderReplyBar() {
     bar.innerHTML = '';
     return;
   }
+
   const items = _replyItems.map((x) => {
     const when = x.replied_at ? new Date(x.replied_at * 1000).toLocaleString() : '';
     return '<div class="ritem">'
@@ -402,18 +405,17 @@ function renderReplyBar() {
       + (when ? '<div class="rd">' + esc(when) + '</div>' : '')
       + '</div>';
   }).join('');
+
+  // ⚠️ 這裡**不顯示數字**（小羅 2026-09-28：
+  //    「外層『回報問題』後面已經有綠色圈圈顯示未讀數字，內層不用重複」）。
+  //    內容區固定只看得到約 2 筆，超過在框內往下滑 → 框不會越長越長。
   bar.hidden = false;
-  bar.innerHTML = '<div class="repbar ' + (open ? 'open' : 'closed') + '">'
-    + '<button class="rhead" type="button">'
-    + '<span class="ri">💬</span>'
+  bar.innerHTML = '<div class="repbar">'
+    + '<div class="rhead"><span class="ri">💬</span>'
     + '<span class="rt">' + t('reply_title') + '</span>'
-    + '<span class="rn">' + _replyItems.length + '</span>'
-    + '<span class="rx">' + (open ? '▾' : '▸') + '</span>'
-    + '</button>'
+    + '<span class="rhint">' + t('reply_scroll') + '</span></div>'
     + '<div class="rbody">' + items + '</div>'
     + '</div>';
-  // ⚠️ 不自動打開（小羅 2026-09-27：「我希望在回報問題的+打開之後才看到」）
-  //    使用者自己點開 → 標記已讀 → 徽章消失（像未讀訊息）
 }
 
 async function loadMyReplies() {

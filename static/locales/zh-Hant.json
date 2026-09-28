@@ -283,5 +283,6 @@
   "billing_off": "目前為公測期間，暫不收費，所有功能都可以免費使用。",
   "reply_title": "客服回覆",
   "reply_action": "處理內容",
-  "reply_pending": "你的回報處理中"
+  "reply_pending": "你的回報處理中",
+  "reply_scroll": "可往下滑"
 }
