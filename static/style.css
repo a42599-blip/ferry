@@ -354,12 +354,6 @@ input:focus{outline:none;border-color:var(--acc)}
 .repbadge{margin-left:8px;background:rgba(63,191,127,.2);color:#8fe8b8;
   border-radius:9px;padding:1px 8px;font-size:11px;font-weight:600}
 
-/* ── 客服回覆框：加大，讓客戶能看到之前的訊息 ──────────
-   小羅 2026-09-28：「我要可以往上下滑動保持之前的訊息，
-                     你只留固定 2 個訊息根本滑不了多少。」 */
- }
- }
-
 /* 回覆框：固定高度（手機稍高一點 240px，約 4 筆），內容超過就在框內滑動
    —— 小羅 2026-09-28：「不是一直往下累計，是要往下滑，
       不然我的網頁會越來越長」 */
