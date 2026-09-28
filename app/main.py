@@ -109,7 +109,7 @@ def source_of(request: Request) -> str | None:
     if not ref:
         return None                                  # 後台顯示為「(直接進入)」
     low = ref.lower()
-    if "ferry" in low or "v8i8.com" in low:
+    if "ferry" in low or "v8i8.com" in low or "scefo.com" in low:
         return None                                  # 站內跳轉不算來源
     for key, name in _REF_SOURCE:
         if key in low:

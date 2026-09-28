@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v13';  // v13：2026-09-29 公測說明加上「也不會有廣告」
+const CACHE = 'ferry-img-v14';  // v14：2026-09-29 前台加「更改密碼」
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

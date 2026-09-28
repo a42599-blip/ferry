@@ -94,6 +94,8 @@ def plan_of(subject: str) -> str:
         m = members.by_device(subject)
     if not m:
         return PLAN_FREE
+    if (m.get("status") or "active") != "active":
+        return PLAN_FREE            # 停權／註銷 → 一律當免費身分（真的停掉）
     plan = m.get("plan") or PLAN_FREE
     if plan == PLAN_MONTHLY:
         exp = m.get("expires_at")

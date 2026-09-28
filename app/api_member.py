@@ -60,6 +60,25 @@ async def set_nickname(request: Request, body: dict = Body(...)) -> dict:
     return {"ok": True, "nickname": (m or {}).get("nickname") or "", "member": m}
 
 
+@router.post("/api/member/password")
+async def change_password(request: Request, body: dict = Body(...)) -> dict:
+    """會員自己改密碼（小羅 2026-09-29：「前後台都要有改帳密的按鈕和邏輯」）。
+
+    必須先輸入目前的密碼（避免手機被別人拿去改）。
+    """
+    mid = auth._member_from_request(request)
+    if not mid:
+        raise BadRequest("請先登入會員")
+    cur = str(body.get("current") or "")
+    new = str(body.get("password") or "")
+    if not members.check_password(mid, cur):
+        raise BadRequest("目前的密碼不正確")
+    if len(new) < 6:
+        raise BadRequest("新密碼至少 6 個字")
+    members.set_password(mid, new)
+    return {"ok": True, "message": "密碼已更新，下次請用新密碼登入"}
+
+
 @router.get("/api/member/me")
 async def me(request: Request) -> dict:
     mid = auth._member_from_request(request)

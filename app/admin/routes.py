@@ -73,7 +73,7 @@ async def _alert_login_fail(user: str) -> None:
 @router.get("/session")
 async def session(_: dict = Depends(require_admin)) -> dict:
     return {"ok": True, "totp_enabled": security.totp_enabled(),
-            "user": settings.admin_user}
+            "user": security.current_user()}
 
 
 # ── 總覽 ──────────────────────────────────────────────
@@ -319,6 +319,31 @@ async def delete_test_member(member_id: str, _: dict = Depends(require_admin)) -
     return {"ok": True, "deleted": email}
 
 
+@router.delete("/members/{member_id}")
+async def delete_member(member_id: str, confirm: str = Query(""),
+                        reason: str = Query(""),
+                        _: dict = Depends(require_admin)) -> dict:
+    """刪除（註銷）一般會員帳號。
+
+    小羅 2026-09-29：「我停權他就是停掉了我可以復權，那我也可以刪除他這個帳號對不對？」
+
+    ⚠️ 安全設計：
+      · 必須帶 `?confirm=DELETE` 才真的動作（避免誤刪）
+      · 預設是**軟刪除**（status=deleted）：立即進不去、資料保留、可從「復原」救回
+    """
+    if confirm != "DELETE":
+        raise HTTPException(status_code=400, detail="需要二次確認（confirm=DELETE）")
+    from ..services import members
+
+    m = members.get(member_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="找不到這個會員")
+    members.delete(member_id, hard=False)
+    return {"ok": True, "deleted": m.get("email") or member_id, "soft": True,
+            "reason": reason or "後台註銷",
+            "hint": "已註銷（登入會被擋）；可用 /members/{id}/restore 救回"}
+
+
 @router.post("/members/rebuild")
 async def rebuild_member(body: dict = Body(...),
                          _: dict = Depends(require_admin)) -> dict:
@@ -416,6 +441,18 @@ async def add_member_quota(member_id: str, body: dict = Body(...),
     return {"ok": True, "result": r}
 
 
+@router.post("/members/{member_id}/nickname")
+async def set_member_nickname(member_id: str, body: dict = Body(...),
+                              _: dict = Depends(require_admin)) -> dict:
+    """後台幫會員改／清喱稱（小羅 2026-09-29：會員資料要有喱稱）。"""
+    from ..services import members
+
+    m = members.set_nickname(member_id, str(body.get("nickname") or ""))
+    if not m:
+        raise HTTPException(status_code=404, detail="找不到這個會員")
+    return {"ok": True, "member": m}
+
+
 @router.get("/devices/{device_id}")
 async def device_trace(device_id: str, _: dict = Depends(require_admin)) -> dict:
     return {"ok": True, "device_id": device_id, "trace": events.device_trace(device_id)}
@@ -462,6 +499,25 @@ async def system(_: dict = Depends(require_admin)) -> dict:
         "totp_enabled": security.totp_enabled(),
         "data_dir": settings.data_dir or "(預設 ./data)",
     }
+
+
+@router.post("/system/account")
+async def set_admin_account(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
+    """改後台帳號／密碼 —— 小羅 2026-09-29：「前後台也要有改帳密的按鈕和邏輯」。
+
+    ⚠️ 安全：必須先輸入「目前的密碼」才能改。
+    改完會換掉登入金鑰（舊登入全部失效）→ 請用新帳密重新登入。
+    """
+    cur = body.get("current") or ""
+    user = (body.get("user") or "").strip()
+    pw = body.get("password") or ""
+    if not security.check_password(security.current_user(), cur):
+        raise HTTPException(status_code=400, detail="目前的密碼不正確")
+    if not user or len(pw) < 4:
+        raise HTTPException(status_code=400, detail="帳號不能空白，密碼至少 4 個字")
+    security.set_account(user, pw)
+    return {"ok": True, "user": user, "relogin": True,
+            "message": "帳密已更新，請用新帳密重新登入"}
 
 
 @router.post("/system/notify")

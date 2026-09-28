@@ -30,6 +30,14 @@ const SEV = { critical: '嚴重', warn: '警告', info: '一般' };
 const KIND = { page_view: '進站', resolve: '解析', download: '下載',
                transfer_pair: '傳輸配對', transfer_done: '傳輸完成',
                signup: '註冊', login: '登入', pay: '付款', notify: '通知' };
+//: 平台 id → 中文名（小羅 2026-09-29：「告訴我他是下載哪個平台還是解析哪個平台」）
+const PLATFORM_CN = { douyin: '抖音', tiktok: 'TikTok', facebook: 'Facebook',
+  bilibili: 'B站', xiaohongshu: '小紅書', instagram: 'Instagram',
+  xigua: '西瓜視頻', shopee: '蝦皮', weibo: '微博', toutiao: '今日頭條',
+  x: 'X (Twitter)', twitter: 'X (Twitter)', youtube: 'YouTube', threads: '脆 Threads' };
+//: 動作英文 → 中文（看不懂的英文一律轉成中文，小羅 2026-09-29 要求）
+const KIND2CN = (k) => KIND[k] || ({ resolve_fail: '解析失敗', download_fail: '下載失敗',
+  quota_block: '次數用盡', pay_fail: '付款失敗' }[k]) || (k ? `其他（${k}）` : '動作');
 
 // ── 工具 ─────────────────────────────────────────
 const fmtN = (n) => (n === null || n === undefined) ? '–' : Number(n).toLocaleString();
@@ -297,6 +305,7 @@ async function pgReports() {
       queue('已處理 #' + id + (r.actions?.length ? '：' + r.actions.join('、') : '')
             + (r.email ? '（會員 ' + r.email + '）' : '（訪客裝置）'));
       pgReports(); loadMemberList?.();
+      pollNotify();          // 馬上更新側邊圈圈數字（不用等下一輪）
     } catch (e) { alert(e.message); } finally { b.disabled = false; }
   }));
   // 預設回覆（依「有沒有加次數」自動組，小羅 2026-09-28：
@@ -326,6 +335,7 @@ async function pgReports() {
   $$('#rp-list [data-done]').forEach((b) => b.addEventListener('click', async () => {
     await api(`/feedback/${b.dataset.done}/handled`, { method: 'POST', body: '{}' });
     queue('已標記 #' + b.dataset.done + ' 為已處理'); pgReports();
+    pollNotify();            // 馬上把圈圈數字減一（小羅 2026-09-29：「已讀一個就要馬上變」）
   }));
 
   queue(`客戶回報 ${fmtN(c.total)} 則（未處理 ${fmtN(c.new)}）`);
@@ -344,12 +354,18 @@ async function pgQuotas() {
     kpi('免費次數限制', q.enabled ? '開啟中' : '已關閉',
         q.enabled ? '超過就必須等隔天或付費' : '所有人都無限使用'),
   ].join('');
-  // 手動加次數（對象用 Email 或裝置 ID 都可以；不必等有資料）
+  // 手動加次數（先查會員 → 確認沒加錯人 → 才加）
+  // 小羅 2026-09-29：「它只有加次數，并没有把這個會員秀出來…
+  //    萬一我搜尋之後是搜尋錯誤的我不就加錯人了嗎」
   const manualBox = `
     <div class="adjustbox">
-      <div class="lbl2">手動加次數（客人反映「失敗還扣我次數」時用）</div>
+      <div class="lbl2">手動加次數（先查人、確認沒加錯再按下去）</div>
       <div class="inrow">
-        <input id="qt-who" placeholder="輸入會員 Email 或裝置 ID（例：dev_xxx）">
+        <input id="qt-who" placeholder="輸入會員 Email／會員 ID／喱稱">
+        <button class="gh" id="qt-find">先查這位會員</button>
+      </div>
+      <div id="qt-found" class="dim" style="font-size:12px;margin:6px 0 2px"></div>
+      <div class="inrow">
         <select id="qt-kind">
           <option value="download">無水印下載</option>
           <option value="transfer">無損傳輸</option>
@@ -379,22 +395,49 @@ async function pgQuotas() {
     queue('已清除 ' + b.dataset.reset);
     pgQuotas();
   }));
+  // 先查人（找到才繼續；不確定就不加）
+  let qtTarget = null;
+  const qtFind = async () => {
+    const who = $('#qt-who').value.trim();
+    if (!who) { $('#qt-msg').textContent = '請先填 Email／會員 ID／喱稱'; return null; }
+    try {
+      const r = await api('/members/search?q=' + encodeURIComponent(who));
+      if (!r.rows.length) {
+        $('#qt-found').innerHTML = '<span style="color:#d33">找不到這位會員</span>'
+          + '（也可以直接填裝置 ID）';
+        qtTarget = null;
+        return null;
+      }
+      qtTarget = r.rows[0];
+      $('#qt-found').innerHTML = `✅ 找到：<b>${esc(qtTarget.email || qtTarget.id)}</b>`
+        + (qtTarget.nickname ? `（${esc(qtTarget.nickname)}）` : '')
+        + `　方案 <b>${esc(PL_NAME[qtTarget.plan] || qtTarget.plan)}</b>`
+        + `　<span class="dim">${esc(String(qtTarget.id).slice(0, 14))}…</span>`
+        + `　<button class="gh" id="qt-open">看他的資料卡</button>`;
+      $('#qt-open').onclick = () => openMemberCard(qtTarget.id);
+      return qtTarget;
+    } catch (e) { $('#qt-msg').textContent = '❌ ' + e.message; return null; }
+  };
+  $('#qt-find').onclick = qtFind;
+  $('#qt-who').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') qtFind(); });
   $('#qt-add').onclick = async () => {
     const who = $('#qt-who').value.trim();
     const n = Number($('#qt-n').value || 1);
-    if (!who) { $('#qt-msg').textContent = '請先填會員 Email 或裝置 ID'; return; }
-    // Email → 轉成會員 subject；其他就當裝置 ID
-    let subject = who;
+    if (!who) { $('#qt-msg').textContent = '請先填會員 Email／會員 ID／喱稱'; return; }
+    // 先確認對象（若還沒查過，或改了輸入框 → 重查）
+    if (!qtTarget || (qtTarget.email || '') !== who) {
+      const found = await qtFind();
+      if (!found) { $('#qt-msg').textContent = '❌ 找不到這位會員，不幫你加（避免加錯人）'; return; }
+    }
+    const label = `${qtTarget.email || qtTarget.id}`
+      + (qtTarget.nickname ? `（${qtTarget.nickname}）` : '');
+    if (!confirm(`確定幫這位會員加 ${n} 次？\n\n${label}`)) return;
     try {
-      if (who.includes('@')) {
-        const r = await api('/members/search?q=' + encodeURIComponent(who));
-        if (!r.rows.length) { $('#qt-msg').textContent = '找不到這個會員'; return; }
-        subject = 'user:' + r.rows[0].id;
-      }
+      const subject = 'user:' + qtTarget.id;
       await api('/quota/grant', { method: 'POST', body: JSON.stringify({
         subject, kind: $('#qt-kind').value, n }) });
-      $('#qt-msg').textContent = `✅ 已給 ${who} 加 ${n} 次`;
-      queue(`已給 ${who} 加 ${n} 次`);
+      $('#qt-msg').textContent = `✅ 已給 ${label} 加 ${n} 次`;
+      queue(`已給 ${label} 加 ${n} 次`);
       pgQuotas();
     } catch (e) { $('#qt-msg').textContent = '❌ ' + e.message; }
   };
@@ -1029,6 +1072,21 @@ async function pgSystem() {
   queue(`出口 IP ${d.egress_ip || '–'}　事件 ${fmtN(d.events)} 筆　DB ${fmtBytes(d.db_size)}`);
 }
 
+$('#acc-save').addEventListener('click', async () => {
+  const cur = $('#acc-cur').value;
+  const user = $('#acc-user').value.trim();
+  const pw = $('#acc-pass').value;
+  if (!cur) { $('#acc-msg').textContent = '請先輸入目前的密碼'; return; }
+  if (!user || pw.length < 4) { $('#acc-msg').textContent = '新帳號不能空白、新密碼至少 4 個字'; return; }
+  if (!confirm(`確定要把後台帳密改成「${user}」？\n（改完所有登入會失效，要重新登入）`)) return;
+  try {
+    const d = await api('/system/account', { method: 'POST', body: JSON.stringify({
+      current: cur, user, password: pw }) });
+    $('#acc-msg').textContent = '✅ ' + (d.message || '已更新');
+    alert('帳密已更新！請用新帳密重新登入。');
+    showLogin('帳密已更新，請用新帳密登入');
+  } catch (e) { $('#acc-msg').textContent = '❌ ' + e.message; }
+});
 $('#notify-save').addEventListener('click', async () => {
   const emails = $('#notify-input').value.split(',').map((s) => s.trim()).filter(Boolean);
   await api('/system/notify', { method: 'POST', body: JSON.stringify({ emails }) });
@@ -1100,8 +1158,8 @@ function prepareLogin() {
 document.getElementById('pw-hint')?.addEventListener('click', () => {
   alert('後台帳密：' + String.fromCharCode(10) + String.fromCharCode(10) +
         '帳號：admin' + String.fromCharCode(10) +
-        '密碼：Ferry-C2cPqk-1827' + String.fromCharCode(10) + String.fromCharCode(10) +
-        '（記錄在：桌面/記憶目錄_備份/小羅的人設.md）');
+        '密碼：admin' + String.fromCharCode(10) + String.fromCharCode(10) +
+        '（可以在後台「系統」頁自己改帳密）');
 });
 (async () => {
   if (!localStorage.getItem(TKEY)) return showLogin();
@@ -1136,7 +1194,8 @@ async function loadMemberList() {
   $('#ml-count').textContent = `共 ${d.total} 位　第 ${d.page} / ${d.pages} 頁`;
   $('#ml-page').textContent = `${d.page} / ${d.pages}`;
   $('#ml-list').innerHTML = d.rows.length ? table([
-    { t: 'Email', v: (r) => `<span class="rowlink" data-mid="${esc(r.id)}">${esc(r.email || r.id)}</span>`, html: true },
+    { t: 'Email / 喱稱', v: (r) => `<span class="rowlink" data-mid="${esc(r.id)}">${esc(r.email || r.id)}</span>`
+        + (r.nickname ? ` <span class="dim">（${esc(r.nickname)}）</span>` : ''), html: true },
     { t: '方案', v: (r) => `<span class="badge ${r.paid ? 'ok' : ''}">${esc(r.plan_name)}</span>`
         + (r.status === 'suspended' ? ' <span class="badge err">停權</span>' : '')
         + (r.status === 'deleted' ? ' <span class="badge err">已註銷</span>' : ''), html: true },
@@ -1157,6 +1216,15 @@ async function loadMemberList() {
     () => openMemberCard(el.dataset.mid || el.dataset.open)));
 }
 
+//: 最近活動的 HTML（給「自動更新」重複使用）
+// 小羅 2026-09-29：「我剛剛下載了兩片，但都沒有出現新的更新活動」→ 要即時
+const renderRecent = (list) => (list || []).slice(0, 15).map((r) =>
+  `<div class="hrow">${fmtTime(r.ts)}　<b>${esc(KIND2CN(r.kind))}</b>`
+  + (r.platform ? `　${esc(PLATFORM_CN[r.platform] || r.platform)}` : '')
+  + (r.quality ? `　<span class="dim">${esc(r.quality)}</span>` : '')
+  + (r.result ? `　${r.result === 'ok' ? '✅ 成功' : '❌ 失敗'}` : '') + '</div>').join('')
+  || '<div class="dim">尚無活動（他做任何事（解析／下載）都會馬上出現在這裡）</div>';
+
 async function openMemberCard(mid) {
   const d = await api(`/members/${mid}/card`);
   const m = d.card;
@@ -1167,11 +1235,7 @@ async function openMemberCard(mid) {
     + (h.reason ? `　<span class="dim">${esc(h.reason)}</span>` : '')
     + (h.note ? `　<span class="dim">${esc(h.note)}</span>` : '') + '</div>').join('')
     || '<div class="dim">尚無紀錄</div>';
-  const recent = (m.recent || []).slice(0, 12).map((r) =>
-    `<div class="hrow">${fmtTime(r.ts)}　<span class="dim">${esc(r.kind)}</span>`
-    + (r.platform ? `　${esc(r.platform)}` : '')
-    + (r.result ? `　${r.result === 'ok' ? '✅' : '❌'}` : '') + '</div>').join('')
-    || '<div class="dim">尚無活動</div>';
+  const recent = renderRecent(m.recent);
   const logins = (m.logins || []).map((x) =>
     `<div class="hrow">${fmtTime(x.ts)}　<span class="dim">${esc(x.os || '')}`
     + `${x.browser ? ' · ' + esc(x.browser) : ''}`
@@ -1197,6 +1261,7 @@ async function openMemberCard(mid) {
     ${pctLeft !== null ? `<div class="klife"><i style="width:${pctLeft}%"></i></div>` : ''}
     <div class="mgrid">
       <div><span>會員 ID</span>${esc(m.id)}</div>
+      <div><span>喱稱</span><b>${esc(m.nickname || '–')}</b>${m.nickname ? ' <button class="gh" id="adj-nick-clr" style="padding:1px 6px;font-size:11px">清除</button>' : ''}</div>
       <div><span>Email</span><b>${esc(m.email || '–')}</b></div>
       <div><span>會員種類</span><b>${esc(kindName)}</b></div>
       <div><span>方案價格</span>${isPaid ? `US$ ${m.price}` : '免費'}</div>
@@ -1218,7 +1283,14 @@ async function openMemberCard(mid) {
     </div>
 
     <div class="adjustbox">
-      <div class="lbl2">手動調整（賠償機制 —— 數字自己填，不限固定值）</div>
+      <div class="lbl2">⭐ 方案開通／關閉（私下收款後幫客戶開通用）</div>
+      <div class="inrow">
+        <button class="big sm" id="adj-p-month">開通月會員（31 天）</button>
+        <button class="big sm" id="adj-p-life">開通終身會員</button>
+        <button class="gh" id="adj-p-close">關閉（降回免費）</button>
+        <span class="dim" id="adj-p-msg" style="font-size:11.5px"></span>
+      </div>
+      <div class="lbl2" style="margin-top:10px">手動調整（賠償機制 —— 數字自己填，不限固定值）</div>
       <div class="inrow">
         <label class="tinylabel">加天數</label>
         <input id="adj-days" type="number" min="0" step="1" placeholder="1 / 2 / 5 / 8 / 30">
@@ -1231,13 +1303,14 @@ async function openMemberCard(mid) {
         <input id="adj-note" placeholder="原因備註（例：客戶反映下載失敗，補償 3 天）">
         <button class="big sm" id="adj-go">套用調整</button>
         <button class="gh" id="adj-sus">${m.status === 'suspended' ? '復權' : '停權'}</button>
+        <button class="gh" id="adj-del" style="color:#d33;border-color:#d33">刪除帳號</button>
       </div>
       <div class="dim" id="adj-status" style="font-size:11.5px"></div>
     </div>
 
     <div class="rows" style="margin-top:14px">
       <div class="pnl"><div class="lbl">方案變更歷史</div>${hist}</div>
-      <div class="pnl"><div class="lbl">最近活動</div>${recent}</div>
+      <div class="pnl"><div class="lbl">最近活動（每 8 秒自動更新）</div><div id="mc-recent">${recent}</div></div>
     </div>
     <div class="pnl" style="margin-top:12px">
       <div class="lbl">登入歷史（共 ${fmtN(m.login_count)} 次）</div>
@@ -1245,6 +1318,17 @@ async function openMemberCard(mid) {
     </div>`;
   $('#ml-cardbox').hidden = false;
   $('#ml-cardbox').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // 最近活動自動更新（小羅 2026-09-29：「都沒有出現新的更新活動」）
+  if (ML.timer) clearInterval(ML.timer);
+  ML.timer = setInterval(async () => {
+    if ($('#ml-cardbox').hidden) { clearInterval(ML.timer); ML.timer = null; return; }
+    try {
+      const dd = await api(`/members/${mid}/card`);
+      const box = $('#mc-recent');
+      if (box) box.innerHTML = renderRecent(dd.card.recent);
+    } catch (e) { /* 鈍默（不要吵）*/ }
+  }, 8000);
 
   $('#adj-go').onclick = async () => {
     const body = {
@@ -1271,6 +1355,42 @@ async function openMemberCard(mid) {
     queue('已' + (st === 'suspended' ? '停權' : '復權'));
     openMemberCard(mid); loadMemberList();
   };
+
+  // ⭐ 方案開通／關閉（小羅 2026-09-29：「我要幫客戶開通月會員或終身會員…
+  //    既然有開通也要能關閉」）
+  const setPlan = (plan, label) => {
+    if (!confirm(`確定幫 ${m.email || m.id} ${label}？`)) return;
+    api(`/members/${mid}/adjust`, { method: 'POST', body: JSON.stringify({ plan }) })
+      .then(() => { queue(`已${label}`); openMemberCard(mid); loadMemberList(); })
+      .catch((e) => { $('#adj-p-msg').textContent = '❌ ' + e.message; });
+  };
+  $('#adj-p-month').onclick = () => setPlan('monthly', '開通月會員（31 天）');
+  $('#adj-p-life').onclick = () => setPlan('lifetime', '開通終身會員');
+  $('#adj-p-close').onclick = () => setPlan('free', '關閉會員（降回免費）');
+
+  // 🗑 刪除帳號（小羅 2026-09-29：「我也可以刪除他這個帳號對不對」）
+  const delBtn = $('#adj-del');
+  if (delBtn) delBtn.onclick = async () => {
+    const who = m.email || m.id;
+    if (!confirm(`⚠️ 確定要刪除「${who}」的帳號？\n\n（他會立即無法登入；資料保留，可從「復原刪掉的會員」救回）`)) return;
+    if (!confirm('再確認一次：真的要刪除？')) return;
+    try {
+      await api(`/members/${mid}?confirm=DELETE`, { method: 'DELETE' });
+      queue('已刪除帳號：' + who);
+      $('#ml-cardbox').hidden = true;
+      loadMemberList();
+    } catch (e) { alert(e.message); }
+  };
+
+  // 喱稱清除
+  const nkClr = $('#adj-nick-clr');
+  if (nkClr) nkClr.onclick = async () => {
+    if (!confirm('清除這位會員的喱稱？（他會回到用 Email 顯示）')) return;
+    try {
+      await api(`/members/${mid}/nickname`, { method: 'POST', body: JSON.stringify({ nickname: '' }) });
+      queue('已清除喱稱'); openMemberCard(mid); loadMemberList();
+    } catch (e) { alert(e.message); }
+  };
 }
 
 function bindMemberPage() {
@@ -1282,7 +1402,10 @@ function bindMemberPage() {
   $('#ml-sort').onchange = () => { ML.page = 1; loadMemberList(); };
   $('#ml-prev').onclick = () => { if (ML.page > 1) { ML.page--; loadMemberList(); } };
   $('#ml-next').onclick = () => { if (ML.page < ML.pages) { ML.page++; loadMemberList(); } };
-  $('#ml-cardclose').onclick = () => { $('#ml-cardbox').hidden = true; };
+  $('#ml-cardclose').onclick = () => {
+    $('#ml-cardbox').hidden = true;
+    if (ML.timer) { clearInterval(ML.timer); ML.timer = null; }
+  };
   $('#ml-restore').onclick = async () => {
     if (!confirm('從「方案歷史」把以前被刪掉的會員重建回來？\n（不會動到現有會員）')) return;
     try {
@@ -1311,7 +1434,7 @@ bindMemberPage();
 //     「我要按刷新才看得到未讀提示，有沒有辦法即時看到？
 //       後台也是一樣，客戶有人回報問題我不需要刷新就看到訊息跳出來，
 //       而且要像前台那樣有綠色圈圈顯示 1、2、3。」
-const NOTIFY_EVERY = 15000;      // 15 秒查一次
+const NOTIFY_EVERY = 8000;       // 8 秒查一次（小羅 2026-09-29：不夠即時 → 縮短）
 let _lastFbNew = -1;
 
 async function pollNotify() {
@@ -1334,6 +1457,12 @@ async function pollNotify() {
   } catch (e) { /* 忽略（後台可能正在重啟） */ }
 }
 
-// 登入後就開始輪詢（每 15 秒）
+// 登入後就開始輪詢
 setInterval(() => { if (localStorage.getItem(TKEY)) pollNotify(); }, NOTIFY_EVERY);
 setTimeout(() => { if (localStorage.getItem(TKEY)) pollNotify(); }, 3000);
+// 分頁切回來／視窗重新取得焦點 → 立刻查一次（不要等下一輪）
+// 小羅 2026-09-29：「我看它沒有馬上就消失掉…要重新整理這個網頁」
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && localStorage.getItem(TKEY)) pollNotify();
+});
+window.addEventListener('focus', () => { if (localStorage.getItem(TKEY)) pollNotify(); });

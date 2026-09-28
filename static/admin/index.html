@@ -133,7 +133,7 @@
             <div class="dim" id="ml-count" style="font-size:11.5px"></div>
           </div>
           <div class="inrow">
-            <input id="ml-q" placeholder="搜尋 Email 或會員 ID…">
+            <input id="ml-q" placeholder="搜尋 Email／會員 ID／喱稱…">
             <select id="ml-plan">
               <option value="">全部方案</option>
               <option value="paid">只看付費會員</option>
@@ -360,6 +360,21 @@
       <section class="pg" id="pg-system">
         <div class="rows">
           <div class="pnl"><div class="lbl">系統資訊</div><div id="sys-info"></div></div>
+          <div class="pnl"><div class="lbl">🔑 後台帳號密碼</div>
+            <p class="note">在這裡改自己的登入帳密（小羅 2026-09-29 要求）。改完要重新登入一次。</p>
+            <div class="inrow">
+              <label class="tinylabel">目前密碼</label>
+              <input type="password" id="acc-cur" placeholder="先輸入目前的密碼" autocomplete="current-password">
+            </div>
+            <div class="inrow">
+              <label class="tinylabel">新帳號</label>
+              <input type="text" id="acc-user" placeholder="admin" autocomplete="username">
+              <label class="tinylabel">新密碼</label>
+              <input type="password" id="acc-pass" placeholder="至少 4 個字" autocomplete="new-password">
+              <button class="big sm" id="acc-save">儲存新帳密</button>
+            </div>
+            <div class="dim" id="acc-msg" style="font-size:11.5px"></div>
+          </div>
           <div class="pnl"><div class="lbl">通知收件人（Email）</div>
             <div class="inrow"><input type="text" id="notify-input" placeholder="a@b.com, c@d.com">
               <button class="big sm" id="notify-save">儲存</button></div>
@@ -393,6 +408,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=38"></script>
+<script src="/admin/app.js?v=39"></script>
 </body>
 </html>

@@ -81,6 +81,13 @@ def login(email: str, password: str, *, device_id: str | None = None) -> dict:
     row = db.one("SELECT * FROM members WHERE email = ?", (email,))
     if row is None or not _verify(password or "", row["password"] or ""):
         raise BadRequest("Email 或密碼錯誤", code="BAD_CREDENTIALS")
+    # 停權／註銷要真的進不去（小羅 2026-09-29 要求）
+    _r = dict(row)
+    _st = _r.get("status") or "active"
+    if _st == "deleted":
+        raise BadRequest("這個帳號已經註銷了", code="ACCOUNT_DELETED")
+    if _st == "suspended":
+        raise BadRequest("這個帳號已被停權，請聯絡客服", code="ACCOUNT_SUSPENDED")
     touch_login(row["id"])
     if device_id:
         db.execute("UPDATE members SET device_id=? WHERE id=?", (device_id, row["id"]))
@@ -114,7 +121,13 @@ def verify_token(token: str) -> str | None:
         return None
     if int(payload.get("exp", 0)) < time.time():
         return None
-    return payload.get("m")
+    mid = payload.get("m")
+    # 停權／註銷 → token 立即失效（小羅 2026-09-29：「停權要真的停、刪除要真的進不去」）
+    if mid:
+        st = db.scalar("SELECT COALESCE(status,'active') FROM members WHERE id=?", (mid,))
+        if st in ("suspended", "deleted"):
+            return None
+    return mid
 
 
 def get(member_id: str) -> dict | None:
@@ -579,14 +592,15 @@ def set_status(member_id: str, status: str) -> bool:
 
 
 def search(keyword: str, limit: int = 50) -> list[dict]:
-    """客服查詢：用 Email 或會員 ID 找會員。"""
+    """客服查詢：用 Email／會員 ID／暱稱 找會員（小羅 2026-09-29：「賬號或 ID 或昵稱都要能搜」）。"""
     kw = (keyword or "").strip()
     if not kw:
         return []
     like = f"%{kw}%"
     rows = db.query(
         "SELECT * FROM members WHERE email LIKE ? OR id LIKE ?"
-        " ORDER BY created_at DESC LIMIT ?", (like, like, limit))
+        " OR COALESCE(nickname,'') LIKE ?"
+        " ORDER BY created_at DESC LIMIT ?", (like, like, like, limit))
     out = []
     for r in rows:
         m = dict(r)
@@ -618,9 +632,9 @@ def page(q: str = "", plan: str = "", sort: str = "created_desc",
     where, params = [], []
     kw = (q or "").strip()
     if kw:
-        where.append("(email LIKE ? OR id LIKE ?)")
+        where.append("(email LIKE ? OR id LIKE ? OR COALESCE(nickname,'') LIKE ?)")
         like = f"%{kw}%"
-        params += [like, like]
+        params += [like, like, like]
     if plan == "paid":
         where.append("plan<>?")
         params.append(billing.PLAN_FREE)
@@ -635,7 +649,8 @@ def page(q: str = "", plan: str = "", sort: str = "created_desc",
     order = SORTS.get(sort, SORTS["created_desc"])
     offset = max(0, (page - 1) * size)
     rows = db.query(
-        "SELECT id, email, plan, device_id, tz, created_at, expires_at, country,"
+        "SELECT id, email, COALESCE(nickname,'') AS nickname, plan, device_id, tz,"
+        " created_at, expires_at, country,"
         " plan_started_at, COALESCE(status,'active') AS status,"
         " last_login_at, last_seen_at, COALESCE(login_count,0) AS login_count"
         " FROM members" + sql_where + " ORDER BY " + order + " LIMIT ? OFFSET ?",
@@ -792,6 +807,25 @@ def set_nickname(member_id: str, nickname: str) -> dict | None:
     name = re.sub(r"\s+", " ", name)[:NICKNAME_MAX]
     db.execute("UPDATE members SET nickname=? WHERE id=?", (name or None, member_id))
     return get(member_id)
+
+
+def set_password(member_id: str, new_password: str) -> dict | None:
+    """會員自己改密碼（前台「會員中心」）。
+
+    小羅 2026-09-29：「前後台你也都沒有給我設計改帳密的方法或按鈕和邏輯呀」
+    → 後台走 admin 帳密模塊；前台就是這裡（會員改自己的密碼）。
+    """
+    if len(new_password or "") < 6:
+        raise BadRequest("密碼至少 6 個字", code="WEAK_PASSWORD")
+    db.execute("UPDATE members SET password=? WHERE id=?",
+               (_hash(new_password), member_id))
+    return get(member_id)
+
+
+def check_password(member_id: str, password: str) -> bool:
+    """驗某位會員的密碼（會員自己改密碼時要先驗舊密碼）。"""
+    row = db.one("SELECT password FROM members WHERE id=?", (member_id,))
+    return bool(row) and _verify(password or "", row["password"] or "")
 
 
 def tier_of(member_id: str | None) -> str:

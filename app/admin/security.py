@@ -65,11 +65,49 @@ def verify_token(token: str) -> dict | None:
     return payload
 
 
-# ── 密碼 ──────────────────────────────────────────────
+# ── 密碼 ──────────────────────────────────────────
+# 小羅 2026-09-29：「你幫我改成帳號密碼都用 admin」；
+#                 「前後台你也都沒有給我設計改帳密的方法或按鈕和邏輯呀」
+# → 帳密改成「存在資料庫」（可用後台修改），環境變數只當「第一次的預設值」。
+def _hash_password(pw: str, salt: str | None = None) -> str:
+    salt = salt or secrets.token_hex(8)
+    h = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt.encode(), 100_000)
+    return f"{salt}${h.hex()}"
+
+
+def _verify_password(pw: str, stored: str) -> bool:
+    if not stored or "$" not in stored:
+        return False
+    salt, want = stored.split("$", 1)
+    return hmac.compare_digest(_hash_password(pw, salt), stored)
+
+
+def current_user() -> str:
+    """目前的管理員帳號（後台改過就優先用 DB 的）。"""
+    return db.get_setting("admin_user") or settings.admin_user
+
+
 def check_password(user: str, password: str) -> bool:
+    """驗帳密：① 後台改過（存 DB）優先　② 還沒改過 → 用環境變數。"""
+    stored_pw = db.get_setting("admin_password")
+    if stored_pw:
+        return (hmac.compare_digest(user or "", current_user())
+                and _verify_password(password or "", stored_pw))
     ok_user = hmac.compare_digest(user or "", settings.admin_user)
     ok_pass = hmac.compare_digest(password or "", settings.admin_password)
     return ok_user and ok_pass
+
+
+def set_account(user: str, password: str) -> None:
+    """改後台帳密（存 DB）——改完會換掉 token 金鑰，讓舊登入全部失效。"""
+    user = (user or "").strip()
+    if not user:
+        raise ValueError("帳號不能空白")
+    if len(password or "") < 4:
+        raise ValueError("密碼至少 4 個字")
+    db.set_setting("admin_user", user)
+    db.set_setting("admin_password", _hash_password(password))
+    db.set_setting("admin_secret", secrets.token_hex(32))   # 強制重新登入
 
 
 # ── TOTP（兩步驟驗證）──────────────────────────────────

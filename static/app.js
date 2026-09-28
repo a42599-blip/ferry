@@ -943,6 +943,22 @@ $('#m-nick-save').addEventListener('click', async () => {
   finally { btn.disabled = false; }
 });
 
+// 更改密碼（小羅 2026-09-29：「前後台也要有改帳密的按鈕和邏輯」）
+$('#m-pw-save').addEventListener('click', async () => {
+  const btn = $('#m-pw-save');
+  const cur = $('#m-pw-cur').value;
+  const nw = $('#m-pw-new').value;
+  if (!cur || !nw) { msg('#m-pw-msg', t('password_desc'), 'err'); return; }
+  btn.disabled = true;
+  try {
+    await api('/api/member/password', { method: 'POST',
+      body: JSON.stringify({ current: cur, password: nw }) });
+    msg('#m-pw-msg', t('password_saved'), 'ok');
+    $('#m-pw-cur').value = ''; $('#m-pw-new').value = '';
+  } catch (e) { msg('#m-pw-msg', e.message, 'err'); }
+  finally { btn.disabled = false; }
+});
+
 // 登出（頂部那顆）
 $('#who-out').addEventListener('click', async () => {
   localStorage.removeItem(MKEY);
