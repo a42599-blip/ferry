@@ -19,8 +19,14 @@
   [ -f wgcf-account.toml ] || wgcf register --accept-tos > /tmp/warp.log 2>&1
   [ -f wgcf-profile.conf ] || wgcf generate >> /tmp/warp.log 2>&1
   [ -f wgcf-profile.conf ] || exit 0
-  # MTU 調小到 1000：容器網路外面還包一層，封包太大會被丟 → 小請求通、大回應（YouTube）卡到逾時
-  { sed 's/^MTU = .*/MTU = 1000/' wgcf-profile.conf; printf '\n[http]\nBindAddress = 127.0.0.1:40001\n'; } > /tmp/wireproxy.conf
+  # 通道內只用 IPv4＋MTU 1180（2026-09-28 實測）：
+  #   · 容器網路外面還包一層，封包太大會被丟 → 小請求通、大回應（YouTube）卡到逾時 → 要調小
+  #   · 但 IPv6 規定 MTU 至少 1280，調小會弄壞 IPv6 → 所以拿掉 IPv6 位址與 IPv6 DNS
+  #   本機驗證：warp=on、經通道開 YouTube 首頁 882KB 0.24 秒、yt-dlp 解析 41 種、抓 10MB 之後 206
+  { sed -e 's/^MTU = .*/MTU = 1180/' \
+        -e 's/^Address = \([^,]*\),.*/Address = \1/' \
+        -e 's/^DNS = .*/DNS = 1.1.1.1, 1.0.0.1/' wgcf-profile.conf
+    printf '\n[http]\nBindAddress = 127.0.0.1:40001\n'; } > /tmp/wireproxy.conf
   exec wireproxy -c /tmp/wireproxy.conf >> /tmp/warp.log 2>&1
 ) &
 

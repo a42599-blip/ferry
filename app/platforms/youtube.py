@@ -363,8 +363,10 @@ def _warp_ready() -> bool:
     try:
         r = httpx.get("https://www.cloudflare.com/cdn-cgi/trace", proxy=_WARP_PROXY, timeout=4)
         ok = "warp=on" in r.text or "warp=plus" in r.text
-    except httpx.HTTPError:
+        _state["warp_diag"] = "" if ok else "trace 沒有 warp=on"
+    except httpx.HTTPError as exc:
         ok = False
+        _state["warp_diag"] = f"trace 失敗 {type(exc).__name__}"
     if ok:
         # 大回應也要過得去才算真的通（封包太大被丟時：小請求通、大回應卡住）
         t = time.monotonic()
