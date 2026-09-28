@@ -21,6 +21,23 @@ from ._ytdlp import YtDlpResolver, quality_label
 
 _API = "https://www.tikwm.com/api/"
 #: ⚠️ 排除 `/xg/`：那是**西瓜視頻**的分享路徑（iesdouyin.com/xg/video/<id>）
+#: 網址裡出現這些字樣＝**含水印**的版本（抖音會把帶水印的 CDN 路徑放進 play_addr）
+#  小羅 2026-09-28：「抖音下載成功了，可是為什麼沒有去水印？」
+#  例：.../video/cn/mps/logo/r/p/xxx  ← /logo/ 就是水印版
+_WATERMARK_HINTS = ("playwm", "/logo/", "mps/logo", "watermark")
+
+
+def _has_watermark(url: str) -> bool:
+    """這個網址是不是「含水印」的版本。"""
+    u = (url or "").lower()
+    return any(h in u for h in _WATERMARK_HINTS)
+
+
+def _strip_watermark(url: str) -> str:
+    """盡量把水印版網址轉成無水印版（抖音常見的 playwm → play）。"""
+    return (url or "").replace("playwm", "play")
+
+
 _URL_RE = re.compile(
     r"https?://(?:www\.|v\.|vm\.|m\.)?(?:douyin\.com|iesdouyin\.com)/(?!xg/)", re.I
 )
@@ -417,6 +434,12 @@ class DouyinResolver(YtDlpResolver):
             u = (br.get("play_addr") or {}).get("url_list", [""])[0]
             if u in seen:
                 continue
+            if _has_watermark(u):
+                # 含水印的版本 → 試著轉成無水印；轉不掉就跳過（寧可少一種畫質，也不要給使用者水印）
+                clean = _strip_watermark(u)
+                if clean == u or _has_watermark(clean):
+                    continue
+                u = clean
             seen.add(u)
             fmts.append(Format(
                 id=f"v{h}", label=quality_label(h), url=u,
