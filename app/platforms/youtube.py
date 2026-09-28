@@ -365,6 +365,15 @@ def _warp_ready() -> bool:
         ok = "warp=on" in r.text or "warp=plus" in r.text
     except httpx.HTTPError:
         ok = False
+    if ok:
+        # 大回應也要過得去才算真的通（封包太大被丟時：小請求通、大回應卡住）
+        t = time.monotonic()
+        try:
+            r = httpx.get("https://www.youtube.com/", proxy=_WARP_PROXY, timeout=8)
+            _state["warp_diag"] = f"YT首頁 {r.status_code} {len(r.content) // 1024}KB {time.monotonic() - t:.1f}s"
+        except httpx.HTTPError as exc:
+            ok = False
+            _state["warp_diag"] = f"YT首頁失敗 {type(exc).__name__} {time.monotonic() - t:.1f}s"
     _state["warp"] = (time.time(), ok)
     return ok
 
@@ -372,10 +381,10 @@ def _warp_ready() -> bool:
 def _warp_note() -> str:
     """通道狀態一句話（放進失敗訊息，方便查原因；只取通道紀錄最後一行，不含金鑰）。"""
     if _state["warp"][1]:
-        return "warp 通"
+        return f"warp 通，{_state.get('warp_diag', '')}"
     try:
         with open("/tmp/warp.log", encoding="utf-8", errors="ignore") as f:
             last = [ln.strip() for ln in f if ln.strip()][-1:]
     except OSError:
         last = []
-    return "warp 未通" + (f"（{last[0][-120:]}）" if last else "")
+    return f"warp 未通 {_state.get('warp_diag', '')}" + (f"（{last[0][-120:]}）" if last else "")

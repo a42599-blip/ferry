@@ -19,7 +19,8 @@
   [ -f wgcf-account.toml ] || wgcf register --accept-tos > /tmp/warp.log 2>&1
   [ -f wgcf-profile.conf ] || wgcf generate >> /tmp/warp.log 2>&1
   [ -f wgcf-profile.conf ] || exit 0
-  { cat wgcf-profile.conf; printf '\n[http]\nBindAddress = 127.0.0.1:40001\n'; } > /tmp/wireproxy.conf
+  # MTU 調小到 1000：容器網路外面還包一層，封包太大會被丟 → 小請求通、大回應（YouTube）卡到逾時
+  { sed 's/^MTU = .*/MTU = 1000/' wgcf-profile.conf; printf '\n[http]\nBindAddress = 127.0.0.1:40001\n'; } > /tmp/wireproxy.conf
   exec wireproxy -c /tmp/wireproxy.conf >> /tmp/warp.log 2>&1
 ) &
 
