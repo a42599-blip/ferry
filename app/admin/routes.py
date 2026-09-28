@@ -441,6 +441,32 @@ async def add_member_quota(member_id: str, body: dict = Body(...),
     return {"ok": True, "result": r}
 
 
+@router.post("/members/{member_id}/password")
+async def reset_member_password(member_id: str, body: dict = Body(...),
+                                _: dict = Depends(require_admin)) -> dict:
+    """後台幫會員直接重設密碼（客服模式）。
+
+    小羅 2026-09-29：「忘記密碼要真實有效」→ 在没有寄信設定前，
+    客人忘記密碼時就由小羅在這裡直接設一組新密碼給他。
+    不帶 password 就自動產生一組好講的（如 K7m4-Qx9p）。
+    """
+    from ..services import members
+
+    if not members.get(member_id):
+        raise HTTPException(status_code=404, detail="找不到這個會員")
+    pw = (body.get("password") or "").strip()
+    if not pw:
+        import secrets as _s
+        a = "".join(_s.choice("abcdefghjkmnpqrstuvwxyz23456789") for _ in range(4))
+        b = "".join(_s.choice("abcdefghjkmnpqrstuvwxyz23456789") for _ in range(4))
+        pw = f"{a}-{b}"
+    elif len(pw) < 6:
+        raise HTTPException(status_code=400, detail="密碼至少 6 個字")
+    members.set_password(member_id, pw)
+    return {"ok": True, "password": pw,
+            "hint": "請把這組新密碼告給客人（他登入後可以自己在會員頁改）"}
+
+
 @router.post("/members/{member_id}/nickname")
 async def set_member_nickname(member_id: str, body: dict = Body(...),
                               _: dict = Depends(require_admin)) -> dict:

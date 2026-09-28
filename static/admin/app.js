@@ -1291,6 +1291,7 @@ async function openMemberCard(mid) {
         <button class="big sm" id="adj-p-month">開通月會員（31 天）</button>
         <button class="big sm" id="adj-p-life">開通終身會員</button>
         <button class="gh" id="adj-p-close">關閉（降回免費）</button>
+        <button class="gh" id="adj-pw">🔑 重設他的密碼</button>
         <span class="dim" id="adj-p-msg" style="font-size:11.5px"></span>
       </div>
       <div class="lbl2" style="margin-top:10px">手動調整（賠償機制 —— 數字自己填，不限固定值）</div>
@@ -1370,6 +1371,23 @@ async function openMemberCard(mid) {
   $('#adj-p-month').onclick = () => setPlan('monthly', '開通月會員（31 天）');
   $('#adj-p-life').onclick = () => setPlan('lifetime', '開通終身會員');
   $('#adj-p-close').onclick = () => setPlan('free', '關閉會員（降回免費）');
+
+  // 🔑 重設會員密碼（客服模式：客人忘記密碼時，小羅直接給他一組新的）
+  const pwBtn = $('#adj-pw');
+  if (pwBtn) pwBtn.onclick = async () => {
+    const who = m.email || m.id;
+    const custom = prompt(`幫「${who}」重設密碼\n\n`
+      + `要自己設一組嗎？（至少 6 個字）\n`
+      + `留空白按確定 → 系統自動產生一組好講的密碼`, '');
+    if (custom === null) return;
+    try {
+      const r = await api(`/members/${mid}/password`, { method: 'POST',
+        body: JSON.stringify({ password: custom }) });
+      alert(`✅ ${who} 的新密碼：\n\n${r.password}\n\n`
+        + `（請把這組給客人；他登入後可以自己在會員頁改成他要的）`);
+      queue(`已重設 ${who} 的密碼`);
+    } catch (e) { alert('❌ ' + e.message); }
+  };
 
   // 🗑 刪除帳號（小羅 2026-09-29：「我也可以刪除他這個帳號對不對」）
   const delBtn = $('#adj-del');
