@@ -668,6 +668,19 @@ async def payout_status(pid: int, body: dict = Body(...),
 
 
 # ── 使用者回報（任何人都能送，不限會員）───────────────
+@router.get("/notify-count")
+async def notify_count(_: dict = Depends(require_admin)) -> dict:
+    """輕量端點：後台要顯示的未讀/未處理數量（前端每 15 秒輪詢一次）。
+
+    小羅 2026-09-28：「我不要刷新就可以看到訊息跳出來，
+                      而且要像前台那樣有綠色圈圈顯示 1、2、3。」
+    """
+    from ..services import feedback
+
+    c = feedback.counts(days=365)
+    return {"ok": True, "feedback_new": c["new"], "feedback_total": c["total"]}
+
+
 @router.get("/feedback")
 async def get_feedback(days: int = Query(30), only_new: bool = Query(False),
                        _: dict = Depends(require_admin)) -> dict:

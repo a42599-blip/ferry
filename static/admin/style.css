@@ -308,3 +308,9 @@ textarea:focus{border-color:var(--acc)}
   border-top:1px solid rgba(255,255,255,.06);display:flex;gap:9px;flex-wrap:wrap}
 .freplies .frep:first-of-type{border-top:0}
 .freplies .frep span:first-child{flex:0 0 auto;color:var(--lab)}
+
+/* ── 側邊欄未處理徽章（綠色圈圈顯示數字）── */
+.sidebadge{display:inline-block;margin-left:7px;background:#3fbf7f;color:#08251a;
+  border-radius:10px;padding:0 7px;font-size:10.5px;font-weight:700;line-height:16px;
+  vertical-align:middle}
+.side button.on .sidebadge{background:#5eead4;color:#052e2b}

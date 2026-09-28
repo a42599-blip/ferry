@@ -418,6 +418,31 @@ function renderReplyBar() {
     + '</div>';
 }
 
+// 前台即時通知：每 20 秒查一次「有沒有新的客服回覆」
+//   小羅 2026-09-28：「我要按刷新才看得到未讀提示，有沒有辦法即時看到？」
+const REPLY_POLL_EVERY = 20000;
+let _lastReplyCount = -1;
+
+async function pollMyReplies() {
+  const bar = document.getElementById('replybar');
+  if (!bar) return;
+  let j;
+  try { j = await api('/api/my-replies'); } catch (err) { return; }
+  const items = (j.items || []).slice(0, 30);
+  const n = items.length;
+  // 有新回覆 → 跳提示（只在「增加」時提示，避免每次輪詢都吵）
+  if (_lastReplyCount >= 0 && n > _lastReplyCount) {
+    msg('#rp-status', t('reply_new'), 'ok');
+    const box = document.getElementById('report-box');
+    if (box) box.open = true;          // 自動打開讓客戶看到
+  }
+  _lastReplyCount = n;
+  _replyItems = items;
+  _replyPending = j.pending || 0;
+  _unread = unreadCount();
+  renderReplyBar();
+}
+
 async function loadMyReplies() {
   const bar = document.getElementById('replybar');
   if (!bar) return;
@@ -938,6 +963,7 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   await loadQuota();
   loadAnnouncements();
   loadMyReplies();
+  setInterval(pollMyReplies, REPLY_POLL_EVERY);      // 即時輪詢（不用刷新）
   // 「回報問題」被打開（或關起來）就標記已讀 → 數字消失（像未讀訊息）
   const _rbox = document.getElementById('report-box');
   if (_rbox) {

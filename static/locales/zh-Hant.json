@@ -284,5 +284,6 @@
   "reply_title": "客服回覆",
   "reply_action": "處理內容",
   "reply_pending": "你的回報處理中",
-  "reply_scroll": "可往下滑"
+  "reply_scroll": "可往下滑",
+  "reply_new": "📨 客服有新回覆給你，請看下面"
 }

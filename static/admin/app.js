@@ -1290,3 +1290,35 @@ bindMemberPage();
   const el = document.getElementById('verstamp');
   if (el) el.textContent = 'v33 · 2026-09-28 15:40';
 })();
+
+// ── 即時通知（輪詢）：不用重新整理就看得到 ──────────────────
+//   小羅 2026-09-28：
+//     「我要按刷新才看得到未讀提示，有沒有辦法即時看到？
+//       後台也是一樣，客戶有人回報問題我不需要刷新就看到訊息跳出來，
+//       而且要像前台那樣有綠色圈圈顯示 1、2、3。」
+const NOTIFY_EVERY = 15000;      // 15 秒查一次
+let _lastFbNew = -1;
+
+async function pollNotify() {
+  try {
+    const d = await api('/notify-count');
+    const n = d.feedback_new || 0;
+    const badge = document.getElementById('side-reports');
+    if (badge) {
+      badge.hidden = !n;
+      badge.textContent = n > 99 ? '99+' : String(n);
+      badge.title = n ? `${n} 筆客戶回報還沒處理` : '';
+    }
+    // 有新回報 → 跳提示（只在「增加」時提示，避免每次輪詢都吵）
+    if (_lastFbNew >= 0 && n > _lastFbNew) {
+      const add = n - _lastFbNew;
+      queue(`📨 有 ${add} 筆新的客戶回報（未處理共 ${n} 筆）`);
+      if (curPage === 'reports') pgReports();
+    }
+    _lastFbNew = n;
+  } catch (e) { /* 忽略（後台可能正在重啟） */ }
+}
+
+// 登入後就開始輪詢（每 15 秒）
+setInterval(() => { if (localStorage.getItem(TKEY)) pollNotify(); }, NOTIFY_EVERY);
+setTimeout(() => { if (localStorage.getItem(TKEY)) pollNotify(); }, 3000);
