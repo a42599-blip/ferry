@@ -1,8 +1,8 @@
 """YouTube 解析（yt-dlp）。
 
 ⚠️ YouTube 是 **IP 敏感** 平台（規格書第 7 章）：
-  - CDN 擋 Origin → 走伺服器「原樣轉發」（mode="relay"，見 resolve()）
-  - 高畫質是「分離軌」→ 附上音軌網址，由伺服器 ffmpeg 合併（Dockerfile 已裝 ffmpeg）
+  - CDN 擋 Origin → 一律走伺服器下載（mode="proxy"，yt-dlp 下載後串給使用者，不落地）
+  - 高畫質是「分離軌」→ 需伺服器端 ffmpeg 合併（Dockerfile 已裝 ffmpeg）
 
 ⚠️ 為什麼一定要 Deno（2026-09-27 從 v8i8 學到）：
     yt-dlp 要解 YouTube 的 JS 驗證（nsig），**沒有 JS runtime 就一律失敗**，
@@ -14,12 +14,14 @@
     症狀：解析成功、畫質清單都有，但下載回 `HTTP Error 403: Forbidden`。
     原因：下載也用 "all" → yt-dlp 會挑到 web／tv 的影片網址，
           那種網址要 PO token，伺服器直接抓 googlevideo 就被擋。
-    第一次只改「下載身分」（照 v8i8 的 ios/android…）→ 部署後**仍然 403**。
-    真正關鍵（再讀 v8i8 前端 dlUrl()）：
-          v8i8 手機版**不會重新跑 yt-dlp**，而是把「解析時拿到的那個網址」
-          透過伺服器原樣轉發（/api/dl-stream）。
-    → 本模組改成同樣做法：resolve() 後把格式標成 relay（見下方），
-      proxy 路徑（download_opts）只剩直接呼叫 /api/download 時才會用到。
+    2026-09-28 線上實測（用一般使用者方式打 v8i8 公開 API，未動 v8i8）：
+      ✅ v8i8 電腦版路線（伺服器 yt-dlp 下載）能下載 YouTube
+      ❌ v8i8 手機版路線（原樣轉發解析網址 /api/dl-stream）也是 502
+      → 「原樣轉發」不是正解（試過、已撤回）；正解＝伺服器 yt-dlp 下載，且參數要跟 v8i8 一致：
+         ① 下載身分 ["ios", "android", "android_embedded", "web"]
+         ② **不帶 cookies**（帶了 yt-dlp 會跳過 ios/android → 退回 web → 要 PO token → 403）
+         ③ **不塞自訂 User-Agent**（交給 yt-dlp 依身分自己帶）
+    → 見下方 download_opts()。
 """
 from __future__ import annotations
 
@@ -28,7 +30,6 @@ import re
 import tempfile
 from typing import Any
 
-from ..core.models import VideoInfo
 from ._ytdlp import YtDlpResolver
 
 _URL_RE = re.compile(
@@ -48,15 +49,12 @@ _BROWSER_HEADERS = {
     "Sec-Fetch-Site": "none",
 }
 
-#: 轉發 googlevideo 時帶的標頭（照 v8i8 /api/dl-stream：Referer＝來源網站）
-_CDN_HEADERS = {"Referer": "https://www.youtube.com/", "Origin": "https://www.youtube.com"}
-
 
 class YoutubeResolver(YtDlpResolver):
     name = "youtube"
     label = "YouTube"
     hosts = ("youtube.com", "youtu.be", "youtube-nocookie.com")
-    default_mode = "relay"
+    default_mode = "proxy"
 
     # 解析用的參數（下載另外用 download_opts，見檔頭說明）
     #
@@ -74,8 +72,13 @@ class YoutubeResolver(YtDlpResolver):
     }
 
     def download_opts(self) -> dict[str, Any]:
-        """下載專用參數：照 v8i8 用 App 身分，避開 web/tv 網址的 PO token（403）。"""
+        """下載專用參數：與 v8i8 電腦版路線一致（見檔頭）。
+
+        會蓋掉共用下載器的 cookiefile 與 http_headers（只影響 YouTube）。
+        """
         return {
+            "cookiefile": None,
+            "http_headers": {},
             "extractor_args": {"youtube": {
                 "player_client": ["ios", "android", "android_embedded", "web"]}},
             "js_runtimes": {"deno": {}},
@@ -109,18 +112,6 @@ class YoutubeResolver(YtDlpResolver):
             for name, value in pairs.items():
                 f.write(f".youtube.com\tTRUE\t/\tTRUE\t0\t{name}\t{value}\n")
         return path
-
-    async def resolve(self, url: str) -> VideoInfo:
-        """解析後改成「原樣轉發」：無聲的純影像格式附上音軌，伺服器合併成有聲 mp4。"""
-        info = await super().resolve(url)
-        audio = next((f for f in info.formats if f.audio), None)
-        for f in info.formats:
-            f.mode = "relay"
-            f.headers = dict(_CDN_HEADERS)
-            silent = (f.acodec or "none").lower() == "none"
-            if not f.audio and silent and audio is not None:
-                f.audio_url = audio.url
-        return info
 
     async def match(self, url: str) -> bool:
         return bool(_URL_RE.search(url))
