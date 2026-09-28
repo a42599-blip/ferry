@@ -296,6 +296,7 @@ class DouyinResolver(YtDlpResolver):
                 id=f"v{h}", label=quality_label(h), url=u,
                 height=h, width=br.get("width") or None,
                 size=br.get("data_size") or None, quality_score=h, mode="relay",
+                headers=dict(_DOUYIN_HDR),
             ))
 
         # ② play_addr（原畫）
@@ -309,7 +310,7 @@ class DouyinResolver(YtDlpResolver):
                         label="原畫" if key == "play_addr" else "下載版",
                         url=addr[0],
                         quality_score=85 if key == "play_addr" else 70,
-                        mode="relay",
+                        mode="relay", headers=dict(_DOUYIN_HDR),
                     )
                 )
 
@@ -328,7 +329,8 @@ class DouyinResolver(YtDlpResolver):
         if music:
             fmts.append(
                 Format(id="audio", label="純音訊", url=music[0], audio=True,
-                       ext="mp3", quality_score=10, mode="relay")
+                       ext="mp3", quality_score=10, mode="relay",
+                       headers=dict(_DOUYIN_HDR))
             )
 
         if not fmts:
@@ -372,7 +374,8 @@ class DouyinResolver(YtDlpResolver):
                                size=d.get("size"), quality_score=80, mode="relay"))
         if music:
             fmts.append(Format(id="audio", label="純音訊", url=_abs(music), audio=True,
-                               ext="mp3", quality_score=10, mode="relay"))
+                               ext="mp3", quality_score=10, mode="relay",
+                       headers=dict(_DOUYIN_HDR)))
 
         if not fmts:
             raise PlatformError("抖音沒有可下載的檔案", platform=self.name)
