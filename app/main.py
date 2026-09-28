@@ -263,6 +263,61 @@ async def debug_youtube(v: str = Query("mw-kKYRSEOU")):
             "results": out}
 
 
+@app.get("/api/debug/douyin")
+async def debug_douyin(u: str = Query(""), rid: str = Query("7162250624946425122")):
+    """診斷抖音各條路線（小羅 2026-09-28：v8i8 能解析但我們不行）。"""
+    from .platforms.douyin import DouyinResolver
+
+    url = u or f"https://www.douyin.com/video/{rid}"
+    r = DouyinResolver()
+    out = {"url": url, "routes": []}
+
+    def note(name: str, ok: bool, info=None, err: str = "") -> None:
+        row = {"route": name, "ok": ok}
+        if info is not None:
+            row["title"] = (info.title or "")[:40]
+            row["formats"] = len(info.formats)
+        if err:
+            row["error"] = err[:160]
+        out["routes"].append(row)
+
+    for name, fn in (("official", r._via_official), ("api_watch", r._via_api_watch),
+                     ("browser", r._via_browser), ("tikwm", r._via_tikwm)):
+        try:
+            info = await asyncio.wait_for(fn(url), timeout=45)
+            note(name, bool(info), info, "" if info else "回 None")
+        except asyncio.TimeoutError:
+            note(name, False, None, "逾時 45s")
+        except Exception as exc:  # noqa: BLE001
+            note(name, False, None, f"{type(exc).__name__}: {exc}")
+
+    # 真瀏覽器實際看到什麼（有助判斷是不是被風控）
+    try:
+        from .services.browser import get_context
+
+        ctx = await get_context("douyin")
+        page = await ctx.new_page()
+        seen: list[str] = []
+
+        async def on_resp(resp) -> None:
+            if "aweme" in resp.url or "detail" in resp.url:
+                seen.append(f"{resp.status} {resp.url[:90]}")
+
+        page.on("response", on_resp)
+        try:
+            await page.goto(url, wait_until="commit", timeout=20000)
+            await asyncio.sleep(8)
+        except Exception:  # noqa: BLE001
+            pass
+        out["browser_title"] = (await page.title())[:80]
+        out["browser_aweme_calls"] = seen[:6]
+        out["browser_html_len"] = len(await page.content())
+        await page.close()
+    except Exception as exc:  # noqa: BLE001
+        out["browser_error"] = str(exc)[:120]
+    return out
+
+
 @app.get("/api/announcements")
 async def get_announcements():
     """前台公告（系統更新／平台故障／平台取消…）。
