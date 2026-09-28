@@ -122,7 +122,7 @@
              src 指向 /api/proxy-video（伺服器補 Referer／合併影音） -->
         <video class="pvid" id="pvid" controls playsinline preload="metadata" hidden
                data-i18n-title="pv_play"></video>
-        <img class="cover" id="cover" alt="" hidden>
+        <img class="cover" id="cover" alt="" hidden referrerpolicy="no-referrer">
         <div class="shade" id="shade" hidden></div>
         <div class="c"><span class="ttl" id="pv-title" data-i18n="pv_empty">貼上連結後按「解析」</span>
           <span id="pv-plat" class="dim"></span><span id="pv-dur" class="dim"></span></div>
@@ -308,7 +308,7 @@
 
 <script src="/sha256.js?v=27"></script>
 <script src="/save.js?v=27"></script>
-<script src="/app.js?v=28"></script>
+<script src="/app.js?v=29"></script>
 <script src="/transfer.js?v=27"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）

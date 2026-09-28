@@ -261,10 +261,20 @@ class YoutubeResolver(YtDlpResolver):
         #   • 影音合一格式（通常只有 itag 18）每個都試 —— 2026-09-28 實測：itag 18 不論哪種 UA 都 403
         #   ⚠️ 不設 f.audio_url：設了共用層會強制改成 relay（大檔會 403，見檔頭第 4 點）
         silent = [f for f in info.formats if not f.audio and (f.acodec or "none").lower() == "none"]
-        dash_ok = bool(silent and merge_audio) and (
-            await _probe(silent[0].url, hdr(silent[0].url), proxy) < 400
-            and await _probe(merge_audio, hdr(merge_audio), proxy) < 400)
-        keep = []
+
+        # 影音分離的格式：**多試幾組**（影＋音）才算失敗。
+        # ⚠️ 2026-09-28 小羅實測踩到：只試第一組時，那一組剛好不過 → 所有影片格式被一起丟掉
+        #    → 只剩純音訊（使用者看到「沒有影片可下載」）。所以改成試前 3 組。
+        dash_ok = False
+        if silent and merge_audio:
+            for cand in silent[:3]:
+                if (await _probe(cand.url, hdr(cand.url), proxy) < 400
+                        and await _probe(merge_audio, hdr(merge_audio), proxy) < 400):
+                    dash_ok = True
+                    break
+
+        keep: list[Any] = []
+        dropped = 0
         for f in info.formats:
             if f in silent:
                 ok = dash_ok
@@ -278,9 +288,16 @@ class YoutubeResolver(YtDlpResolver):
                 # 否則會存成 .webm（2026-09-28 實測），iPhone 相簿可能認不得
                 f.ext = "m4a" if f.audio else "mp4"
                 keep.append(f)
-        if not keep:
-            raise PlatformBlocked(f"{self.label}（{name}）影片伺服器拒絕下載", platform=self.name)
+            else:
+                dropped += 1
+
+        # 一定要有「影片」格式才算這個方案成功：只剩音訊的話換下一個方案
+        # （小羅 2026-09-28：「只有音頻，下載要放到文件、不是相簿」→ 這樣不能用）
+        if not any(not f.audio for f in keep):
+            raise PlatformBlocked(
+                f"{self.label}（{name}）沒有可下載的影片格式", platform=self.name)
         info.formats = keep
+        info.extra["yt_dropped"] = dropped          # 被試抓擋掉幾種（診斷用）
         return info
 
     @staticmethod

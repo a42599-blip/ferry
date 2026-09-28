@@ -519,15 +519,6 @@ async def data_cleanup(body: dict = Body(default={}), _: dict = Depends(require_
     return {"ok": True, "deleted": deleted}
 
 
-@router.post("/quota/reset")
-async def quota_reset(_: dict = Depends(require_admin)) -> dict:
-    from ..services import quota
-
-    quota.reset_all()
-    return {"ok": True}
-
-
-# ── 健康檢查（每平台實測一輪）─────────────────────────
 @router.post("/health/run")
 async def health_run(_: dict = Depends(require_admin)) -> dict:
     out: list[dict[str, Any]] = []
@@ -618,14 +609,6 @@ async def put_plans(body: dict = Body(...), _: dict = Depends(require_admin)) ->
 
 
 # ── 會員 ─────────────────────────────────────────────
-@router.get("/members")
-async def get_members(_: dict = Depends(require_admin)) -> dict:
-    from ..services import members
-
-    return {"ok": True, "members": members.list_members()}
-
-
-# ── 成長趨勢 ─────────────────────────────────────────
 @router.get("/growth")
 async def growth(days: int = Query(90, ge=7, le=730), _: dict = Depends(require_admin)) -> dict:
     return {"ok": True, **events.growth(days)}
@@ -833,68 +816,3 @@ async def handle_feedback(fid: int, body: dict = Body(...),
     return {"ok": True, "actions": actions, "row": out,
             "subject": subject, "member": mid or "", "email": m.get("email") or ""}
 
-
-@router.delete("/feedback-test/{fid}")
-async def delete_test_feedback(fid: int, _: dict = Depends(require_admin)) -> dict:
-    """刪除「測試」回報（只允許內容含『測試』字樣的，避免誤刪真實客戶）。"""
-    row = db.one("SELECT message, contact FROM feedback WHERE id=?", (fid,))
-    if not row:
-        return {"ok": True, "already": True}
-    blob = ((row["message"] or "") + (row["contact"] or ""))
-    if "測試" not in blob and "test" not in blob.lower():
-        raise HTTPException(status_code=400, detail="這不是測試回報，不允許刪除")
-    db.execute("DELETE FROM feedback WHERE id=?", (fid,))
-    return {"ok": True, "deleted": fid}
-
-
-@router.post("/feedback/{fid}/handled")
-async def mark_feedback(fid: int, body: dict = Body(default={}),
-                        _: dict = Depends(require_admin)) -> dict:
-    from ..services import feedback
-
-    feedback.mark_handled(fid, (body or {}).get("note") or "")
-    return {"ok": True, "counts": feedback.counts()}
-
-
-# ── 免費次數管理（可以手動還使用者一次）───────────────
-@router.get("/quota")
-async def get_quota_usage(_: dict = Depends(require_admin)) -> dict:
-    from ..services import quota
-
-    from ..core.config import settings
-
-    return {"ok": True, "rows": quota.today_usage(),
-            "limits": {"download": settings.free_download_per_day,
-                       "transfer": settings.free_transfer_per_day},
-            "enabled": settings.free_limit_enabled}
-
-
-@router.post("/quota/grant")
-async def grant_quota(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
-    """還使用者免費次數（例：解析失敗卻被扣了）。"""
-    from ..services import quota
-
-    subject = (body.get("subject") or "").strip()
-    if not subject:
-        raise HTTPException(status_code=400, detail="缺少 subject（例如 dev:xxxx）")
-    kind = body.get("kind") or "download"
-    n = int(body.get("n") or 1)
-    row = quota.adjust(kind, subject, n)      # 可超過每日上限（贈送）
-    return {"ok": True, "result": row, "rows": quota.today_usage()}
-
-
-@router.post("/quota/reset")
-async def reset_quota(body: dict = Body(default={}), _: dict = Depends(require_admin)) -> dict:
-    from ..services import quota
-
-    subject = (body or {}).get("subject") or None
-    quota.reset_today(subject)
-    return {"ok": True, "rows": quota.today_usage()}
-
-
-# ── 測試帳號清理（審核工具用；避免測試資料污染）────────
-@router.post("/members/cleanup-test")
-async def cleanup_test_members(_: dict = Depends(require_admin)) -> dict:
-    n = int(db.scalar("SELECT COUNT(*) FROM members WHERE email LIKE 'audit%@ferry.local'"))
-    db.execute("DELETE FROM members WHERE email LIKE 'audit%@ferry.local'")
-    return {"ok": True, "deleted": n}

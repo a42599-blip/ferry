@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v4';   // v4：2026-09-28 手機網址欄防自動放大，強制汰換舊快取
+const CACHE = 'ferry-img-v5';   // v5：2026-09-28 封面圖不送 Referer（小紅書封面才顯示得出來）
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

@@ -11,6 +11,8 @@
 """
 from __future__ import annotations
 
+import html as html_lib
+import json
 import re
 
 from ..core.errors import PlatformError
@@ -121,12 +123,16 @@ class XiaohongshuResolver(YtDlpResolver):
         if not found:
             return None
 
-        title = (meta_content(html, "og:title")
+        # ⚠️ 2026-09-28 實測：小紅書的頁面**沒有** og:title／og:image，
+        #    標題在 noteData 的 `"title"`、封面在 `"imageList"` 的第一張 `"url"`。
+        note = flat[flat.find('"noteData"'):] if '"noteData"' in flat else flat
+        title = (_json_str(note, "title")
+                 or meta_content(html, "og:title")
                  or _search(r'<title[^>]*>([^<]{1,120})</title>', html)
                  or "小紅書影片")
         title = title.removesuffix(" - 小紅書").strip() or "小紅書影片"
-        cover = meta_content(html, "og:image")
-        author = _search(r'"nickname"\s*:\s*"([^"]{1,40})"', flat)
+        cover = _first_image(note) or meta_content(html, "og:image")
+        author = _json_str(note, "nickName") or _json_str(note, "nickname")
 
         fmts = [
             Format(id=f"xhs{i}", label="原畫" if i == 0 else f"備援線路 {i + 1}",
@@ -135,6 +141,26 @@ class XiaohongshuResolver(YtDlpResolver):
         ]
         return VideoInfo(platform=self.name, title=title, cover=cover, source_url=url,
                          formats=fmts, author=author, extra={"route": "html"})
+
+
+def _json_str(text: str, key: str) -> str:
+    r"""從頁面 JSON 取字串欄位（`\uXXXX` 這類轉義會還原成正常文字）。"""
+    m = re.search(r'"%s"\s*:\s*"((?:[^"\\]|\\.)*)"' % re.escape(key), text)
+    if not m:
+        return ""
+    raw = m.group(1)
+    try:
+        return json.loads(f'"{raw}"')
+    except ValueError:
+        return raw
+
+
+def _first_image(text: str) -> str:
+    """筆記封面圖：`imageList` 的第一張（欄位名會改，所以抓 imageList 之後第一個 url）。"""
+    i = text.find('"imageList"')
+    seg = text[i:i + 4000] if i >= 0 else text
+    m = re.search(r'"url"\s*:\s*"(https?://[^"]+xhscdn\.com/[^"]+)"', seg)
+    return html_lib.unescape(m.group(1)) if m else ""
 
 
 def _secure(info: VideoInfo) -> VideoInfo:

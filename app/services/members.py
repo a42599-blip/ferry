@@ -138,17 +138,6 @@ def by_device(device_id: str) -> dict | None:
     return dict(row) if row else None
 
 
-def list_members(limit: int = 200) -> list[dict]:
-    rows = db.query(
-        "SELECT id, email, plan, device_id, tz, created_at, expires_at FROM members"
-        " ORDER BY created_at DESC LIMIT ?", (limit,))
-    return [dict(r) for r in rows]
-
-
-#: 同一「工作階段」的判定門檻（秒）。超過就當成新的一次登入。
-#  小羅 2026-09-27：「他沒有被登出的情況下關掉螢幕，重新再上來，
-#                     那應該算第二次吧。」
-#  → 用時間間隔判斷：30 分鐘內連續操作算同一次，隔開就 +1。
 SESSION_GAP = 1800
 
 

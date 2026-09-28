@@ -804,7 +804,7 @@ function renderHistory() {
   const list = getHistory();
   if (!list.length) { box.innerHTML = `<div class="hrow"><span class="dim">${t('history_empty')}</span></div>`; return; }
   box.innerHTML = list.map((h) => `<div class="hrow">
-    <img src="${esc(h.cover || '')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+    <img src="${esc(h.cover || '')}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">
     <div class="m"><div class="t">${esc(h.title)}</div>
     <div class="s">${esc(h.platform)} · ${esc(h.label)}${h.size ? ' · ' + fmtSize(h.size) : ''} · ${new Date(h.at).toLocaleString()}</div></div>
   </div>`).join('');

@@ -122,9 +122,6 @@ def _is_paid(subject: str) -> bool:
         return False
 
 
-def reset_all() -> None:
-    """後台用：清空所有次數計數。"""
-    db.execute("DELETE FROM quotas")
 
 
 def status(subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
