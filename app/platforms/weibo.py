@@ -80,15 +80,40 @@ class WeiboResolver(YtDlpResolver):
         urls = data.get("urls") or []
         if not urls:
             return None
+
+        # ⚠️ 2026-09-28 小羅實測：微博影片頁「沒有封面、也不能預覽」。
+        #    ① 封面：h5 頁面根本沒有封面欄位 → 跟 yt-dlp 要（它拿得到真正的標題＋封面）
+        #    ② 預覽：微博 CDN **只認 Referer=https://weibo.com/**（帶我們的網址或不帶都 403）
+        #       → 一定要 mode="relay"（伺服器轉發並補上正確 Referer），
+        #         用 proxy 的話瀏覽器會直接抓 CDN → 一定被擋。
+        title = (data.get("title") or "微博影片")
+        cover = data.get("poster") or ""
+        if not cover:
+            try:
+                meta = await self._extract(f"https://video.weibo.com/show?fid={fid}")
+                cover = meta.get("thumbnail") or ""
+                real = (meta.get("title") or "").strip()
+                if real and title.rstrip().endswith("微博"):   # 原本只是頁面標題 → 換成真標題
+                    title = real[:120]
+            except Exception:  # noqa: BLE001 — 拿不到封面不影響下載
+                pass
+
+        # 封面圖的 CDN（sinaimg）**也認 Referer**：不帶或帶我們的網址都 403，
+        # 只有 weibo.com 才給（2026-09-28 實測）→ 封面同樣走伺服器轉發。
+        if cover:
+            from ..services import proxy
+
+            cover = "/api/proxy-video?k=" + proxy.register(
+                cover, None, {"Referer": "https://weibo.com/"})
+
         fmts = [
             Format(id=f"wb{i}", label="原畫" if i == 0 else f"備援線路 {i}",
-                   url=u, quality_score=90 - i, mode="proxy",
+                   url=u, quality_score=90 - i, mode="relay",
                    headers={"Referer": "https://weibo.com/"})
             for i, u in enumerate(urls[:4])
         ]
-        return VideoInfo(platform=self.name,
-                         title=(data.get("title") or "微博影片"),
-                         cover=data.get("poster") or "", source_url=data.get("source_url", ""),
+        return VideoInfo(platform=self.name, title=title, cover=cover,
+                         source_url=data.get("source_url", ""),
                          formats=fmts, extra={"route": "video-page"})
 
     async def _canonical(self, url: str) -> str:
