@@ -480,6 +480,12 @@ function revealPaste(show) {
   if (b) b.hidden = !show;
 }
 
+// 手機貼上後收起鍵盤：鍵盤一直開著，解析結果出現時畫面會被推來推去（小羅 2026-09-28）
+function settleMobileView() {
+  const env = window.FY?.env;
+  if (env && (env.isIOS || env.isAndroid)) $('#url').blur();
+}
+
 // ① 點網址欄：清空舊的 ＋ 出現「貼上」按鈕（小羅不用自己刪上一筆）
 $('#url').addEventListener('focus', () => {
   if ($('#url').value) $('#url').value = '';
@@ -499,6 +505,7 @@ async function doPaste() {
     if (!text || !text.trim()) { msg('#status', t('paste_empty'), 'err'); return; }
     $('#url').value = extractUrl(text);
     msg('#status', '');
+    settleMobileView();
     doResolve();
   } catch {
     // 剪貼簿被拒（iOS／瀏覽器限制）→ 聚焦讓使用者自己長按貼上
@@ -517,7 +524,7 @@ $('#url').addEventListener('paste', () => {
   clearTimeout(_autoPasteTimer);
   _autoPasteTimer = setTimeout(() => {
     const val = $('#url').value.trim();
-    if (val.includes('http')) doResolve();
+    if (val.includes('http')) { settleMobileView(); doResolve(); }
   }, 320);
 });
 

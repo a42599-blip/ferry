@@ -432,10 +432,6 @@ async def main() -> None:
         print(f"（結果已寫入 {args.json}）")
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
-
-
 # ── E. 電腦版 vs 手機版「功能對等」檢查 ─────────────────────
 #  小羅 2026-09-27：「你要確保電腦版有的所有功能，手機版都要有，
 #                    兩邊是同步，只是顯示方式適配設備。」
@@ -486,3 +482,7 @@ async def audit_parity(base: str) -> list[str]:
     if not only_desktop and not only_mobile:
         print(f"   ✔ 電腦版＝手機版（{len(results['desktop'])} 項功能兩邊都在）")
     return issues
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
