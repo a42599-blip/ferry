@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=29">
+<link rel="stylesheet" href="/style.css?v=30">
 <style>
 /* ⚠️ 手機導覽的「關鍵樣式」內嵌在這裡（小羅 2026-09-27）。
    原因：他的手機卡在舊的 style.css 快取（舊版 .tabs 是 display:none），
@@ -197,6 +197,22 @@
 
     <div class="col">
       <p class="note t-howto" data-i18n="tr_howto">兩台裝置只需「一台」產生配對碼，另一台輸入那 6 碼即可，兩邊不用都產生。</p>
+      <!-- 使用說明（小羅 2026-09-29：「功能有點複雜，把步驟寫清楚」）
+           用可展開／收起的方式（跟首頁「回報問題」一樣），不是彈窗 -->
+      <details class="o-report t-steps" id="tr-steps">
+        <summary><span data-i18n="tr_steps_sum">使用說明：怎麼把檔案傳到另一台（點開看步驟）</span></summary>
+        <ol class="steps">
+          <li data-i18n="tr_step1">兩台裝置連到「同一個 WiFi」（手機開熱點給電腦連也可以）。</li>
+          <li data-i18n="tr_step2">決定哪一台負責「接收」：在那一台按「產生我的配對碼」，畫面會出現 6 位數字。</li>
+          <li data-i18n="tr_step3">另一台（要傳檔的）在「輸入對方的 6 位配對碼」填那 6 碼，按「配對」。</li>
+          <li data-i18n="tr_step4">配對成功後下面會顯示「這台裝置」與「對方裝置」，兩個都出現綠點就是接對了。</li>
+          <li data-i18n="tr_step5">按「從相簿選／從檔案選／選資料夾」挑要傳的檔案（電腦也可以直接把檔案或整個資料夾拖進框框）。</li>
+          <li data-i18n="tr_step6">按「開始傳送」等進度跑完；傳輸中請留在這個畫面，不要關掉或切到別的 App。</li>
+          <li data-i18n="tr_step7">對方收完會自動存檔（iPhone 會出現「儲存到相簿」，Android 存到「下載」）。</li>
+          <li data-i18n="tr_step8">傳輸次數與「無水印下載」分開計算，各有自己的免費次數；付費會員不限次數。</li>
+        </ol>
+        <p class="note" data-i18n="tr_steps_note">檔案不經過我們的伺服器、不壓縮、不轉檔，並用 SHA-256 校驗完整性；兩台裝置都要停在這個頁面直到傳完。</p>
+      </details>
       <div class="inbar t-join">
         <input id="join-code" inputmode="numeric" maxlength="6" data-i18n-ph="tr_code_ph" placeholder="輸入對方的 6 位配對碼">
         <button class="go" id="tr-join" data-i18n="btn_pair">配對</button>
@@ -304,7 +320,12 @@
       </div>
       <div id="m-info" hidden>
       <div class="kv" id="m-detail"></div>
-      <!-- 改暱稱（小羅 2026-09-29：「讓客戶自己改自己的名稱」）-->
+      <!-- 改暱稱（小羅 2026-09-29：「讓客戶自己改自己的名稱」）
+           ⚠️ 小羅回報「找不到可以改暱稱的地方」→ 加標題＋說明，並自動帶入現在的暱稱 -->
+      <div class="nicklabel">
+        <b data-i18n="nickname_label">更改暱稱</b>
+        <span class="dim" data-i18n="nickname_desc">最多 20 字；留空白＝改回用 Email 顯示</span>
+      </div>
       <div class="nickbox">
         <input id="m-nick" class="nickin" maxlength="20" data-i18n-ph="nickname_ph" placeholder="暱稱（最多 20 字）">
         <button class="big sm" id="m-nick-save" data-i18n="btn_save_nickname">儲存暱稱</button>
@@ -318,6 +339,22 @@
         </div>
       </div>
       </div><!-- /m-auth -->
+
+      <!-- 會員規則說明（小羅 2026-09-29：規則、福利、要不要看廣告都放會員頁）-->
+      <details class="o-report" id="m-rules">
+        <summary><span data-i18n="m_rules_sum">會員等級、福利與廣告說明（點開看）</span></summary>
+        <div class="rulerows">
+          <div class="rr"><b data-i18n="tier_guest">訪客</b>
+            <span data-i18n="m_rule_guest">不用註冊就能用。免費次數用完要等隔天；每 3 次會看一次廣告（廣告功能尚未啟用）。</span></div>
+          <div class="rr"><b data-i18n="tier_free">免費會員</b>
+            <span data-i18n="m_rule_free">註冊登入後免費次數綁帳號（換裝置也保留）；每 5 次會看一次廣告（尚未啟用）。</span></div>
+          <div class="rr"><b data-i18n="tier_monthly">月會員</b>
+            <span data-i18n="m_rule_monthly">不限次數、不看廣告。到期日顯示在上方；續費後從到期日往後延。</span></div>
+          <div class="rr"><b data-i18n="tier_lifetime">永久會員</b>
+            <span data-i18n="m_rule_lifetime">不限次數、不看廣告、永久免費使用全功能。</span></div>
+        </div>
+        <p class="note" data-i18n="m_rules_note">補充：無水印下載與無損傳輸的次數分開計算；月會員到期未續費會回到免費會員（恢復每 5 次看一次廣告）。</p>
+      </details>
 
       <div id="history-box">
         <h2 class="sec" data-i18n="history_title">歷史記錄</h2>
@@ -335,7 +372,7 @@
 
 <script src="/sha256.js?v=27"></script>
 <script src="/save.js?v=27"></script>
-<script src="/app.js?v=30"></script>
+<script src="/app.js?v=31"></script>
 <script src="/transfer.js?v=27"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）

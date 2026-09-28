@@ -888,7 +888,7 @@ async function refreshMember() {
       const m = me.member || {};
       const tierName = t('tier_' + (me.tier || 'free'), '');
       $('#m-detail').innerHTML = `
-        <div class="r"><div class="k">${t('m_nickname')}</div><div class="v">${esc(me.nickname || '—')}</div></div>
+        <div class="r"><div class="k">${t('m_nickname')}</div><div class="v">${esc(me.nickname || t('nickname_unset'))}<button class="linkbtn" id="m-nick-go">${t('nickname_change')}</button></div></div>
         <div class="r"><div class="k">${t('m_email')}</div><div class="v">${esc(m.email)}</div></div>
         <div class="r"><div class="k">${t('m_plan')}</div><div class="v">${tierName}${me.unlimited ? ' ' + t('m_unlimited') : ''}</div></div>
         <div class="r"><div class="k">${t('m_expires')}</div><div class="v">${m.expires_at ? new Date(m.expires_at * 1000).toLocaleDateString() : (me.tier === 'lifetime' ? t('quota_lifetime') : '—')}</div></div>`;
@@ -900,6 +900,14 @@ async function refreshMember() {
   renderWho(null);
   $('#m-guest').hidden = false; $('#m-info').hidden = true;
 }
+
+// 點「更改」→ 捲到暱稱輸入框並聚焦（讓使用者一眼知道去哪裡改）
+document.addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'm-nick-go') {
+    const el = $('#m-nick');
+    if (el) { el.focus(); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  }
+});
 
 // 儲存暱稱（會員自己改；留空白＝改回用 Email 顯示）
 $('#m-nick-save').addEventListener('click', async () => {
