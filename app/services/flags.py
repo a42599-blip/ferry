@@ -30,6 +30,8 @@ _DEFAULT_FEATURES: dict[str, bool] = {
     "feature.report": True,        # 回報問題
     # 全站
     "feature.maintenance": False,  # 全站維護模式
+    # 廣告（小羅 2026-09-29：先把邏輯做好，開關預設「關」→ 不會跳出來）
+    "feature.ads": False,          # 訪客每 3 次／免費會員每 5 次看一次廣告；付費不看
     # ── 以下為「預留」模組：接口先留好 ──
     "feature.auth": False,         # 會員登入（開發期關閉，畫面預留）
     "feature.billing": False,      # 付費／訂閱（P6 才做，接口先留）

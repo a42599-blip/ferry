@@ -10,6 +10,7 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 import secrets
 import time
 
@@ -119,7 +120,8 @@ def verify_token(token: str) -> str | None:
 def get(member_id: str) -> dict | None:
     """取單一會員（含方案、付費起始、到期、登入等資訊；客服查詢要用）。"""
     row = db.one(
-        "SELECT id, email, plan, tz, device_id, created_at, expires_at, country,"
+        "SELECT id, email, COALESCE(nickname,'') AS nickname, plan, tz, device_id,"
+        " created_at, expires_at, country,"
         " plan_started_at, COALESCE(status,'active') AS status, deleted_at,"
         " last_login_at, last_seen_at, COALESCE(login_count,0) AS login_count,"
         " COALESCE(marketing_opt_in,0) AS marketing_opt_in"
@@ -321,7 +323,8 @@ def list_full(limit: int = 300) -> list[dict]:
     plans = billing.PLANS
     out = []
     for r in db.query(
-            "SELECT id, email, plan, device_id, tz, created_at, expires_at"
+            "SELECT id, email, COALESCE(nickname,'') AS nickname, plan, device_id,"
+            " tz, created_at, expires_at"
             " FROM members ORDER BY created_at DESC LIMIT ?", (limit,)):
         row = dict(r)
         row["plan_name"] = (plans.get(row["plan"]) or {}).get("name", row["plan"])
@@ -774,3 +777,39 @@ def rebuild(email: str, device_id: str, *, created_at: float | None = None,
     log_plan(mid, email, None, plan, expires_at=expires_at, reason="restore",
              note="從裝置紀錄重建（原本被刪除）")
     return dict(get(mid) or {})
+
+
+#: 暱稱長度上限（太長會撐破版面；客服也用不到那麼長）
+NICKNAME_MAX = 20
+
+
+def set_nickname(member_id: str, nickname: str) -> dict | None:
+    """設定／清除暱稱（小羅 2026-09-29：「讓客戶自己改自己的名稱」）。
+
+    空白＝清除（回到用 Email 顯示）。會去掉控制字元並限制長度。
+    """
+    name = re.sub(r"[\x00-\x1f<>]", "", (nickname or "")).strip()
+    name = re.sub(r"\s+", " ", name)[:NICKNAME_MAX]
+    db.execute("UPDATE members SET nickname=? WHERE id=?", (name or None, member_id))
+    return get(member_id)
+
+
+def tier_of(member_id: str | None) -> str:
+    """身分等級：guest（未登入）／free／monthly／lifetime。
+
+    ⚠️ 到期判斷：付費方案過期 → 當成 free（小羅：「到期沒續費就打回會員這邊」）。
+    """
+    if not member_id:
+        return "guest"
+    m = get(member_id)
+    if not m or (m.get("status") or "active") != "active":
+        return "free"
+    plan = m.get("plan") or "free"
+    if plan == "free":
+        return "free"
+    exp = m.get("expires_at")
+    import time as _t
+
+    if exp and float(exp) < _t.time():
+        return "free"          # 過期 → 打回免費會員
+    return plan if plan in ("monthly", "lifetime") else "free"

@@ -216,6 +216,7 @@ def _migrate(c: sqlite3.Connection) -> None:
 
     wanted = {
         "members": {
+            "nickname": "TEXT",            # 暱稱（小羅 2026-09-29：會員可自己改）
             "password": "TEXT",
             "email": "TEXT",
             "tz": "TEXT",

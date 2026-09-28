@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v5';   // v5：2026-09-28 封面圖不送 Referer（小紅書封面才顯示得出來）
+const CACHE = 'ferry-img-v6';   // v6：2026-09-29 身分顯示／暱稱／歷史記錄可再解析
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

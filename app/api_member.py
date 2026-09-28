@@ -9,6 +9,7 @@ import time
 
 from fastapi import APIRouter, Body, HTTPException, Request
 
+from .core.errors import BadRequest
 from .services import auth, billing, members, notify
 
 router = APIRouter(tags=["member"])
@@ -47,18 +48,33 @@ async def login(request: Request, body: dict = Body(...)) -> dict:
             "token": m["token"]}
 
 
+@router.post("/api/member/nickname")
+async def set_nickname(request: Request, body: dict = Body(...)) -> dict:
+    """會員自己改暱稱（小羅 2026-09-29：「讓客戶自己改自己的名稱」）。"""
+    mid = auth._member_from_request(request)
+    if not mid:
+        raise BadRequest("請先登入會員")
+    from .services import members
+
+    m = members.set_nickname(mid, str(body.get("nickname") or ""))
+    return {"ok": True, "nickname": (m or {}).get("nickname") or "", "member": m}
+
+
 @router.get("/api/member/me")
 async def me(request: Request) -> dict:
     mid = auth._member_from_request(request)
     if not mid:
-        return {"ok": True, "logged_in": False, "plan": "free",
-                "unlimited": billing.is_unlimited(auth.current_subject(request))}
+        return {"ok": True, "logged_in": False, "plan": "free", "tier": "guest",
+                "nickname": "", "unlimited": billing.is_unlimited(auth.current_subject(request))}
     # 帶著登入狀態進站 → 記一次「上線」（同一工作階段不重複計數）
     members.touch_session(mid, device_id=_device(request),
                           country=request.headers.get("cf-ipcountry"))
     m = members.get(mid) or {}
+    # 小羅 2026-09-29：前台要能分辨「訪客／免費／月／永久」，也要顯示暱稱
     return {"ok": True, "logged_in": True, "member": m,
             "plan": m.get("plan", "free"),
+            "tier": members.tier_of(mid),
+            "nickname": m.get("nickname") or "",
             "unlimited": billing.is_unlimited(f"user:{mid}")}
 
 

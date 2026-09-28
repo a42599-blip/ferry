@@ -410,7 +410,24 @@ async def post_resolve(body: ResolveIn, request: Request):
 async def get_quota(request: Request):
     subject = auth.current_subject(request)
     tz = tz_util.from_request(request)
-    return {"ok": True, "timezone": tz, "quota": quota.status(subject, tz_name=tz)}
+    st = quota.status(subject, tz_name=tz)
+
+    # 小羅 2026-09-29：前台要依「訪客／免費／月／永久」顯示不同文字，
+    # 所以這裡一併回傳等級、到期日與廣告狀態（廣告開關預設關閉 → 不會出現）
+    from .services import ads as ads_service
+    from .services import members as members_service
+
+    mid = auth.current_member_id(request)
+    tier = members_service.tier_of(mid)
+    m = members_service.get(mid) if mid else None
+    used = int((st.get("download") or {}).get("used") or 0) + \
+        int((st.get("transfer") or {}).get("used") or 0)
+    ads = ads_service.state(tier, used)
+    # ⚠️ 前台是拿「內層 quota」畫畫面 → 等級／到期／廣告要一起放進內層，
+    #    否則前台讀不到（實測踩到：月會員仍顯示今日剩餘次數）
+    st.update({"tier": tier, "expires_at": (m or {}).get("expires_at"), "ads": ads})
+    return {"ok": True, "timezone": tz, "quota": st, "tier": tier,
+            "expires_at": (m or {}).get("expires_at"), "ads": ads}
 
 
 # ── 伺服器代理下載（CDN 擋 Origin 的平台，例如 YouTube）──

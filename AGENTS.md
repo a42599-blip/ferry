@@ -47,6 +47,31 @@ python tools/deadcode.py --strict # 有問題會 exit 1（可掛流程）
 
 ---
 
+## 🌐 鐵律一之二：新增／修改前台文字，**一定要同時做三語翻譯**（小羅 2026-09-29）
+
+> 小羅原話：「我們新加的一些功能、新更改的這些設定、欄位、按鈕，
+>           都是要記得你要把翻譯這件事也做進去 3 種語言，不要等一下又忘記了。」
+
+1. 任何**新的或改過的前台文字**（欄位標籤、placeholder、按鈕、提示訊息、錯誤訊息、
+   等級名稱、方案說明…）→ **同一次改動**就要補齊：
+   - `static/locales/zh-Hant.json`（繁體）
+   - `static/locales/zh-Hans.json`（简体）
+   - `static/locales/en.json`（English）
+2. 動態產生的文字（JS 用 `t('key')` 組的）也要走語言檔，**不可以寫死中文**。
+3. 改完自我檢查：
+   ```bash
+   python - <<'PY'
+   import json,re
+   d=json.load(open("static/locales/zh-Hant.json",encoding="utf-8"))
+   for f in ("zh-Hans","en"):
+       e=json.load(open(f"static/locales/{f}.json",encoding="utf-8"))
+       miss=[k for k in d if k not in e]
+       print(f, "缺：", miss)
+   PY
+   ```
+   （三份 key 數量要一致；缺的補上）
+4. 改 `static/*.js`／`*.css` 一樣要升 `?v=` 與 `sw.js` 快取名稱（鐵律七）。
+
 ## 🧪 鐵律二：改完要自己審核（不要等小羅抓）
 
 ```bash

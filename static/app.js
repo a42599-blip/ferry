@@ -54,6 +54,7 @@ function applyLang() {
   renderPayStatus();
   $('.msg:not([hidden])') && clearTransient();
   if (state.info) renderResult(state.info);
+  renderWho(state.me);          // 身分顯示（訪客／暱稱）也要跟著換語言
   if (currentTab() === 'member') refreshMember();
   updateCtx();
 }
@@ -322,6 +323,24 @@ function renderQuota(q) {
         : t('quota_reset_pre') + ' ' + (part?.reset_hint || '00:00') + ' ' + t('quota_reset_suf');
     }
   };
+  // 依等級顯示（小羅 2026-09-29）：
+  //   訪客／免費會員 → 今日剩餘次數；月會員 → 效期；永久會員 → 永久免費
+  const tier = q.tier || 'guest';
+  const paid = (tier === 'monthly' || tier === 'lifetime');
+  const nums = $('#q-nums'), line = $('#q-tier');
+  if (nums) nums.hidden = paid;
+  if (line) {
+    line.hidden = !paid;
+    if (paid) {
+      const exp = q.expires_at ? new Date(q.expires_at * 1000).toLocaleDateString() : '—';
+      line.textContent = tier === 'lifetime'
+        ? t('quota_lifetime')
+        : t('quota_monthly_pre') + ' ' + exp;
+    }
+  }
+  // 廣告（預設關閉 → 不會出現）
+  maybeShowAd(q.ads);
+
   // 下載頁的面板
   fill($('#q-left'), $('#q-used'), $('#q-reset'), q.download);
   // 傳輸頁的面板（與下載**分開**計算，各自 5 次／日）
@@ -792,44 +811,116 @@ const getHistory = () => { try { return JSON.parse(localStorage.getItem(HKEY) ||
 function saveHistory(info, fmt) {
   const list = getHistory();
   const entry = { title: info.title, platform: info.platform, cover: info.cover,
+                  url: info.source_url || '',            // 原始頁面連結（可再解析）
                   label: fmt.label, size: fmt.size || null, at: Date.now() };
   const i = list.findIndex((h) => h.title === info.title && h.platform === info.platform);
   if (i >= 0) list.splice(i, 1);
   list.unshift(entry);
   localStorage.setItem(HKEY, JSON.stringify(list.slice(0, state.config?.history_limit || 50)));
 }
+// 點歷史記錄的封面 → 跳回「無水印下載」頁、自動填連結並解析
+//  小羅 2026-09-29：「直接跳轉回首页便開始解析，解析完跟原本首頁功能一樣」
+function useHistory(i) {
+  const h = getHistory()[i];
+  if (!h || !h.url) return;
+  go('download');
+  $('#url').value = h.url;
+  doResolve();
+}
 function renderHistory() {
   const box = $('#h-list');
   if (!box) return;
   const list = getHistory();
   if (!list.length) { box.innerHTML = `<div class="hrow"><span class="dim">${t('history_empty')}</span></div>`; return; }
-  box.innerHTML = list.map((h) => `<div class="hrow">
+  box.innerHTML = list.map((h, i) => `<div class="hrow${h.url ? ' clickable' : ''}" data-h="${h.url ? i : ''}">
     <img src="${esc(h.cover || '')}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">
     <div class="m"><div class="t">${esc(h.title)}</div>
     <div class="s">${esc(h.platform)} · ${esc(h.label)}${h.size ? ' · ' + fmtSize(h.size) : ''} · ${new Date(h.at).toLocaleString()}</div></div>
+    ${h.url ? `<button class="hgo" data-h="${i}">${t('history_use')}</button>` : ''}
   </div>`).join('');
+  // 舊資料沒有連結 → 不加點擊，維持不能點（避免誤會）
+  $$('#h-list .hrow.clickable').forEach((row) => row.addEventListener('click', () => useHistory(Number(row.dataset.h))));
 }
 $('#h-clear').addEventListener('click', () => {
   if (confirm(t('confirm_clear'))) { localStorage.removeItem(HKEY); renderHistory(); }
 });
 
+// ── 身分顯示（小羅 2026-09-29：「讓客戶一看就知道自己是訪客還是會員」）──
+//   未登入 → 訪客；登入 → 暱稱（沒設就用 Email）＋等級標籤＋頭像（暱稱第一個字）
+//   頭像用文字＋顏色產生，不需要上傳圖片。
+function renderWho(me) {
+  state.me = me || null;
+  const logged = !!(me && me.logged_in);
+  const nick = logged ? ((me.nickname || (me.member || {}).email || '').trim()) : '';
+  const tier = (me && me.tier) || 'guest';
+  const ava = $('#who-ava'), name = $('#who-name'), tag = $('#who-tag'), out = $('#who-out');
+  if (ava) {
+    ava.textContent = logged ? (nick[0] || '會') : t('who_guest_short', '訪');
+    ava.classList.toggle('is-member', logged);
+    // 用暱稱算出固定顏色（同一個人顏色不會變，方便辨認）
+    let h = 0;
+    for (const ch of nick || 'guest') h = (h * 31 + ch.codePointAt(0)) % 360;
+    ava.style.setProperty('--avah', String(logged ? h : 210));
+  }
+  if (name) name.textContent = logged ? nick : t('who_guest', '訪客');
+  if (tag) tag.textContent = logged ? t('tier_' + tier, '') : '';
+  if (out) out.hidden = !logged;
+  // 「會員」分頁按鈕：登入後直接顯示暱稱（一眼就知道已登入）
+  const tab = $('[data-tab="member"]');
+  if (tab) tab.textContent = logged ? nick : t('nav_member', '會員');
+}
+
+// ── 廣告（預留）：只有後台把 feature.ads 打開、且該看時才會顯示 ──
+function maybeShowAd(ads) {
+  const box = $('#adsbox');
+  if (!box) return;
+  const show = !!(ads && ads.enabled && ads.due);
+  box.hidden = !show;
+}
+
 // ── 會員 ─────────────────────────────────────────
 async function refreshMember() {
   try {
     const me = await api('/api/member/me');
+    renderWho(me);
     if (me.logged_in) {
       $('#m-guest').hidden = true; $('#m-info').hidden = false;
       const m = me.member || {};
-      const planName = t('plan_' + (me.plan || 'free'));
+      const tierName = t('tier_' + (me.tier || 'free'), '');
       $('#m-detail').innerHTML = `
+        <div class="r"><div class="k">${t('m_nickname')}</div><div class="v">${esc(me.nickname || '—')}</div></div>
         <div class="r"><div class="k">${t('m_email')}</div><div class="v">${esc(m.email)}</div></div>
-        <div class="r"><div class="k">${t('m_plan')}</div><div class="v">${planName}${me.unlimited ? ' ' + t('m_unlimited') : ''}</div></div>
-        <div class="r"><div class="k">${t('m_expires')}</div><div class="v">${m.expires_at ? new Date(m.expires_at * 1000).toLocaleDateString() : '—'}</div></div>`;
+        <div class="r"><div class="k">${t('m_plan')}</div><div class="v">${tierName}${me.unlimited ? ' ' + t('m_unlimited') : ''}</div></div>
+        <div class="r"><div class="k">${t('m_expires')}</div><div class="v">${m.expires_at ? new Date(m.expires_at * 1000).toLocaleDateString() : (me.tier === 'lifetime' ? t('quota_lifetime') : '—')}</div></div>`;
+      const nb = $('#m-nick');
+      if (nb) nb.value = me.nickname || '';
       return;
     }
   } catch { /* 未登入 */ }
+  renderWho(null);
   $('#m-guest').hidden = false; $('#m-info').hidden = true;
 }
+
+// 儲存暱稱（會員自己改；留空白＝改回用 Email 顯示）
+$('#m-nick-save').addEventListener('click', async () => {
+  const btn = $('#m-nick-save');
+  btn.disabled = true;
+  try {
+    const j = await api('/api/member/nickname', { method: 'POST',
+      body: JSON.stringify({ nickname: $('#m-nick').value }) });
+    msg('#m-nick-msg', t('nickname_saved') + (j.nickname ? '' : '（' + t('nickname_empty_hint') + '）'), 'ok');
+    await refreshMember();
+  } catch (e) { msg('#m-nick-msg', e.message, 'err'); }
+  finally { btn.disabled = false; }
+});
+
+// 登出（頂部那顆）
+$('#who-out').addEventListener('click', async () => {
+  localStorage.removeItem(MKEY);
+  await refreshMember();
+  await loadQuota();
+  go('member');
+});
 $('#m-login').addEventListener('click', async () => {
   try {
     const j = await api('/api/member/login', { method: 'POST', body: JSON.stringify({
@@ -968,6 +1059,10 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   await loadLang();
   try { await loadConfig(); } catch (e) { console.warn(e); }
   await loadQuota();
+  // ⚠️ 一定要在啟動時讀登入狀態（小羅 2026-09-29）
+  //    「讓客戶在首頁感覺到他登入了」——之前只有點進「會員」分頁才會更新，
+  //    所以重整頁面後身分會變回訪客，看起來像沒登入。
+  refreshMember();
   loadAnnouncements();
   loadMyReplies();
   setInterval(pollMyReplies, REPLY_POLL_EVERY);      // 即時輪詢（不用刷新）
@@ -984,3 +1079,6 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   loadPayWays();
   renderHistory();
 })();
+
+// 廣告看完按「繼續使用」（預留；feature.ads 關閉時這個框永遠不會出現）
+$('#ads-continue').addEventListener('click', () => { $('#adsbox').hidden = true; });

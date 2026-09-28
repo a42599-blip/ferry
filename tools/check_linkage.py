@@ -237,6 +237,19 @@ def main() -> int:
         bad("後台次數管理是空的（前台用量沒寫進資料庫）")
 
     print("\n" + "=" * 72)
+    # ── ⑧ 清理本次測試帳號（自己建的要自己清）───────────────
+    #   ⚠️ 2026-09-28 小羅發現：這支工具每次跑都註冊一個新會員、測完沒刪
+    #      → 後台累積一堆「月會員、剩 2 天」的測試帳號。改成本次跑完自己清掉。
+    print("\n▶ ⑧ 清理本次測試帳號")
+    if mid:
+        code, dr = http(base, f"/admin/api/members-test/{mid}", method="DELETE", headers=A)
+        if isinstance(dr, dict) and dr.get("ok"):
+            good(f"已清除測試帳號（{email}）")
+        else:
+            bad(f"測試帳號沒清掉（HTTP {code}）：{str(dr)[:80]}")
+    else:
+        good("本次沒有建立測試帳號（略過）")
+
     print(f"  聯動檢查結果：通過 {ok_count} 項，失敗 {bad_count} 項")
     print("=" * 72)
     return 0 if bad_count == 0 else 1
