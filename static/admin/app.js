@@ -246,7 +246,14 @@ async function pgReports() {
       </div>
       <div class="fmsg">${esc(r.message)}</div>
       ${r.url ? `<div class="furl dim">${esc(r.url)}</div>` : ''}
-      ${r.reply ? `<div class="freply">💬 已回覆：${esc(r.reply)}${r.action ? `　<span class="dim">（${esc(r.action)}）</span>` : ''}</div>` : ''}
+      ${(r.replies || []).length ? `<div class="freplies">
+          <div class="flbl">📨 回覆紀錄（${(r.replies || []).length} 次）</div>
+          ${(r.replies || []).map((x) => `<div class="frep">
+             <span class="dim">${esc(x.when)}</span>
+             <span>${esc(x.reply)}</span>
+             ${x.action ? `<span class="dim">（${esc(x.action)}）</span>` : ''}
+           </div>`).join('')}
+        </div>` : (r.reply ? `<div class="freply">💬 已回覆：${esc(r.reply)}${r.action ? `　<span class="dim">（${esc(r.action)}）</span>` : ''}</div>` : '')}
       <div class="fact">
         <label class="tinylabel">下載次數</label>
         <input type="number" step="1" value="" placeholder="+3 或 -1" data-dl="${r.id}">

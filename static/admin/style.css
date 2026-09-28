@@ -299,3 +299,12 @@ textarea:focus{border-color:var(--acc)}
 /* 預設回覆按鈕 */
 .gh.preset{font-size:11.5px;padding:5px 11px}
 .gh.preset.on{border-color:var(--acc);color:var(--acc);background:rgba(217,192,140,.1)}
+
+/* ── 回覆紀錄（一筆回報可回覆多次，全部列出來）── */
+.freplies{margin-top:10px;border:1px solid rgba(63,191,127,.28);border-radius:8px;
+  background:rgba(63,191,127,.07);padding:10px 12px}
+.freplies .flbl{font-size:11.5px;color:#8fe8b8;font-weight:600;margin-bottom:7px}
+.freplies .frep{font-size:12.5px;line-height:1.75;padding:5px 0;
+  border-top:1px solid rgba(255,255,255,.06);display:flex;gap:9px;flex-wrap:wrap}
+.freplies .frep:first-of-type{border-top:0}
+.freplies .frep span:first-child{flex:0 0 auto;color:var(--lab)}

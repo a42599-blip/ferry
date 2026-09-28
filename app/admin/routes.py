@@ -673,8 +673,12 @@ async def get_feedback(days: int = Query(30), only_new: bool = Query(False),
                        _: dict = Depends(require_admin)) -> dict:
     from ..services import feedback
 
-    return {"ok": True, "counts": feedback.counts(days),
-            "rows": feedback.list_all(days=days, only_new=only_new)}
+    rows = feedback.list_all(days=days, only_new=only_new)
+    # 每筆回報附上「所有回覆紀錄」（小羅 2026-09-28：
+    # 「至少也要讓我知道我自己回復了什麼，我回復了兩次就要看得到上次和這次發了什麼」）
+    for r in rows:
+        r["replies"] = feedback.replies_of(r["id"])
+    return {"ok": True, "counts": feedback.counts(days), "rows": rows}
 
 
 @router.delete("/feedback-test/{fid}")

@@ -163,6 +163,17 @@ CREATE TABLE IF NOT EXISTS feedback (
 );
 CREATE INDEX IF NOT EXISTS idx_feedback_ts ON feedback(ts);
 
+-- 回覆紀錄（小羅 2026-09-28：「不要只有一次機會，我可以重複回覆這個訊息」）
+--   一筆回報可以有很多次回覆，每次都留著，不會覆蓋前一次。
+CREATE TABLE IF NOT EXISTS feedback_replies (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    feedback_id INTEGER NOT NULL,
+    ts          REAL    NOT NULL,
+    reply       TEXT    NOT NULL,
+    action      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_fbrep_fid ON feedback_replies(feedback_id);
+
 CREATE TABLE IF NOT EXISTS quotas (
     kind       TEXT NOT NULL,              -- download / transfer
     subject    TEXT NOT NULL,              -- dev:xxx / user:xxx / ip:xxx
