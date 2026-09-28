@@ -311,7 +311,18 @@ async def debug_douyin(u: str = Query(""), rid: str = Query("7162250624946425122
             pass
         out["browser_title"] = (await page.title())[:80]
         out["browser_aweme_calls"] = seen[:6]
-        out["browser_html_len"] = len(await page.content())
+        html = await page.content()
+        out["browser_html_len"] = len(html)
+        # 看 HTML 裡到底有哪些關鍵字（判斷資料在哪）
+        for key in ("bitRateList", "playAddr", "play_addr", "RENDER_DATA",
+                    "_ROUTER_DATA", "awemeId", "aweme_id", "videoResource",
+                    "url_list", "douyinvod", "zjcdn"):
+            out.setdefault("html_keys", {})[key] = html.count(key)
+        # 抓幾個疑似 CDN 網址
+        import re as _re
+        urls = _re.findall(r"https?://[^\"'\s]*(?:douyinvod|zjcdn|aweme\.snssdk|byteimg\.com)[^\"'\s]*",
+                           html)
+        out["cdn_like"] = [u[:110] for u in urls[:5]]
         await page.close()
     except Exception as exc:  # noqa: BLE001
         out["browser_error"] = str(exc)[:120]

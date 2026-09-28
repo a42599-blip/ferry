@@ -35,6 +35,34 @@ _UA = (
 #: ttwid 快取（有效期很長；同一個 process 共用，不必每次重拿）
 _ttwid_cache: str | None = None
 
+#: 抖音 CDN 一定要帶 Referer，否則回 403（轉發時就會變成 422）
+#  小羅 2026-09-28：「抖音能解析但是下載卡在 0%」← 就是這個原因
+_DOUYIN_HDR = {
+    "Referer": "https://www.douyin.com/",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
+    ),
+}
+
+#: tikwm 免費版限「每秒 1 次」→ 用一個鎖 + 上次呼叫時間做節流
+_tikwm_lock = asyncio.Lock()
+_tikwm_last = 0.0
+
+
+async def _tikwm_get(http, params: dict) -> dict:
+    """呼叫 tikwm（自動節流到每秒最多 1 次）。"""
+    global _tikwm_last
+    async with _tikwm_lock:
+        wait = 1.05 - (time.time() - _tikwm_last)
+        if wait > 0:
+            await asyncio.sleep(wait)
+        try:
+            data = await http.get_json("https://tikwm.com/api/", params=params)
+        finally:
+            _tikwm_last = time.time()
+    return data
+
 
 class DouyinResolver(YtDlpResolver):
     name = "douyin"
