@@ -357,5 +357,5 @@ input:focus{outline:none;border-color:var(--acc)}
 /* ── 客服回覆框：加大，讓客戶能看到之前的訊息 ──────────
    小羅 2026-09-28：「我要可以往上下滑動保持之前的訊息，
                      你只留固定 2 個訊息根本滑不了多少。」 */
-@media (min-width:900px){ .repbar .rbody{max-height:420px} }
-@media (max-width:899px){ .repbar .rbody{max-height:55vh} }
+@media (min-width:900px){ .repbar .rbody{max-height:480px} }
+@media (max-width:899px){ .repbar .rbody{max-height:62vh} }

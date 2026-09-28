@@ -54,7 +54,8 @@ class DouyinResolver(YtDlpResolver):
     async def resolve(self, url: str) -> VideoInfo:
         url = await self._normalize(url)      # iesdouyin 分享頁 → 標準 douyin 網址
 
-        routes = [self._via_official(url), self._via_browser(url), self._via_tikwm(url)]
+        routes = [self._via_official(url), self._via_api_watch(url),
+                  self._via_browser(url), self._via_tikwm(url)]
         tasks = [asyncio.create_task(r) for r in routes]
         try:
             for fut in asyncio.as_completed(tasks):
@@ -69,12 +70,51 @@ class DouyinResolver(YtDlpResolver):
                 if not t.done():
                     t.cancel()
 
+        # ⚠️ yt-dlp 路線**一定要帶假 cookies**（照 v8i8 學到的關鍵）：
+        #    抖音官方 API 會回 `Blocked by ArgusSecurityPlugin Uifid Not Found`（無解），
+        #    但 yt-dlp 只要有 buvid3／b_nut 就能抓。
+        #    （小羅 2026-09-28：「同一個連結 v8i8 可以解析，你的不行」）
         try:
-            return await YtDlpResolver.resolve(self, url)
+            return await self._resolve_via_ytdlp(url)
         except PlatformError:
             raise
         except Exception as exc:  # noqa: BLE001
             raise PlatformTimeout(f"抖音解析失敗：{exc}", platform=self.name) from exc
+
+    async def _resolve_via_ytdlp(self, url: str) -> VideoInfo:
+        """用 yt-dlp 解析（**帶假 cookies**）。
+
+        ⚠️ 為什麼要另開一個方法而不是直接用 YtDlpResolver.resolve：
+           抖音官方 API 現在會回 `Blocked by ArgusSecurityPlugin Uifid Not Found`（無解），
+           但 yt-dlp 只要有 buvid3／b_nut 兩個假 cookie 就能抓。
+           （小羅 2026-09-28：「同一個連結 v8i8 可以解析，你的不行」）
+        """
+        import yt_dlp
+
+        # ⚠️ 短連結（v.douyin.com）會轉址到 iesdouyin.com，而 yt-dlp 不認那個網址
+        #    （會回 Unsupported URL）→ 一定要先轉成標準的 www.douyin.com/video/<id>。
+        #    v8i8 也是這樣做（見它的 video_info 開頭）。
+        aweme_id = await self._aweme_id(url)
+        target = f"https://www.douyin.com/video/{aweme_id}" if aweme_id else url
+
+        ck = _shared.cookiefile()
+
+        def run() -> dict:
+            opts = {
+                "quiet": True, "no_warnings": True, "skip_download": True,
+                "cookiefile": ck, "socket_timeout": 25, "retries": 2,
+                "http_headers": {"User-Agent": _shared.UA},
+            }
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                return ydl.extract_info(target, download=False)
+
+        try:
+            info = await asyncio.to_thread(run)
+        except yt_dlp.utils.DownloadError as exc:
+            raise PlatformChanged(f"抖音 yt-dlp：{str(exc)[:120]}", platform=self.name) from exc
+        if not isinstance(info, dict):
+            raise PlatformChanged("抖音 yt-dlp 沒有回傳資料", platform=self.name)
+        return self.build(url, info)
 
     @staticmethod
     async def _normalize(url: str) -> str:
@@ -138,6 +178,64 @@ class DouyinResolver(YtDlpResolver):
             return None
 
         return self._parse_ssr(url, html)
+
+    async def _via_api_watch(self, url: str) -> VideoInfo | None:
+        """用真瀏覽器開抖音頁面，**監聽 `aweme/v1/web/aweme/detail` 的回應**。
+
+        ⚠️ 為什麼要這樣做（2026-09-28 從 v8i8 學到的關鍵）：
+            抖音現在不給 SSR 資料（HTML 是空殼），官方 API 又會回
+            `Blocked by ArgusSecurityPlugin Uifid Not Found`，yt-dlp 也要「新鮮 cookies」。
+            但**讓真瀏覽器自己開頁面**時，它會自己帶正確的 cookies 與簽章去打 API，
+            我們只要「聽」那個回應就好 —— v8i8 就是靠這招成功解析抖音的。
+
+        小羅：「同一個連結 v8i8 可以解析，你的不行。」
+        """
+        from ..services.browser import get_context
+
+        aweme_id = await self._aweme_id(url)
+        target = f"https://www.douyin.com/video/{aweme_id}" if aweme_id else url
+
+        ctx = await get_context("douyin")
+        page = await ctx.new_page()
+        holder: dict = {}
+
+        async def on_response(resp) -> None:
+            if "aweme/v1/web/aweme/detail" not in resp.url or holder.get("detail"):
+                return
+            try:
+                body = await resp.json()
+            except Exception:  # noqa: BLE001
+                return
+            detail = (body or {}).get("aweme_detail")
+            if detail:
+                holder["detail"] = detail
+
+        page.on("response", on_response)
+        try:
+            try:
+                await page.goto(target, wait_until="commit", timeout=15000)
+            except Exception:  # noqa: BLE001 — 沒載完也可能已攔到 API
+                pass
+            for _ in range(50):                 # 最多等 20 秒
+                if holder.get("detail"):
+                    break
+                await asyncio.sleep(0.4)
+                # 有時候頁面不會自己打 API（例如需要點一下播放）
+                if _ == 3:
+                    try:
+                        await page.evaluate("() => { document.querySelector('video')?.play?.(); }")
+                    except Exception:  # noqa: BLE001
+                        pass
+        finally:
+            try:
+                await page.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+        detail = holder.get("detail")
+        if not detail:
+            return None
+        return self._build_official(url, detail)
 
     # ── SSR HTML 解析（抖音把資料直接刻在頁面裡）──────
     def _parse_ssr(self, url: str, html: str) -> VideoInfo:

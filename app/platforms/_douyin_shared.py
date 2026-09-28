@@ -7,6 +7,8 @@
 """
 from __future__ import annotations
 
+import os
+
 import asyncio
 import re
 
@@ -17,6 +19,27 @@ from ..core.models import VideoInfo
 DETAIL = "https://www.douyin.com/aweme/v1/web/aweme/detail/"
 TTWID = "https://ttwid.bytedance.com/ttwid/union/register/"
 #: a_bogus 的 ua_code 綁這組 UA → 不可改
+FAKE_COOKIES = {
+    "buvid3": "local-12345678",
+    "b_nut": "1700000000",
+}
+
+
+def cookiefile() -> str:
+    """產生 yt-dlp 用的 cookie 檔（內容是上面的假 cookies），回傳路徑。
+
+    ⚠️ 呼叫端用完不用刪（暫存檔很小，系統會自己清）。
+    """
+    import tempfile
+
+    fd, path = tempfile.mkstemp(suffix=".txt", prefix="dy_ck_")
+    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+        f.write("# Netscape HTTP Cookie File\n")
+        for k, v in FAKE_COOKIES.items():
+            f.write(f".douyin.com\tTRUE\t/\tTRUE\t0\t{k}\t{v}\n")
+    return path
+
+
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36")
 

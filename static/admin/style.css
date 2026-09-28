@@ -280,3 +280,18 @@ textarea:focus{border-color:var(--acc)}
   font-size:9.5px;color:var(--lab);white-space:nowrap;font-style:normal}
 .chart-legend{position:absolute;bottom:-14px;left:0;right:0;font-size:11px;color:var(--lab);
   text-align:center}
+
+
+/* ── 「客戶回報」與「次數管理」：清單固定滿版高度，在框內滑動 ────
+   小羅 2026-09-28：
+     「回報清單整個拉長、範圍大一點，別頁都比較長，就這個 3/4 就到底了。
+       不能做成滿版的嗎？再加上滑動。」
+   作法：高度依視窗算（扣掉上面 KPI 與說明），內容超過就在框內滑動。 */
+#rp-list{height:calc(100vh - 270px);max-height:none;min-height:340px;overflow-y:auto}
+#qt-list{height:calc(100vh - 300px);max-height:none;min-height:280px;overflow-y:auto}
+/* 讓捲軸明顯一點，使用者才知道可以滑 */
+#rp-list::-webkit-scrollbar,#qt-list::-webkit-scrollbar{width:9px}
+#rp-list::-webkit-scrollbar-thumb,#qt-list::-webkit-scrollbar-thumb{
+  background:rgba(217,192,140,.4);border-radius:5px}
+#rp-list::-webkit-scrollbar-track,#qt-list::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.04);border-radius:5px}
