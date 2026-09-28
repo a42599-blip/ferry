@@ -8,8 +8,15 @@
     yt-dlp 要解 YouTube 的 JS 驗證（nsig），**沒有 JS runtime 就一律失敗**，
     錯誤會顯示成「需要登入或 cookies」，很容易誤判成 IP 被擋。
     → Dockerfile 已安裝 Deno，這裡明確指定 `js_runtimes`。
-    → player_client 也要用 "all"（讓 yt-dlp 自己挑還活著的 client），
-      不是只寫死兩三個（那些會被逐步關掉）。
+    → 解析用 player_client "all"（讓 yt-dlp 自己挑還活著的 client）。
+
+⚠️ 解析 ≠ 下載（2026-09-28 從 v8i8 學到，小羅指示只讀不動 v8i8）：
+    症狀：解析成功、畫質清單都有，但下載回 `HTTP Error 403: Forbidden`。
+    原因：下載也用 "all" → yt-dlp 會挑到 web／tv 的影片網址，
+          那種網址要 PO token，伺服器直接抓 googlevideo 就被擋。
+    v8i8（同 yt-dlp 2026.6.9、同 Deno 2.8.3、同 Railway）的做法：
+          **下載改用 App 身分** ["ios", "android", "android_embedded", "web"]。
+    → 見下方 download_opts()。
 """
 from __future__ import annotations
 
@@ -44,7 +51,7 @@ class YoutubeResolver(YtDlpResolver):
     hosts = ("youtube.com", "youtu.be", "youtube-nocookie.com")
     default_mode = "proxy"
 
-    # ⚠️ 解析與下載用同一組參數（client 輪替會互相打架，統一最穩）
+    # 解析用的參數（下載另外用 download_opts，見檔頭說明）
     #
     # 雲端 IP 的兩層難關：
     #   ① JS 驗證（nsig）→ 靠 Deno 解（Dockerfile 已裝）
@@ -60,7 +67,15 @@ class YoutubeResolver(YtDlpResolver):
     }
 
     def download_opts(self) -> dict[str, Any]:
-        return dict(self.ytdlp_extra)
+        """下載專用參數：照 v8i8 用 App 身分，避開 web/tv 網址的 PO token（403）。"""
+        return {
+            "extractor_args": {"youtube": {
+                "player_client": ["ios", "android", "android_embedded", "web"]}},
+            "js_runtimes": {"deno": {}},
+            "retry_sleep": "extractor:exp=1:20",
+            "fragment_retries": 10,
+            "concurrent_fragment_downloads": 8,
+        }
 
     @staticmethod
     def _env_cookiefile() -> str | None:
