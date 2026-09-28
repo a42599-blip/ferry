@@ -274,6 +274,9 @@ class YoutubeResolver(YtDlpResolver):
                 ok = await _probe(f.url, hdr(f.url), proxy) < 400
             if ok:
                 f.mode = "proxy"
+                # 伺服器下載後一律輸出 mp4（影片）／m4a（音訊）→ 檔名要跟著，
+                # 否則會存成 .webm（2026-09-28 實測），iPhone 相簿可能認不得
+                f.ext = "m4a" if f.audio else "mp4"
                 keep.append(f)
         if not keep:
             raise PlatformBlocked(f"{self.label}（{name}）影片伺服器拒絕下載", platform=self.name)
