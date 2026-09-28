@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v11';  // v11：2026-09-29 傳輸也守廣告規則＋後台手機導覽改小按鈕
+const CACHE = 'ferry-img-v12';  // v12：2026-09-29 所有說明位置同步補「廣告次數合併計算」
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

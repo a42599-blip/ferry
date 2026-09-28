@@ -102,7 +102,7 @@
     ]
   ],
   "plans_title": "Pricing",
-  "plans_lede": "No account needed. Your free quota resets at 00:00 in your own time zone; download and transfer are counted separately.",
+  "plans_lede": "Works without signing in. Free quota resets daily at 00:00 in your timezone; download and transfer are counted separately, while the ad counter combines both.",
   "plan_free": "Free",
   "plan_monthly": "Monthly",
   "plan_lifetime": "Lifetime",
@@ -163,18 +163,21 @@
   ],
   "plan_free_list": [
     "13 platforms, all qualities",
-    "Downloads <b>{dl}/day</b>",
-    "Transfers <b>{tr}/day</b>"
+    "Download <b>{dl}/day</b>",
+    "Transfer <b>{tr}/day</b>",
+    "An ad every <b>5</b> uses (not enabled yet)"
   ],
   "plan_monthly_list": [
-    "<b>Unlimited</b> downloads",
-    "<b>Unlimited</b> transfers",
-    "Early access"
+    "Unlimited downloads",
+    "Unlimited transfers",
+    "<b>No ads</b>",
+    "Early access to new features"
   ],
   "plan_lifetime_list": [
     "Everything in Monthly",
+    "<b>No ads, forever</b>",
     "One-time payment",
-    "Valid while the service runs"
+    "Valid for the life of the service"
   ],
   "plat_douyin": "Douyin",
   "plat_bilibili": "Bilibili",
@@ -311,14 +314,14 @@
   "tr_step5": "Tap Photos / Files / Folder to choose what to send (on desktop you can drag files or a whole folder in).",
   "tr_step6": "Tap Send and wait for the progress to finish. Stay on this page - do not close it or switch apps.",
   "tr_step7": "The other device saves automatically (iPhone shows Save to Photos, Android saves to Downloads).",
-  "tr_step8": "Transfer has its own free quota, separate from downloads; paid members are unlimited.",
+  "tr_step8": "Transfer has its own free quota, counted <b class=\"num-hl\">separately</b> from downloads (each has its own daily allowance); paid members are unlimited.",
   "tr_steps_note": "Files never pass through our server, are not compressed or converted, and are verified with SHA-256. Keep both devices on this page until it finishes.",
   "m_rules_sum": "Levels, benefits and ad rules (tap to open)",
   "m_rule_guest": "No sign-up needed, with a daily free quota (resets at <b class=\"num-hl\">00:00</b>). After <b class=\"num-hl\">3</b> uses, the <b class=\"num-hl\">4</b>th use requires watching an ad; then <b class=\"num-hl\">3</b> more uses, and the <b class=\"num-hl\">7</b>th needs an ad again.",
   "m_rule_free": "After signing in your quota follows the account (kept across devices). After <b class=\"num-hl\">5</b> uses, the <b class=\"num-hl\">6</b>th use requires watching an ad; then <b class=\"num-hl\">5</b> more uses, and the <b class=\"num-hl\">11</b>th needs an ad again.",
   "m_rule_monthly": "Unlimited and <b class=\"num-hl\">no ads at all</b>. The expiry date is shown above; renewing extends from that date.",
   "m_rule_lifetime": "Unlimited, <b class=\"num-hl\">no ads at all</b>, all features free forever.",
-  "m_rules_note": "Ads are <b class=\"num-hl\">not enabled yet</b> (both ad switches in the admin panel are off by default); the rules above take effect once we connect an ad provider and turn them on. Also: download and transfer quotas are counted <b class=\"num-hl\">separately</b>, and a monthly plan that expires without renewal becomes a free member again (an ad every <b class=\"num-hl\">5</b> uses).",
+  "m_rules_note": "Ads are <b class=\"num-hl\">not enabled yet</b> (both ad switches in the admin panel are off by default); the rules above take effect once we connect an ad provider and turn them on. On counting: download and transfer free quotas are <b class=\"num-hl\">separate</b>, but the <b class=\"num-hl\">ad counter combines both</b> (after <b class=\"num-hl\">3</b>/<b class=\"num-hl\">5</b> uses in total, the next action needs an ad). A monthly plan that expires without renewal becomes a free member again.",
   "nickname_label": "Change nickname",
   "nickname_desc": "Max 20 characters; leave blank to show your email",
   "nickname_unset": "(not set)",
@@ -326,11 +329,13 @@
   "teach_quota_title": "Usage quota and ads",
   "teach_quota_list": [
     "<b class=\"num-hl\">Guest</b> (not signed in): a free quota per day, reset at <b class=\"num-hl\">00:00</b>.",
-    "After <b class=\"num-hl\">3</b> uses, a guest must watch an ad before the <b class=\"num-hl\">4</b>th use; then <b class=\"num-hl\">3</b> more uses are unlocked, and the <b class=\"num-hl\">7</b>th needs an ad again, and so on.",
-    "<b class=\"num-hl\">Free member</b>: quota follows the account (kept across devices); after <b class=\"num-hl\">5</b> uses, the <b class=\"num-hl\">6</b>th needs an ad, then every <b class=\"num-hl\">5</b> uses.",
+    "After <b class=\"num-hl\">3</b> uses a guest must watch an ad before the <b class=\"num-hl\">4</b>th use; then <b class=\"num-hl\">3</b> more uses are unlocked and the <b class=\"num-hl\">7</b>th needs an ad again, and so on.",
+    "<b class=\"num-hl\">Free member</b>: quota follows the account (kept across devices); after <b class=\"num-hl\">5</b> uses the <b class=\"num-hl\">6</b>th use needs an ad, then every <b class=\"num-hl\">5</b> uses.",
     "<b class=\"num-hl\">Monthly / Lifetime</b>: unlimited and <b class=\"num-hl\">no ads at all</b>.",
-    "Download and transfer quotas are counted <b class=\"num-hl\">separately</b>, each with its own free quota.",
+    "Free quotas for download and transfer are counted <b class=\"num-hl\">separately</b> (each has its own daily allowance).",
+    "⚠️ But the <b class=\"num-hl\">ad counter combines both</b>: any download or transfer counts, and after <b class=\"num-hl\">3</b> uses (guest) / <b class=\"num-hl\">5</b> uses (free member) the next action needs an ad first.",
     "Ads are <b class=\"num-hl\">not enabled yet</b>: they take effect once we connect an ad provider and turn the switches on."
   ],
-  "teach_quota_note": "Quota resets daily at 00:00 in your timezone; paid members are unlimited."
+  "teach_quota_note": "Quota resets daily at 00:00 in your timezone; paid members are unlimited and see no ads.",
+  "tr_step9": "⚠️ The <b class=\"num-hl\">ad counter combines downloads and transfers</b>: after <b class=\"num-hl\">3</b> uses (guest) / <b class=\"num-hl\">5</b> uses (free member) in total, the next action needs an ad first (ads not enabled yet)."
 }
