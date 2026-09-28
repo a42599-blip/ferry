@@ -26,7 +26,6 @@ _API = "https://www.tikwm.com/api/"
 #  例：.../video/cn/mps/logo/r/p/xxx  ← /logo/ 就是水印版
 _WATERMARK_HINTS = ("playwm", "/logo/", "mps/logo", "watermark")
 
-
 def _has_watermark(url: str) -> bool:
     """這個網址是不是「含水印」的版本。"""
     u = (url or "").lower()
@@ -449,30 +448,27 @@ class DouyinResolver(YtDlpResolver):
             ))
 
         # ② play_addr（原畫）
-        #   ⚠️ 抖音會把**含水印**的 CDN 路徑放在 play_addr（例：`/video/cn/mps/logo/`）
-        #      → 小羅 2026-09-28：「下載成功但沒去水印」就是這個。
-        #      這裡直接跳過含水印的版本（寧可少一種，也不給使用者水印）。
-        for key in ("play_addr", "download_addr"):
-            addr = (video.get(key) or {}).get("url_list") or []
-            if not addr:
-                continue
-            u = addr[0]
-            if _has_watermark(u):
-                u = _strip_watermark(u)
-                if _has_watermark(u):
-                    continue
-            if u in seen:
+        #   ⚠️ **絕對不要用 download_addr**（小羅 2026-09-28 實測確認）：
+        #     抖音的「下載版」（download_addr）**一定會把水印燒進影片**，
+        #     而且**它排在最前面**→ 使用者下載到的就是有水印的。
+        #     對照 v8i8：它只用 play_addr，所以沒有水印。
+        #     實測同一支影片：
+        #       download_addr → 有水印（抖音 logo + 帳號）
+        #       play_addr     → 無水印（跟 v8i8 拿到的一模一樣）
+        addr = (video.get("play_addr") or {}).get("url_list") or []
+        for u in addr:
+            u = _strip_watermark(u)
+            if _has_watermark(u) or u in seen:
                 continue
             seen.add(u)
             fmts.append(
                 Format(
-                    id="origin" if key == "play_addr" else "download",
-                    label="原畫" if key == "play_addr" else "下載版",
-                    url=u,
-                    quality_score=85 if key == "play_addr" else 70,
+                    id="origin", label="原畫", url=u,
+                    quality_score=85,
                     mode="relay", headers=dict(_DOUYIN_HDR),
                 )
             )
+            break                        # play_addr 只取第一個即可
 
         # ③ 圖集
         images = detail.get("images") or []
