@@ -27,6 +27,12 @@ function applyLang() {
     const v = t(key, el.dataset.zh || el.textContent);
     if (v !== undefined && v !== null) el.textContent = v;
   });
+  // ⚠️ data-i18n-html：允許翻譯字串夾 HTML（小羅 2026-09-29：
+  //    「跟次數有關的數字要用紅字標出來，不然看起來會漏掉」）
+  $$('[data-i18n-html]').forEach((el) => {
+    const v = t(el.dataset.i18nHtml);
+    if (v !== undefined && v !== null) el.innerHTML = v;
+  });
   $$('[data-i18n-ph]').forEach((el) => {
     const v = t(el.dataset.i18nPh);
     if (v !== undefined && v !== null) el.placeholder = v;
@@ -128,6 +134,8 @@ function buildTeach() {
   if ($('#teach-save-note')) $('#teach-save-note').textContent = t('teach_save_note', '');
   if ($('#teach-os-list')) $('#teach-os-list').innerHTML = (osl || []).map(
     ([k, v]) => `<div class="r"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  const ql = t('teach_quota_list', []);
+  if ($('#teach-quota-list')) $('#teach-quota-list').innerHTML = (ql || []).map((x) => `<li>${x}</li>`).join('');
   if ($('#teach-faq')) $('#teach-faq').innerHTML = (faq || []).map(
     ([q, a]) => `<div class="r"><div class="k">${q}</div><div class="v">${a}</div></div>`).join('');
 }

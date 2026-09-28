@@ -314,13 +314,23 @@
   "tr_step8": "Transfer has its own free quota, separate from downloads; paid members are unlimited.",
   "tr_steps_note": "Files never pass through our server, are not compressed or converted, and are verified with SHA-256. Keep both devices on this page until it finishes.",
   "m_rules_sum": "Levels, benefits and ad rules (tap to open)",
-  "m_rule_guest": "No sign-up needed, with a daily free quota (resets at 00:00). After 3 uses, the 4th use requires watching an ad first; then you get 3 more uses, and the 7th needs an ad again, and so on.",
-  "m_rule_free": "After signing in your quota follows the account (kept across devices). After 5 uses, the 6th use requires watching an ad first; then you get 5 more uses, and the 11th needs an ad again, and so on.",
-  "m_rule_monthly": "Unlimited and no ads at all. The expiry date is shown above; renewing extends from that date.",
-  "m_rule_lifetime": "Unlimited, no ads at all, all features free forever.",
-  "m_rules_note": "Ads are not enabled yet (both ad switches in the admin panel are off by default); the rules above take effect once we connect an ad provider and turn them on. Also: download and transfer quotas are counted separately, and a monthly plan that expires without renewal becomes a free member again (an ad every 5 uses).",
+  "m_rule_guest": "No sign-up needed, with a daily free quota (resets at <b class=\"num-hl\">00:00</b>). After <b class=\"num-hl\">3</b> uses, the <b class=\"num-hl\">4</b>th use requires watching an ad; then <b class=\"num-hl\">3</b> more uses, and the <b class=\"num-hl\">7</b>th needs an ad again.",
+  "m_rule_free": "After signing in your quota follows the account (kept across devices). After <b class=\"num-hl\">5</b> uses, the <b class=\"num-hl\">6</b>th use requires watching an ad; then <b class=\"num-hl\">5</b> more uses, and the <b class=\"num-hl\">11</b>th needs an ad again.",
+  "m_rule_monthly": "Unlimited and <b class=\"num-hl\">no ads at all</b>. The expiry date is shown above; renewing extends from that date.",
+  "m_rule_lifetime": "Unlimited, <b class=\"num-hl\">no ads at all</b>, all features free forever.",
+  "m_rules_note": "Ads are <b class=\"num-hl\">not enabled yet</b> (both ad switches in the admin panel are off by default); the rules above take effect once we connect an ad provider and turn them on. Also: download and transfer quotas are counted <b class=\"num-hl\">separately</b>, and a monthly plan that expires without renewal becomes a free member again (an ad every <b class=\"num-hl\">5</b> uses).",
   "nickname_label": "Change nickname",
   "nickname_desc": "Max 20 characters; leave blank to show your email",
   "nickname_unset": "(not set)",
-  "nickname_change": "Change"
+  "nickname_change": "Change",
+  "teach_quota_title": "Usage quota and ads",
+  "teach_quota_list": [
+    "<b class=\"num-hl\">Guest</b> (not signed in): a free quota per day, reset at <b class=\"num-hl\">00:00</b>.",
+    "After <b class=\"num-hl\">3</b> uses, a guest must watch an ad before the <b class=\"num-hl\">4</b>th use; then <b class=\"num-hl\">3</b> more uses are unlocked, and the <b class=\"num-hl\">7</b>th needs an ad again, and so on.",
+    "<b class=\"num-hl\">Free member</b>: quota follows the account (kept across devices); after <b class=\"num-hl\">5</b> uses, the <b class=\"num-hl\">6</b>th needs an ad, then every <b class=\"num-hl\">5</b> uses.",
+    "<b class=\"num-hl\">Monthly / Lifetime</b>: unlimited and <b class=\"num-hl\">no ads at all</b>.",
+    "Download and transfer quotas are counted <b class=\"num-hl\">separately</b>, each with its own free quota.",
+    "Ads are <b class=\"num-hl\">not enabled yet</b>: they take effect once we connect an ad provider and turn the switches on."
+  ],
+  "teach_quota_note": "Quota resets daily at 00:00 in your timezone; paid members are unlimited."
 }

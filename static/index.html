@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=31">
+<link rel="stylesheet" href="/style.css?v=32">
 <style>
 /* ⚠️ 手機導覽的「關鍵樣式」內嵌在這裡（小羅 2026-09-27）。
    原因：他的手機卡在舊的 style.css 快取（舊版 .tabs 是 display:none），
@@ -250,6 +250,10 @@
       <ol class="steps" id="teach-steps-dl"></ol>
       <h2 class="sec" data-i18n="teach_tr">無損傳輸</h2>
       <ol class="steps" id="teach-steps-tr"></ol>
+      <h2 class="sec" data-i18n="teach_quota_title">使用次數與廣告說明</h2>
+      <ul class="steps" id="teach-quota-list"></ul>
+      <p class="note" data-i18n="teach_quota_note">次數以你所在時區的每天 00:00 重新計算。</p>
+
       <h2 class="sec" data-i18n="teach_save_title">下載後存到哪裡？</h2>
       <div class="kv" id="teach-save-list"></div>
       <p class="note" id="teach-save-note"></p>
@@ -311,15 +315,15 @@
           <summary><span data-i18n="m_rules_sum">會員等級、福利與廣告說明（點開看）</span></summary>
           <div class="rulerows">
             <div class="rr"><b data-i18n="tier_guest">訪客</b>
-              <span data-i18n="m_rule_guest">不用註冊就能用。</span></div>
+              <span data-i18n-html="m_rule_guest">不用註冊就能用。</span></div>
             <div class="rr"><b data-i18n="tier_free">免費會員</b>
-              <span data-i18n="m_rule_free">註冊登入後次數綁帳號。</span></div>
+              <span data-i18n-html="m_rule_free">註冊登入後次數綁帳號。</span></div>
             <div class="rr"><b data-i18n="tier_monthly">月會員</b>
-              <span data-i18n="m_rule_monthly">不限次數、不看廣告。</span></div>
+              <span data-i18n-html="m_rule_monthly">不限次數、不看廣告。</span></div>
             <div class="rr"><b data-i18n="tier_lifetime">永久會員</b>
-              <span data-i18n="m_rule_lifetime">不限次數、不看廣告、永久免費。</span></div>
+              <span data-i18n-html="m_rule_lifetime">不限次數、不看廣告、永久免費。</span></div>
           </div>
-          <p class="note" data-i18n="m_rules_note">補充說明。</p>
+          <p class="note" data-i18n-html="m_rules_note">補充說明。</p>
         </details>
       </div>
       <!-- 會員登入開關（feature.auth）關掉時，整個模塊收起來、只顯示下面的籌備中提示 -->
@@ -373,7 +377,7 @@
 
 <script src="/sha256.js?v=27"></script>
 <script src="/save.js?v=27"></script>
-<script src="/app.js?v=32"></script>
+<script src="/app.js?v=33"></script>
 <script src="/transfer.js?v=27"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）

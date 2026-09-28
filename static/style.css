@@ -420,3 +420,6 @@ input:focus{outline:none;border-color:var(--acc)}
 .m-head h1{margin:0;flex:0 0 auto}
 .m-head #m-rules{margin:0;border:0;padding:2px 0 0;flex:1 1 auto;min-width:0}
 @media (max-width:899px){ .m-head{flex-direction:column;gap:8px} }
+
+/* ── 次數／廣告規則裡的關鍵數字（小羅 2026-09-29：要用紅字才不會漏看）── */
+.num-hl{color:#ff6b6b;font-weight:700}

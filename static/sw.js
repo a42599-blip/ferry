@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v9';   // v9：2026-09-29 廣告改成「下一次動作前」攔
+const CACHE = 'ferry-img-v10';  // v10：2026-09-29 教學頁次數說明＋關鍵數字標紅
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

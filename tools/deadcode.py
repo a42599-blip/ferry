@@ -133,13 +133,65 @@ def check_js(html_ids: set[str]) -> list[str]:
     return issues
 
 
+def _walk_locales() -> list[Path]:
+    """static/locales/*.json（三語翻譯檔）。"""
+    return sorted(Path(ROOT, "static", "locales").glob("*.json"))
+
+
+def check_i18n(html_text: str, js_text: str) -> list[str]:
+    """三語翻譯檢查（小羅 2026-09-29：新文字一定要有繁／簡／EN）。
+
+    ① 三份語言檔的 key 必須一致（缺漏／多出都要報）
+    ② 程式裡用到、語言檔卻沒有的 key 也要報
+       ⚠️ `t('tier_' + x)` 這種動態組合會留下 `tier_` 尾巴 → 忽略以 `_` 結尾的
+    """
+    import json as _json
+
+    issues: list[str] = []
+    files = _walk_locales()
+    if not files:
+        return issues
+    base_name = "zh-Hant.json"
+    data: dict[str, dict] = {}
+    for q in files:
+        try:
+            data[q.name] = _json.loads(read(q))
+        except Exception as exc:  # noqa: BLE001
+            issues.append(f"[翻譯] {q.name} 讀取失敗：{str(exc)[:60]}")
+    base = data.get(base_name)
+    if base is None:
+        issues.append(f"[翻譯] 找不到基準語言檔 {base_name}")
+        return issues
+    for name, d in data.items():
+        if name == base_name:
+            continue
+        for k in sorted(base):
+            if k not in d:
+                issues.append(f"[翻譯] {name} 缺少 key：{k}")
+        for k in sorted(d):
+            if k not in base:
+                issues.append(f"[翻譯] {name} 多出 key（基準檔沒有）：{k}")
+
+    used = set(re.findall(r'data-i18n(?:-html|-ph)?="([a-zA-Z0-9_.]+)"', html_text))
+    used |= set(re.findall(r"\bt\(\s*[\"']([a-zA-Z0-9_]+)[\"']", js_text))
+    for k in sorted(used):
+        if k.endswith("_"):          # 動態組合（tier_ / tab_ 之類）
+            continue
+        if k not in base:
+            issues.append(f"[翻譯] 程式用到但語言檔沒有：{k}")
+    return issues
+
+
 # ── ⑤ CSS ─────────────────────────────────────────────
 def check_css(html_text: str, js_text: str) -> list[str]:
     issues: list[str] = []
+    # 語言檔裡也可能夾 HTML（例：<b class="num-hl">3</b> 標紅數字）
+    #   → 不算進來的話，.num-hl 會被誤判成「沒用到的 CSS」（2026-09-29 實際踩到）
+    locales = "\n".join(read(q) for q in _walk_locales())
     for p in _walk((".css",)):
         css = read(p)
         for cls in sorted(set(re.findall(r"\.([a-zA-Z][a-zA-Z0-9_-]{2,})", css))):
-            if cls in html_text or cls in js_text:
+            if cls in html_text or cls in js_text or cls in locales:
                 continue
             # 常見的狀態 class 由 JS 動態加，寬鬆處理
             if cls in ("on", "active", "hidden", "show", "open", "sel", "ok", "warn", "err"):
@@ -170,6 +222,7 @@ def main() -> None:
         ("Python", check_python()),
         ("JavaScript / DOM", check_js(html_ids)),
         ("CSS", check_css(html_text, js_text)),
+        ("翻譯（三語）", check_i18n(html_text, js_text)),
     ]
     total = 0
     for name, issues in groups:
