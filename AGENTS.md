@@ -5,7 +5,8 @@
 > - 購買日 **2026-09-29**、年費 US$10.46、**到期 2027-09-29**、自動續約**已開**（Cloudflare Registrar，Visa 末四碼 3892）
 > - ✅ **前台**：`https://scefo.com`　**後台**：`https://scefo.com/admin/`
 > - ✅ **`www.scefo.com`** → 301 自動轉到 `scefo.com`（Cloudflare Worker，不佔 Railway 名額）
-> - ✅ **舊網址 `https://ferry.v8i8.com` 仍可用**（Railway 免費方案「每服務自訂網域」名額已滿，兩個網域都在同一個服務上）
+> - 🗑️ **舊網址 `https://ferry.v8i8.com` 已於 2026-09-29 移除**（小羅指示：只留 `scefo.com` 單一網域）
+>   - 已同時刪掉：Railway 的自訂網域 ＋ Cloudflare 的 CNAME／驗證 TXT（**沒有動到 v8i8.com 去水印網站**）
 > - ⚠️ 小羅問「後台要不要加前綴」→ **不需要**：後台就是同網域的 `/admin/`（本來就是路徑，不是獨立網域）
 > - 📌 **小羅只要講到「轉運站」，AI 一律要主動告訴他網址是 `scefo.com`**
 
