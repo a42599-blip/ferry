@@ -372,9 +372,12 @@ input:focus{outline:none;border-color:var(--acc)}
 .whologout:hover{text-decoration:underline}
 
 /* 暱稱輸入列（會員頁）*/
-.nickbox{display:flex;gap:8px;margin-top:12px}
-.nickin{flex:1;min-width:0;padding:11px 12px;font-size:13.5px;background:transparent;
-  border:1px solid var(--inp);color:var(--text);outline:0}
+.nickbox{display:flex;gap:8px;margin-top:8px;align-items:center}
+.nickin{flex:1 1 auto;min-width:0;width:100%;padding:12px 14px;font-size:15px;
+  background:transparent;border:1px solid var(--inp);color:var(--text);outline:0}
+.nickbtn{flex:0 0 auto;height:44px;padding:0 14px;font-size:13px;background:transparent;
+  border:1px solid var(--line-soft);border-radius:8px;color:var(--acc);cursor:pointer}
+.nickbtn:hover{border-color:var(--acc)}
 
 /* 歷史記錄：可點的那幾列 */
 .hrow.clickable{cursor:pointer}
@@ -411,3 +414,9 @@ input:focus{outline:none;border-color:var(--acc)}
 /* ── 傳輸使用說明：步驟清單（沿用 o-report 的開合樣式）── */
 .t-steps ol.steps{margin:10px 0 0 18px}
 .t-steps ol.steps li{margin-bottom:7px}
+
+/* ── 會員頁標題列：標題在左、規則說明在右（小羅 2026-09-29）── */
+.m-head{display:flex;align-items:flex-start;gap:18px}
+.m-head h1{margin:0;flex:0 0 auto}
+.m-head #m-rules{margin:0;border:0;padding:2px 0 0;flex:1 1 auto;min-width:0}
+@media (max-width:899px){ .m-head{flex-direction:column;gap:8px} }

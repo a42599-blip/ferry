@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v7';   // v7：2026-09-29 傳輸使用說明＋會員規則說明
+const CACHE = 'ferry-img-v8';   // v8：2026-09-29 會員說明搬到標題右邊＋暱稱欄改版
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',
