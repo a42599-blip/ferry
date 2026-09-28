@@ -11,7 +11,7 @@
 
 用法：
     python tools/check_linkage.py                     # 測本機 8800
-    python tools/check_linkage.py --base https://ferry.v8i8.com \
+    python tools/check_linkage.py --base https://scefo.com \
         --admin-pass admin
 """
 from __future__ import annotations

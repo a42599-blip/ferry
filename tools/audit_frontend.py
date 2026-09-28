@@ -9,7 +9,7 @@
 用法：
     python tools/audit_frontend.py                      # 前台 × 3 語言 × 5 頁 ＋ 功能實測
     python tools/audit_frontend.py --admin              # 連後台一起審
-    python tools/audit_frontend.py --base https://ferry.v8i8.com
+    python tools/audit_frontend.py --base https://scefo.com
     python tools/audit_frontend.py --json report.json   # 輸出機器可讀結果
 
 檢查項目：

@@ -90,7 +90,7 @@ python tools/deadcode.py --strict # 有問題會 exit 1（可掛流程）
 python tools/audit_frontend.py --admin
 
 # 線上正式站
-python tools/audit_frontend.py --base https://ferry.v8i8.com --admin --admin-pass "Ferry-C2cPqk-1827"
+python tools/audit_frontend.py --base https://scefo.com --admin --admin-pass "Ferry-C2cPqk-1827"
 ```
 
 | 類別 | 檢查內容 |
@@ -260,7 +260,7 @@ git add -A && git commit -m "..." && git push origin main
 使用者的手機／電腦**還是跑舊的程式** → 會出現「你說改了但我看到的還是舊的」。
 （實際踩到：免費次數開關的中文標籤、save.js 的 MIME 修正都因為這樣沒生效）
 
-檢查方式：`curl -s https://ferry.v8i8.com/admin/ | grep -o "app.js?v=[0-9]*"`
+檢查方式：`curl -s https://scefo.com/admin/ | grep -o "app.js?v=[0-9]*"`
 
 ### 📌 進行中的專案 → 交接文件在哪（每次開機必查）
 
