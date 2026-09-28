@@ -17,6 +17,9 @@ const FEATURE_LABELS = {
   'feature.audio_only': '純音訊輸出',
   'feature.history': '歷史記錄',
   // 免費次數限制（小羅要求：下載與傳輸**分開**開關；關掉＝該模組無限使用）
+  // 廣告（小羅 2026-09-29：兩個分開的開關，中文名稱一定要有，否則後台會顯示英文代號）
+  'feature.ads_guest': '廣告 ── 訪客（每 3 次看一次）',
+  'feature.ads_member': '廣告 ── 免費會員（每 5 次看一次）',
   'feature.free_limit_download': '免費次數限制 ── 無水印下載',
   'feature.free_limit_transfer': '免費次數限制 ── 無損傳輸',
   'feature.maintenance': '全站維護模式',
