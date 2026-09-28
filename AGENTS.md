@@ -205,6 +205,11 @@ git add -A && git commit -m "..." && git push origin main
 | 5 | 後端錯誤一律回 **錯誤碼**，前端靠 `err_<CODE>` 翻譯 |
 | 6 | 事件一律用**裝置 ID** 記錄（會員登入後軌跡才不會斷成兩段）|
 | 7 | 抖音系列（抖音／西瓜／頭條）的影片網址常是 **URL 編碼**的，要解碼 |
+| 8 | 🆕 **跑 `audit_frontend.py --admin` 前，先殺掉 8800 埠的舊 uvicorn process**（否則會測到舊程式碼 → 出現「明明沒問題卻卡住」的假錯誤）。殺法：`Get-CimInstance Win32_Process -Filter "name='python.exe'" \| Where-Object { $_.CommandLine -match 'uvicorn' } \| Stop-Process -Force` |
+| 9 | 🆕 **停權／註銷要把「登入、token、方案」三處都擋**（只改一處 = 假的停權）。 `members.login()`＋`verify_token()`＋`billing.plan_of()` |
+| 10 | 🆕 **後台改帳密要一併換 `admin_secret`**（否則舊 session 還能用）；帳密以 DB 優先、環境變數只當預設 |
+| 11 | 🆕 **前台元件在「分頁」裡時**：從別的頁呼叫要**先 `go('分頁名')`**，否則畫面開在看不見的分頁（小羅實際回報「資料卡按不進去」）|
+| 12 | 🆕 **忘記密碼不能洩漏帳號存不存在** → 不管有沒有註册，回覆要一字不差 |
 
 ---
 
