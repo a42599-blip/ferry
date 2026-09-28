@@ -28,6 +28,10 @@
     本機之所以正常：這台電腦的預設快取（D:/ComfyUI/cache/yt-dlp）以前就存過 lib.json。
     v8i8 在 2026-06 把 remote_components 拿掉（以為會卡住）→ 就是它 YouTube 一直不穩的根本原因。
     實測：空快取＋不開 → ❌；空快取＋開 → ✅ 41 種格式、10MB 之後也能抓（206）。
+⚠️ 通行證（PO Token）方案 —— 對付雲端 IP 的「Sign in to confirm you're not a bot」：
+    容器內跑 bgutil 產生器（Dockerfile 安裝、只聽 127.0.0.1:4416），yt-dlp 外掛
+    bgutil-ytdlp-pot-provider 會自動去拿通行證 → 用官方推薦的 mweb＋通行證排第一。
+    產生器沒開（_pot_ready() 為假）→ 自動跳過，不浪費時間，直接用後面的方案。
 ⚠️ 為什麼不帶 cookies、不塞自訂 UA（v8i8 的教訓）：
     帶 cookies 會讓 yt-dlp 跳過 App 身分；自訂 UA 會和身分對不上。
     唯一例外：小羅在 Railway 設了 YT_COOKIES_JSON → 最後才用「cookies」方案。
@@ -55,15 +59,16 @@ _URL_RE = re.compile(
 )
 _ID_RE = re.compile(r"(?:v=|youtu\.be/|/shorts/|/embed/|/live/|/v/)([A-Za-z0-9_-]{11})")
 
-#: 方案清單（依序嘗試）。第三欄＝是否需要 YT_COOKIES_JSON。
+#: 方案清單（依序嘗試）。第三欄＝需要什麼："" 不需要／"pot" 通行證產生器／"cookie" YT_COOKIES_JSON。
 #: ⚠️ 2026-09-28 實測（Big Buck Bunny 18MB）：android_vr 只給「前 1MB」，之後 403；
 #:    web_embedded 全段都給 → 排第一。所以試抓一定要抓 1MB 之後（見 _probe）。
-_STRATEGIES: tuple[tuple[str, dict[str, Any], bool], ...] = (
-    ("web_embedded", {"player_client": ["web_embedded"]}, False),  # 不需 PO Token（限可嵌入影片）
-    ("android_vr", {"player_client": ["android_vr"]}, False),      # 不需 PO Token，但長片常只給前 1MB（不穩，只當備用）
-    ("tv", {"player_client": ["tv"]}, False),                      # 不需 PO Token（DRM 格式會被濾掉）
-    ("default", {}, False),                                        # yt-dlp 自己挑（最後手段）
-    ("cookies", {"player_client": ["tv", "web_safari"]}, True),    # 只有設了 YT_COOKIES_JSON 才用
+_STRATEGIES: tuple[tuple[str, dict[str, Any], str], ...] = (
+    ("mweb_pot", {"player_client": ["mweb"]}, "pot"),              # 官方推薦：mweb＋通行證
+    ("web_embedded", {"player_client": ["web_embedded"]}, ""),     # 不需 PO Token（限可嵌入影片）
+    ("android_vr", {"player_client": ["android_vr"]}, ""),         # 不需 PO Token，但長片常只給前 1MB（不穩，只當備用）
+    ("tv", {"player_client": ["tv"]}, ""),                         # 不需 PO Token（DRM 格式會被濾掉）
+    ("default", {}, ""),                                           # yt-dlp 自己挑（最後手段）
+    ("cookies", {"player_client": ["tv", "web_safari"]}, "cookie"),  # 只有設了 YT_COOKIES_JSON 才用
 )
 
 _COOLDOWN = 300.0          # 失敗的方案暫停幾秒
@@ -76,7 +81,9 @@ _TOTAL_BUDGET = 34.0       # 全部方案合計上限（解析總逾時是 40 �
 _RELAY_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
              "(KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36")
 
-_state: dict[str, Any] = {"last_ok": None, "down_until": {}}
+_POT_URL = "http://127.0.0.1:4416/ping"   # bgutil 通行證產生器（只在容器內部）
+
+_state: dict[str, Any] = {"last_ok": None, "down_until": {}, "pot": (0.0, False)}
 _cache: dict[str, tuple[float, VideoInfo]] = {}
 _inflight: dict[str, asyncio.Future] = {}
 
@@ -91,25 +98,26 @@ class YoutubeResolver(YtDlpResolver):
         return bool(_URL_RE.search(url))
 
     def download_opts(self) -> dict[str, Any]:
-        """下載用參數：把「目前沒被暫停」的身分依序一起交給 yt-dlp（同一格式會優先用前面的身分）。
+        """下載用參數：只用「最近一次解析成功」的那個身分（解析時已試抓驗證過）。
 
-        最近一次是靠 cookies 方案才成功 → 下載也用 cookies。
+        為什麼不把幾個身分一起交給 yt-dlp：某個身分偶爾抽風時，yt-dlp 會改挑別的身分的格式，
+        挑到 android_vr 的長片 → 過了 1MB 就 403（2026-09-28 實測）。
         會蓋掉共用下載器的 cookiefile 與 http_headers（只影響 YouTube）。
         """
+        pot = _pot_ready()
+        name = _state["last_ok"] or next(
+            (n for n, _, needs in self._ordered() if needs == "" or (needs == "pot" and pot)),
+            "web_embedded")
+        _, ea, needs = next(st for st in _STRATEGIES if st[0] == name)
         opts: dict[str, Any] = {
-            "cookiefile": None,
+            "cookiefile": self._env_cookiefile() if needs == "cookie" else None,
             "http_headers": {},
             "js_runtimes": {"deno": {}},
             "remote_components": ["ejs:github"],
             "fragment_retries": 10,
         }
-        if _state["last_ok"] == "cookies":
-            opts["cookiefile"] = self._env_cookiefile()
-            opts["extractor_args"] = {"youtube": dict(_STRATEGIES[-1][1])}
-            return opts
-        clients = [c for name, ea, needs_cookie in self._ordered() if not needs_cookie
-                   for c in ea.get("player_client", [])]
-        opts["extractor_args"] = {"youtube": {"player_client": clients}}
+        if ea:
+            opts["extractor_args"] = {"youtube": dict(ea)}
         return opts
 
     # ── 解析（快取 → 同影片合併請求 → 多方案）────────────────
@@ -146,12 +154,15 @@ class YoutubeResolver(YtDlpResolver):
         tried: list[str] = []
         last_err: Optional[PlatformError] = None
 
-        for name, ea, needs_cookie in self._ordered():
+        pot = await asyncio.to_thread(_pot_ready)
+        for name, ea, needs in self._ordered():
             left = _TOTAL_BUDGET - (time.monotonic() - started)
             if left < 4:
                 break
-            cookiefile = self._env_cookiefile() if needs_cookie else None
-            if needs_cookie and not cookiefile:
+            if needs == "pot" and not pot:
+                continue
+            cookiefile = self._env_cookiefile() if needs == "cookie" else None
+            if needs == "cookie" and not cookiefile:
                 continue
             try:
                 info = await asyncio.wait_for(
@@ -184,7 +195,7 @@ class YoutubeResolver(YtDlpResolver):
             platform=self.name,
         )
 
-    def _ordered(self) -> list[tuple[str, dict[str, Any], bool]]:
+    def _ordered(self) -> list[tuple[str, dict[str, Any], str]]:
         """固定順序；暫停中的方案移到最後（全部都暫停時仍會試）。"""
         now = time.time()
         down = _state["down_until"]
@@ -311,3 +322,16 @@ async def _probe(url: str, headers: dict[str, str]) -> int:
             return r.status_code
     except httpx.HTTPError:
         return 599
+
+
+def _pot_ready() -> bool:
+    """通行證產生器有沒有在跑（結果快取 30 秒；只花 0.5 秒檢查）。"""
+    at, ok = _state["pot"]
+    if time.time() - at < 30:
+        return ok
+    try:
+        ok = httpx.get(_POT_URL, timeout=0.5).status_code == 200
+    except httpx.HTTPError:
+        ok = False
+    _state["pot"] = (time.time(), ok)
+    return ok

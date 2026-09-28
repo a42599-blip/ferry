@@ -24,6 +24,17 @@ RUN curl -fsSL https://github.com/denoland/deno/releases/download/v2.8.3/deno-x8
  && deno --version
 ENV PATH="/usr/local/bin:${PATH}"
 
+# ── YouTube 通行證（PO Token）產生器 bgutil ─────────────────────────────────────
+# 只有 app/platforms/youtube.py 會用到（其他平台不受影響）。開機時在背景跑（見 CMD），只聽容器內 127.0.0.1:4416。
+# 為什麼：雲端 IP 會被 YouTube 要求「Sign in to confirm you're not a bot」，yt-dlp 官方建議用 PO Token 外掛。
+# 版本鎖 2.0.0，要跟 requirements.txt 的 bgutil-ytdlp-pot-provider 一致。產生器沒跑起來也沒關係：
+# youtube.py 會自動跳過通行證方案、改用其他方案。
+RUN curl -fsSL https://github.com/Brainicism/bgutil-ytdlp-pot-provider/archive/refs/tags/2.0.0.tar.gz \
+      | tar -xz -C /opt \
+ && mv /opt/bgutil-ytdlp-pot-provider-2.0.0 /opt/bgutil \
+ && cd /opt/bgutil/server \
+ && deno install --allow-scripts=npm:canvas --frozen
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
  && playwright install --with-deps chromium \
@@ -34,4 +45,5 @@ COPY app ./app
 COPY static ./static
 
 EXPOSE 8000
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# 先在背景啟動 YouTube 通行證產生器（失敗也不影響網站），再啟動網站
+CMD ["sh", "-c", "(cd /opt/bgutil/server/node_modules && deno run --allow-env --allow-net --allow-ffi=. --allow-read=. ../src/main.ts > /tmp/bgutil.log 2>&1 &) ; uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
