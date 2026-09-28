@@ -429,6 +429,9 @@ async function loadMyReplies() {
   renderReplyBar();
 }
 
+// 版本標記（讓小羅確認自己看到的是不是最新版；畫面上看不到，可從 console 查）
+window.FY_UI_VERSION = 'v24 · 2026-09-28';
+
 async function loadQuota() {
   try { renderQuota((await api('/api/quota')).quota); } catch { /* 忽略 */ }
 }
