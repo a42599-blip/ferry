@@ -48,7 +48,7 @@ class XiaohongshuResolver(YtDlpResolver):
     name = "xiaohongshu"
     label = "小紅書"
     hosts = ("xiaohongshu.com", "xhslink.com", "xhslink.cn", "xhs.link")
-    default_mode = "fetch"          # 小紅書 CDN 開 CORS（規格書第 8 章）
+    default_mode = "fetch"          # 小紅書 CDN 開 CORS（規格書第 8 章）；網址一律轉 https（見 _secure）
     ytdlp_extra = {"http_headers": {"User-Agent": _IPHONE_UA}}
 
     async def match(self, url: str) -> bool:
@@ -59,7 +59,7 @@ class XiaohongshuResolver(YtDlpResolver):
         try:
             info = await self._via_html(url)
             if info:
-                return info
+                return _secure(info)
         except PlatformError:
             raise
         except Exception:  # noqa: BLE001
@@ -76,15 +76,15 @@ class XiaohongshuResolver(YtDlpResolver):
                            url=u, quality_score=90 - i, mode="fetch", headers=dict(_HDRS))
                     for i, u in enumerate(data["urls"][:6])
                 ]
-                return VideoInfo(platform=self.name,
-                                 title=data.get("title") or "小紅書影片",
-                                 cover=data.get("poster") or "", source_url=url,
-                                 formats=fmts, extra={"route": "browser"})
+                return _secure(VideoInfo(platform=self.name,
+                                         title=data.get("title") or "小紅書影片",
+                                         cover=data.get("poster") or "", source_url=url,
+                                         formats=fmts, extra={"route": "browser"}))
         except Exception:  # noqa: BLE001
             pass
 
         # ③ yt-dlp（有 cookies 時）
-        return await YtDlpResolver.resolve(self, url)
+        return _secure(await YtDlpResolver.resolve(self, url))
 
     async def _via_html(self, url: str) -> VideoInfo | None:
         async with HttpClient(ua=_IPHONE_UA, timeout=20) as http:
@@ -135,6 +135,27 @@ class XiaohongshuResolver(YtDlpResolver):
         ]
         return VideoInfo(platform=self.name, title=title, cover=cover, source_url=url,
                          formats=fmts, author=author, extra={"route": "html"})
+
+
+def _secure(info: VideoInfo) -> VideoInfo:
+    """影片／封面網址一律改 https，並去掉改完後重複的網址。
+
+    ⚠️ 2026-09-28 小羅實測：按下載會跳到另一頁、只剩影片在播放。
+       原因＝小紅書給的是 http:// 網址，本站是 https → 瀏覽器擋「混合內容」→ fetch 失敗
+       → 前端退回「直接開網址」。實測 CDN 有 https、有開 CORS、不需 Referer → 換 https 就好。
+    """
+    seen: set[str] = set()
+    keep = []
+    for f in info.formats:
+        if f.url.startswith("http://"):
+            f.url = "https://" + f.url[len("http://"):]
+        if f.url not in seen:
+            seen.add(f.url)
+            keep.append(f)
+    info.formats = keep
+    if info.cover.startswith("http://"):
+        info.cover = "https://" + info.cover[len("http://"):]
+    return info
 
 
 def _search(pattern: str, text: str) -> str:
