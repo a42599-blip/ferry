@@ -1281,5 +1281,5 @@ bindMemberPage();
 // 版本標記（讓小羅確認自己看到的是不是最新版）
 (function () {
   const el = document.getElementById('verstamp');
-  if (el) el.textContent = 'v30 · 2026-09-28 15:00';
+  if (el) el.textContent = 'v33 · 2026-09-28 15:40';
 })();
