@@ -291,6 +291,29 @@ async def debug_douyin(u: str = Query(""), rid: str = Query("7162250624946425122
         except Exception as exc:  # noqa: BLE001
             note(name, False, None, f"{type(exc).__name__}: {exc}")
 
+    # 完整的 url_list（找出「無水印」的那一個）
+    try:
+        from .platforms.douyin import DouyinResolver as _DR
+        from .platforms import _douyin_shared as _sh
+
+        _r = _DR()
+        _aid = await _r._aweme_id(url)
+        out["aweme_id"] = _aid
+        _detail = await _sh.fetch_detail(_aid) if _aid else None
+        if _detail:
+            _v = _detail.get("video") or {}
+            out["url_lists"] = {
+                "play_addr": ((_v.get("play_addr") or {}).get("url_list") or [])[:6],
+                "download_addr": ((_v.get("download_addr") or {}).get("url_list") or [])[:6],
+                "bit_rate": [
+                    {"h": b.get("height"), "gear": b.get("gear_name"),
+                     "urls": ((b.get("play_addr") or {}).get("url_list") or [])[:4]}
+                    for b in (_v.get("bit_rate") or [])[:4]
+                ],
+            }
+    except Exception as _e:  # noqa: BLE001
+        out["url_lists_error"] = str(_e)[:120]
+
     # 真瀏覽器實際看到什麼（有助判斷是不是被風控）
     try:
         from .services.browser import get_context
