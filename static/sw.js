@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v10';  // v10：2026-09-29 教學頁次數說明＋關鍵數字標紅
+const CACHE = 'ferry-img-v11';  // v11：2026-09-29 傳輸也守廣告規則＋後台手機導覽改小按鈕
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

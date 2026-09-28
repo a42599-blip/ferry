@@ -896,6 +896,9 @@ function adGate() {
   return true;
 }
 
+// 給其他模組用（transfer.js 的「開始傳送」也要走同一個廣告規則）
+window.FY = Object.assign(window.FY || {}, { adGate: () => adGate() });
+
 // ── 會員 ─────────────────────────────────────────
 async function refreshMember() {
   try {

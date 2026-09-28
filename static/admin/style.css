@@ -134,10 +134,14 @@ textarea:focus{border-color:var(--acc)}
 /* ── 手機 ── */
 @media (max-width:820px){
   .dmain{flex-direction:column-reverse}
+  /* ⚠️ 小羅 2026-09-29：「一個按鈕佔滿整個寬度，要滑一整個頁面才到下一個，太誇張」
+     → 改成整排小按鈕、自動換行（10 頁在手機上 5×2 就全部看得到、直接點） */
   .side{width:100%;border-right:0;border-top:1px solid var(--line-soft);
-    display:flex;overflow-x:auto;padding:0;position:sticky;bottom:0;background:var(--bg);z-index:5}
-  .side button{flex:1 0 auto;text-align:center;padding:14px 12px;font-size:12px;white-space:nowrap}
-  .side button.on{background:transparent;border-top:2px solid var(--acc)}
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:2px;
+    padding:6px;position:sticky;bottom:0;background:var(--bg);z-index:5}
+  .side button{width:auto;text-align:center;padding:8px 4px;font-size:11px;
+    white-space:nowrap;border-radius:7px;line-height:1.35}
+  .side button.on{background:rgba(255,255,255,.07);border-top:0}
   .dbody{padding:14px}
   .kpi{min-width:calc(50% - 6px)}
   .rows>.pnl{min-width:100%}

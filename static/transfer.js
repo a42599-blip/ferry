@@ -300,7 +300,12 @@
   }
 
   // ── 傳送 ─────────────────────────────────────────
-  $('#tr-send').addEventListener('click', startSend);
+  $('#tr-send').addEventListener('click', () => {
+  // 無損傳輸也要守同一套廣告規則（小羅 2026-09-29 確認：次數分開算、規則一樣）
+  //   訪客每用 3 次／免費會員每用 5 次 → 下一次動作前先看一次廣告
+  if (window.FY?.adGate?.()) return;
+  startSend();
+});
 
   async function startSend() {
     if (S.sending || !S.dc || S.dc.readyState !== 'open') return;
