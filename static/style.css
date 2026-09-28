@@ -214,6 +214,11 @@ ol.steps{margin:10px 0 0 18px;font-size:12.5px;line-height:1.95;color:#CFD3D8}
   #p-download .o-prog{order:6}
   #p-download .o-big{order:7}
   #p-download .o-plats{order:8}
+  /* ⚠️ 「回報問題」沒有指定 order 的話會排到最上面（order 預設 0）
+     → 小羅 2026-09-28：「手機版沒有客戶回報這個選項」就是這個原因。
+     放在平台圖示後面（最下面）。 */
+  #p-download .o-report{order:9}
+  #p-download #history-box{order:10}
   /* 傳輸頁 */
   .t-head{order:1}.t-pick{order:2}.t-rack{order:3}.t-files{order:4}
   .t-join{order:5}.t-gen{order:6}.t-code{order:7}.t-known{order:8}
