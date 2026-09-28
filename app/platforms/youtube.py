@@ -202,7 +202,8 @@ class YoutubeResolver(YtDlpResolver):
 
         raise PlatformBlocked(
             f"{self.label} 暫時無法下載，請稍後再試",
-            detail=" | ".join(tried)[:400] or (last_err.detail if last_err else None),
+            detail=(f"[{'warp' if proxy else 'direct'}｜{_warp_note()}] " + " | ".join(tried))[:500]
+            or (last_err.detail if last_err else None),
             platform=self.name,
         )
 
@@ -351,16 +352,30 @@ def _pot_ready() -> bool:
 
 
 def _warp_ready() -> bool:
-    """WARP 通道有沒有在跑（能連上 127.0.0.1:40001 就算；結果快取 30 秒）。"""
-    at, ok = _state["warp"]
-    if time.time() - at < 30:
-        return ok
-    import socket
+    """WARP 通道「真的通」才算（透過它連一次 Cloudflare，要看到 warp=on）；結果快取 60 秒。
 
+    ⚠️ 不能只看 127.0.0.1:40001 有沒有開：通道程式開著、卻沒連上 Cloudflare 時，
+       請求會卡住到逾時（2026-09-28 線上實測：三個方案全部逾時）。
+    """
+    at, ok = _state["warp"]
+    if time.time() - at < 60:
+        return ok
     try:
-        with socket.create_connection(("127.0.0.1", 40001), timeout=0.5):
-            ok = True
-    except OSError:
+        r = httpx.get("https://www.cloudflare.com/cdn-cgi/trace", proxy=_WARP_PROXY, timeout=4)
+        ok = "warp=on" in r.text or "warp=plus" in r.text
+    except httpx.HTTPError:
         ok = False
     _state["warp"] = (time.time(), ok)
     return ok
+
+
+def _warp_note() -> str:
+    """通道狀態一句話（放進失敗訊息，方便查原因；只取通道紀錄最後一行，不含金鑰）。"""
+    if _state["warp"][1]:
+        return "warp 通"
+    try:
+        with open("/tmp/warp.log", encoding="utf-8", errors="ignore") as f:
+            last = [ln.strip() for ln in f if ln.strip()][-1:]
+    except OSError:
+        last = []
+    return "warp 未通" + (f"（{last[0][-120:]}）" if last else "")
