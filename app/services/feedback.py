@@ -103,7 +103,7 @@ def reply(fid: int, message: str, *, action: str = "",
     return dict(row) if row else None
 
 
-def for_device(device_id: str, member_id: str | None = None, limit: int = 5) -> list[dict]:
+def for_device(device_id: str, member_id: str | None = None, limit: int = 50) -> list[dict]:
     """這個客戶收到的「已回覆」訊息（前台顯示給客戶看）。
 
     ⚠️ 小羅 2026-09-27：「訪客是這個設備跟我對話；他是會員就直接回他帳號。」

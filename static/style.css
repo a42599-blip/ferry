@@ -340,7 +340,7 @@ input:focus{outline:none;border-color:var(--acc)}
   color:#8fe8b8;font-size:12.5px;border-bottom:1px solid rgba(63,191,127,.2)}
 .repbar .rhead .ri{font-size:14px}
 .repbar .rhead .rt{font-weight:600}
-.repbar .rbody{max-height:132px;overflow-y:auto;padding:0 12px 10px;
+.repbar .rbody{max-height:52vh;overflow-y:auto;padding:0 12px 10px;
   -webkit-overflow-scrolling:touch;scrollbar-width:thin}
 .repbar .rbody::-webkit-scrollbar{width:5px}
 .repbar .rbody::-webkit-scrollbar-thumb{background:rgba(63,191,127,.45);border-radius:3px}
@@ -353,3 +353,9 @@ input:focus{outline:none;border-color:var(--acc)}
 /* 「回報問題」標題後的數量徽章 */
 .repbadge{margin-left:8px;background:rgba(63,191,127,.2);color:#8fe8b8;
   border-radius:9px;padding:1px 8px;font-size:11px;font-weight:600}
+
+/* ── 客服回覆框：加大，讓客戶能看到之前的訊息 ──────────
+   小羅 2026-09-28：「我要可以往上下滑動保持之前的訊息，
+                     你只留固定 2 個訊息根本滑不了多少。」 */
+@media (min-width:900px){ .repbar .rbody{max-height:420px} }
+@media (max-width:899px){ .repbar .rbody{max-height:55vh} }

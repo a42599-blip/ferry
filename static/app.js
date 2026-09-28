@@ -423,7 +423,7 @@ async function loadMyReplies() {
   if (!bar) return;
   let j;
   try { j = await api('/api/my-replies'); } catch (err) { return; }
-  _replyItems = (j.items || []).slice(0, 20);
+  _replyItems = (j.items || []).slice(0, 30);
   _replyPending = j.pending || 0;
   _unread = unreadCount();
   renderReplyBar();
