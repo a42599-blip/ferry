@@ -35,6 +35,14 @@ RUN curl -fsSL https://github.com/Brainicism/bgutil-ytdlp-pot-provider/archive/r
  && cd /opt/bgutil/server \
  && deno install --allow-scripts=npm:canvas --frozen
 
+# ── Cloudflare WARP 免費通道工具（只有 YouTube 模塊會走；開機由 deploy/start.sh 啟動）──────
+# wgcf＝申請免費 WARP 帳號、產生通道設定；wireproxy＝不需系統權限就能開通道（當 HTTP 代理用）
+RUN curl -fsSL -o /usr/local/bin/wgcf https://github.com/ViRb3/wgcf/releases/download/v2.3.0/wgcf_2.3.0_linux_amd64 \
+ && chmod +x /usr/local/bin/wgcf \
+ && curl -fsSL https://github.com/windtf/wireproxy/releases/download/v1.1.3/wireproxy_linux_amd64.tar.gz \
+      | tar -xz -C /usr/local/bin wireproxy \
+ && chmod +x /usr/local/bin/wireproxy
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
  && playwright install --with-deps chromium \
@@ -43,7 +51,8 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 COPY app ./app
 COPY static ./static
+COPY deploy ./deploy
 
 EXPOSE 8000
-# 先在背景啟動 YouTube 通行證產生器（失敗也不影響網站），再啟動網站
-CMD ["sh", "-c", "(cd /opt/bgutil/server/node_modules && deno run --allow-env --allow-net --allow-ffi=. --allow-read=. ../src/main.ts > /tmp/bgutil.log 2>&1 &) ; uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# 開機腳本：先在背景開 YouTube 用的通行證產生器與 WARP 通道（失敗都不影響網站），再開網站
+CMD ["sh", "deploy/start.sh"]

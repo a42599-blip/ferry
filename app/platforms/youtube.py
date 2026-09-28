@@ -32,6 +32,11 @@
     容器內跑 bgutil 產生器（Dockerfile 安裝、只聽 127.0.0.1:4416），yt-dlp 外掛
     bgutil-ytdlp-pot-provider 會自動去拿通行證 → 用官方推薦的 mweb＋通行證排第一。
     產生器沒開（_pot_ready() 為假）→ 自動跳過，不浪費時間，直接用後面的方案。
+⚠️ WARP 通道（2026-09-28 小羅：「不用等，走另外一條路把它走通；不花錢」）：
+    Railway 機房網路的 IP 會被 YouTube 拒絕（解析或下載）。容器開機會開 Cloudflare 免費 WARP
+    通道（deploy/start.sh，只聽 127.0.0.1:40001）→ 通道在，YouTube 的解析／試抓／下載全部走它；
+    通道不在（_warp_ready() 為假）→ 自動走原本的直連。只有本模組會走，其他平台照舊。
+    本機實測：經通道 web_embedded 解析 24 種、抓 10MB 之後 → 206。
 ⚠️ 為什麼不帶 cookies、不塞自訂 UA（v8i8 的教訓）：
     帶 cookies 會讓 yt-dlp 跳過 App 身分；自訂 UA 會和身分對不上。
     唯一例外：小羅在 Railway 設了 YT_COOKIES_JSON → 最後才用「cookies」方案。
@@ -82,8 +87,10 @@ _RELAY_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
              "(KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36")
 
 _POT_URL = "http://127.0.0.1:4416/ping"   # bgutil 通行證產生器（只在容器內部）
+_WARP_PROXY = "http://127.0.0.1:40001"      # Cloudflare WARP 通道（只在容器內部）
 
-_state: dict[str, Any] = {"last_ok": None, "down_until": {}, "pot": (0.0, False)}
+_state: dict[str, Any] = {"last_ok": None, "down_until": {}, "pot": (0.0, False),
+                          "warp": (0.0, False)}
 _cache: dict[str, tuple[float, VideoInfo]] = {}
 _inflight: dict[str, asyncio.Future] = {}
 
@@ -118,6 +125,8 @@ class YoutubeResolver(YtDlpResolver):
         }
         if ea:
             opts["extractor_args"] = {"youtube": dict(ea)}
+        if _warp_ready():
+            opts["proxy"] = _WARP_PROXY
         return opts
 
     # ── 解析（快取 → 同影片合併請求 → 多方案）────────────────
@@ -155,6 +164,7 @@ class YoutubeResolver(YtDlpResolver):
         last_err: Optional[PlatformError] = None
 
         pot = await asyncio.to_thread(_pot_ready)
+        proxy = _WARP_PROXY if await asyncio.to_thread(_warp_ready) else None
         for name, ea, needs in self._ordered():
             left = _TOTAL_BUDGET - (time.monotonic() - started)
             if left < 4:
@@ -166,7 +176,7 @@ class YoutubeResolver(YtDlpResolver):
                 continue
             try:
                 info = await asyncio.wait_for(
-                    self._try(url, name, ea, cookiefile), timeout=min(_PER_TRY_TIMEOUT, left))
+                    self._try(url, name, ea, cookiefile, proxy), timeout=min(_PER_TRY_TIMEOUT, left))
             except asyncio.TimeoutError:
                 last_err = PlatformBlocked(f"{self.label} 回應逾時", platform=self.name)
                 tried.append(f"{name}: 逾時")
@@ -180,6 +190,7 @@ class YoutubeResolver(YtDlpResolver):
                 _state["last_ok"] = name
                 _state["down_until"].pop(name, None)
                 info.extra["yt_strategy"] = name
+                info.extra["yt_route"] = "warp" if proxy else "direct"
                 info.extra["yt_tried"] = tried
                 return info
             finally:
@@ -202,7 +213,7 @@ class YoutubeResolver(YtDlpResolver):
         return sorted(_STRATEGIES, key=lambda s: 1 if down.get(s[0], 0) > now else 0)
 
     async def _try(self, url: str, name: str, ea: dict[str, Any],
-                   cookiefile: Optional[str]) -> VideoInfo:
+                   cookiefile: Optional[str], proxy: Optional[str]) -> VideoInfo:
         opts = dict(_BASE_OPTS)
         opts["js_runtimes"] = {"deno": {}}
         opts["remote_components"] = ["ejs:github"]      # EJS 解題程式庫（見檔頭「真正的關鍵點」）
@@ -210,6 +221,8 @@ class YoutubeResolver(YtDlpResolver):
             opts["extractor_args"] = {"youtube": dict(ea)}
         if cookiefile:
             opts["cookiefile"] = cookiefile
+        if proxy:
+            opts["proxy"] = proxy
 
         def run() -> dict:
             with yt_dlp.YoutubeDL(opts) as ydl:
@@ -248,16 +261,16 @@ class YoutubeResolver(YtDlpResolver):
         #   ⚠️ 不設 f.audio_url：設了共用層會強制改成 relay（大檔會 403，見檔頭第 4 點）
         silent = [f for f in info.formats if not f.audio and (f.acodec or "none").lower() == "none"]
         dash_ok = bool(silent and merge_audio) and (
-            await _probe(silent[0].url, hdr(silent[0].url)) < 400
-            and await _probe(merge_audio, hdr(merge_audio)) < 400)
+            await _probe(silent[0].url, hdr(silent[0].url), proxy) < 400
+            and await _probe(merge_audio, hdr(merge_audio), proxy) < 400)
         keep = []
         for f in info.formats:
             if f in silent:
                 ok = dash_ok
             elif f.audio:
-                ok = dash_ok or await _probe(f.url, hdr(f.url)) < 400
+                ok = dash_ok or await _probe(f.url, hdr(f.url), proxy) < 400
             else:
-                ok = await _probe(f.url, hdr(f.url)) < 400
+                ok = await _probe(f.url, hdr(f.url), proxy) < 400
             if ok:
                 f.mode = "proxy"
                 keep.append(f)
@@ -307,7 +320,7 @@ def _cdn_headers(raw: Any) -> dict[str, str]:
     return {k: str(v) for k, v in raw.items() if k.lower() in ("user-agent", "referer", "origin")}
 
 
-async def _probe(url: str, headers: dict[str, str]) -> int:
+async def _probe(url: str, headers: dict[str, str], proxy: Optional[str] = None) -> int:
     """試抓 1.5MB 位置的 1KB，回傳 HTTP 狀態碼。
 
     ⚠️ 不能只抓開頭：沒有 PO Token 時 googlevideo 常「前 1MB 照給、之後 403」。
@@ -315,7 +328,7 @@ async def _probe(url: str, headers: dict[str, str]) -> int:
     """
     base = {"User-Agent": _RELAY_UA, "Accept": "*/*", **headers}
     try:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as c:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True, proxy=proxy) as c:
             r = await c.get(url, headers={**base, "Range": "bytes=1572864-1573887"})
             if r.status_code == 416:
                 r = await c.get(url, headers={**base, "Range": "bytes=0-1023"})
@@ -334,4 +347,20 @@ def _pot_ready() -> bool:
     except httpx.HTTPError:
         ok = False
     _state["pot"] = (time.time(), ok)
+    return ok
+
+
+def _warp_ready() -> bool:
+    """WARP 通道有沒有在跑（能連上 127.0.0.1:40001 就算；結果快取 30 秒）。"""
+    at, ok = _state["warp"]
+    if time.time() - at < 30:
+        return ok
+    import socket
+
+    try:
+        with socket.create_connection(("127.0.0.1", 40001), timeout=0.5):
+            ok = True
+    except OSError:
+        ok = False
+    _state["warp"] = (time.time(), ok)
     return ok
