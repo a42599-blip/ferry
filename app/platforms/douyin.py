@@ -449,19 +449,30 @@ class DouyinResolver(YtDlpResolver):
             ))
 
         # ② play_addr（原畫）
+        #   ⚠️ 抖音會把**含水印**的 CDN 路徑放在 play_addr（例：`/video/cn/mps/logo/`）
+        #      → 小羅 2026-09-28：「下載成功但沒去水印」就是這個。
+        #      這裡直接跳過含水印的版本（寧可少一種，也不給使用者水印）。
         for key in ("play_addr", "download_addr"):
             addr = (video.get(key) or {}).get("url_list") or []
-            if addr and addr[0] not in seen:
-                seen.add(addr[0])
-                fmts.append(
-                    Format(
-                        id="origin" if key == "play_addr" else "download",
-                        label="原畫" if key == "play_addr" else "下載版",
-                        url=addr[0],
-                        quality_score=85 if key == "play_addr" else 70,
-                        mode="relay", headers=dict(_DOUYIN_HDR),
-                    )
+            if not addr:
+                continue
+            u = addr[0]
+            if _has_watermark(u):
+                u = _strip_watermark(u)
+                if _has_watermark(u):
+                    continue
+            if u in seen:
+                continue
+            seen.add(u)
+            fmts.append(
+                Format(
+                    id="origin" if key == "play_addr" else "download",
+                    label="原畫" if key == "play_addr" else "下載版",
+                    url=u,
+                    quality_score=85 if key == "play_addr" else 70,
+                    mode="relay", headers=dict(_DOUYIN_HDR),
                 )
+            )
 
         # ③ 圖集
         images = detail.get("images") or []
