@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v8';   // v8：2026-09-29 會員說明搬到標題右邊＋暱稱欄改版
+const CACHE = 'ferry-img-v9';   // v9：2026-09-29 廣告改成「下一次動作前」攔
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

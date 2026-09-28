@@ -338,8 +338,7 @@ function renderQuota(q) {
         : t('quota_monthly_pre') + ' ' + exp;
     }
   }
-  // 廣告（預設關閉 → 不會出現）
-  maybeShowAd(q.ads);
+  // 廣告：不主動彈出（改成「下一次動作時」由 adGate() 攔，見上方說明）
 
   // 下載頁的面板
   fill($('#q-left'), $('#q-used'), $('#q-reset'), q.download);
@@ -599,6 +598,7 @@ function stopResolveProgress() {
 }
 
 async function doResolve() {
+  if (adGate()) return;                 // 該看廣告 → 先看完再解析
   let url = extractUrl($('#url').value);
   // 輸入框空的 → 自動讀剪貼簿（一鍵「貼上並解析」）
   if (!url) {
@@ -722,6 +722,7 @@ function selectFormat(i) {
 
 // ── 下載（跨平台：iOS 存相簿／Android 下載／桌機選路徑）──
 $('#download').addEventListener('click', async () => {
+  if (adGate()) return;                 // 該看廣告 → 先看完再下載
   const f = state.info?.formats?.[state.selected];
   if (!f) return;
   const track = $('#track'), bar = $('#bar'), pm = $('#pm');
@@ -870,12 +871,21 @@ function renderWho(me) {
   if (tab) tab.textContent = logged ? nick : t('nav_member', '會員');
 }
 
-// ── 廣告（預留）：只有後台把 feature.ads 打開、且該看時才會顯示 ──
-function maybeShowAd(ads) {
+// ── 廣告（預留）────────────────────────────────────────
+//   小羅 2026-09-29 定案：「用滿第 3 次之後，**第 4 次**要看廣告」；
+//   免費會員是「用滿第 5 次之後，第 6 次要看廣告」。
+//   → 廣告不是「用完當下」跳出來，而是**下一次要動作時**擋下來先看廣告。
+//   開關：後台「廣告 ── 訪客／免費會員」兩個（預設關閉 → 完全不會出現）。
+let _adClearedAt = -1;      // 這一輪（同一個 used 值）已經看過廣告
+
+/** 動作前檢查：需要看廣告就顯示並回傳 true（呼叫端要直接 return）。 */
+function adGate() {
+  const a = state.quota && state.quota.ads;
+  if (!a || !a.enabled || !a.due) return false;
+  if (a.used === _adClearedAt) return false;      // 已經看過 → 放行
   const box = $('#adsbox');
-  if (!box) return;
-  const show = !!(ads && ads.enabled && ads.due);
-  box.hidden = !show;
+  if (box) box.hidden = false;                    // 先看廣告，看完再繼續
+  return true;
 }
 
 // ── 會員 ─────────────────────────────────────────
@@ -1088,5 +1098,9 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   renderHistory();
 })();
 
-// 廣告看完按「繼續使用」（預留；feature.ads 關閉時這個框永遠不會出現）
-$('#ads-continue').addEventListener('click', () => { $('#adsbox').hidden = true; });
+// 廣告看完按「繼續使用」→ 記住「這一輪已看過」，之後的動作品直接放行
+$('#ads-continue').addEventListener('click', () => {
+  const a = state.quota && state.quota.ads;
+  if (a) _adClearedAt = a.used;
+  $('#adsbox').hidden = true;
+});
