@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v12';  // v12：2026-09-29 所有說明位置同步補「廣告次數合併計算」
+const CACHE = 'ferry-img-v13';  // v13：2026-09-29 公測說明加上「也不會有廣告」
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',
