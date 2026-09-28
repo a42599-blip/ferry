@@ -797,8 +797,13 @@ async def handle_feedback(fid: int, body: dict = Body(...),
         actions.append(f"加 {abs(days)} 天")
 
     msg = (body.get("reply") or "").strip()
-    if actions and not msg:
-        msg = "很抱歉造成不便，已幫你" + "、".join(actions) + "。"
+    if not msg:
+        # 沒填回覆 → 自動產生（小羅：「我沒有什麼特別的話要說，用預設的就好」）
+        if actions:
+            msg = ("你的問題已經幫你處理完成，已協助你 " + "、".join(actions)
+                   + "，請再試一次。若還有問題歡迎再回報，謝謝你！")
+        else:
+            msg = "你的問題我們已經看過並處理，請再試一次。若還有問題歡迎再回報，謝謝你！"
     out = fb.reply(fid, msg, action="、".join(actions),
                    mark_handled=bool(body.get("handled", True)))
     return {"ok": True, "actions": actions, "row": out,

@@ -256,7 +256,10 @@ async function pgReports() {
         <input type="number" step="1" value="" placeholder="+7" data-days="${r.id}">
       </div>
       <div class="fact">
-        <input class="freply-in" placeholder="回覆客戶的訊息（例：很抱歉，已幫你補回次數）" data-reply="${r.id}">
+        <input class="freply-in" placeholder="回覆客戶的訊息（可留空，會自動產生）" data-reply="${r.id}">
+        <button class="gh preset" data-preset="solved" data-pid="${r.id}">已解決</button>
+        <button class="gh preset" data-preset="working" data-pid="${r.id}">處理中</button>
+        <button class="gh preset" data-preset="sorry" data-pid="${r.id}">抱歉補償</button>
         <button class="big sm" data-handle="${r.id}">處理並回覆</button>
         ${r.handled ? '' : `<button class="gh" data-done="${r.id}">只標記已處理</button>`}
       </div>
@@ -284,6 +287,18 @@ async function pgReports() {
             + (r.email ? '（會員 ' + r.email + '）' : '（訪客裝置）'));
       pgReports(); loadMemberList?.();
     } catch (e) { alert(e.message); } finally { b.disabled = false; }
+  }));
+  // 預設回覆（小羅 2026-09-28：「我沒有什麼特別的話要說，是不是可以用預設的」）
+  const PRESET = {
+    solved: '你的問題已經幫你處理完成，請再試一次。若還有問題歡迎再回報，謝謝你！',
+    working: '我們已經收到你的回報，正在處理中，請稍後再試。造成不便請見諒。',
+    sorry: '很抱歉造成不便，已幫你補回次數，請再試一次。若還有問題歡迎再回報。',
+  };
+  $$('#rp-list [data-preset]').forEach((b) => b.addEventListener('click', () => {
+    const el = document.querySelector(`[data-reply="${b.dataset.pid}"]`);
+    if (el) { el.value = PRESET[b.dataset.preset] || ''; el.focus(); }
+    $$('#rp-list [data-preset]').forEach((x) => x.classList.remove('on'));
+    b.classList.add('on');
   }));
   $$('#rp-list [data-done]').forEach((b) => b.addEventListener('click', async () => {
     await api(`/feedback/${b.dataset.done}/handled`, { method: 'POST', body: '{}' });
