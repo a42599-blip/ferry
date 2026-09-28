@@ -25,6 +25,9 @@ from . import security
 
 router = APIRouter(prefix="/admin/api", tags=["admin"])
 
+#: 有補償（加/減次數）時附加的提醒
+TIP_REFRESH = "請重新刷新網頁檢視次數。"
+
 
 # ── 登入 ──────────────────────────────────────────────
 def require_admin(authorization: str = Header(default="")) -> dict:
@@ -821,6 +824,10 @@ async def handle_feedback(fid: int, body: dict = Body(...),
                    + "，請再試一次。若還有問題歡迎再回報，謝謝你！")
         else:
             msg = "你的問題我們已經看過並處理，請再試一次。若還有問題歡迎再回報，謝謝你！"
+
+    # 小羅 2026-09-28：有補償（加/減次數）時，多提醒一句去刷新看次數
+    if actions and "重新刷新" not in msg:
+        msg = msg.rstrip() + chr(10) + chr(10) + TIP_REFRESH
     out = fb.reply(fid, msg, action="、".join(actions),
                    mark_handled=bool(body.get("handled", True)))
     return {"ok": True, "actions": actions, "row": out,

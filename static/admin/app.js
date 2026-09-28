@@ -296,15 +296,27 @@ async function pgReports() {
       pgReports(); loadMemberList?.();
     } catch (e) { alert(e.message); } finally { b.disabled = false; }
   }));
-  // 預設回覆（小羅 2026-09-28：「我沒有什麼特別的話要說，是不是可以用預設的」）
-  const PRESET = {
-    solved: '你的問題已經幫你處理完成，請再試一次。若還有問題歡迎再回報，謝謝你！',
-    working: '我們已經收到你的回報，正在處理中，請稍後再試。造成不便請見諒。',
-    sorry: '很抱歉造成不便，已幫你補回次數，請再試一次。若還有問題歡迎再回報。',
+  // 預設回覆（依「有沒有加次數」自動組，小羅 2026-09-28：
+  //   「有加次數 → 回已處理＋加了多少次；沒加次數 → 只說已處理，次數不加進去」）
+  const presetText = (kind, rid) => {
+    const id = rid || document.querySelector('[data-reply]')?.dataset.reply;
+    const dl = Number(document.querySelector(`[data-dl="${id}"]`)?.value || 0);
+    const tr = Number(document.querySelector(`[data-tr="${id}"]`)?.value || 0);
+    const dy = Number(document.querySelector(`[data-days="${id}"]`)?.value || 0);
+    const acts = [];
+    if (dl) acts.push('下載次數 ' + (dl > 0 ? '+' : '') + dl);
+    if (tr) acts.push('傳輸次數 ' + (tr > 0 ? '+' : '') + tr);
+    if (dy) acts.push('加 ' + Math.abs(dy) + ' 天');
+    const done = acts.length ? '，已協助你 ' + acts.join('、') : '';
+    // 有補償（加/減次數）→ 多提醒一句去刷新看次數
+    const tip = acts.length ? '\n\n請重新刷新網頁檢視次數。' : '';
+    if (kind === 'working') return '我們已經收到你的回報，正在處理中，請稍後再試。造成不便請見諒。';
+    if (kind === 'sorry') return '很抱歉造成不便' + done + '，請再試一次。若還有問題歡迎再回報，謝謝你！' + tip;
+    return '你的問題已經幫你處理完成' + done + '，請再試一次。若還有問題歡迎再回報，謝謝你！' + tip;
   };
   $$('#rp-list [data-preset]').forEach((b) => b.addEventListener('click', () => {
     const el = document.querySelector(`[data-reply="${b.dataset.pid}"]`);
-    if (el) { el.value = PRESET[b.dataset.preset] || ''; el.focus(); }
+    if (el) { el.value = presetText(b.dataset.preset, b.dataset.pid); el.focus(); }
     $$('#rp-list [data-preset]').forEach((x) => x.classList.remove('on'));
     b.classList.add('on');
   }));
