@@ -896,7 +896,30 @@ function adGate(kind, resume) {
   _adPending = { kind: kind || 'download', resume: typeof resume === 'function' ? resume : null };
   const box = $('#adsbox');
   if (box) box.hidden = false;                    // 先看廣告，看完才能繼續
+  startAdCountdown();                             // 看滿 N 秒才能按「繼續」（伺服器也會驗）
   return true;
+}
+
+/** 廣告倒數：跟伺服器要秒數 → 期間「繼續」不能按（伺服器端也會驗，改前端沒用）。 */
+let _adTimer = null;
+async function startAdCountdown() {
+  const btn = $('#ads-continue'), left = $('#ad-left');
+  let sec = 15;
+  try {
+    const j = await api('/api/ads/start', { method: 'POST' });     // 記錄「開始看廣告」的時間
+    if (j && j.min_seconds) sec = Number(j.min_seconds) || 15;
+  } catch { /* 拿不到就用預設 15 秒 */ }
+  if (btn) { btn.disabled = true; btn.textContent = t('ads_waiting', '請稍候…'); }
+  clearInterval(_adTimer);
+  _adTimer = setInterval(() => {
+    sec -= 1;
+    if (left) left.textContent = sec > 0 ? t('ads_countdown', '廣告播放中，還剩 {s} 秒').replace('{s}', String(sec)) : '';
+    if (sec <= 0) {
+      clearInterval(_adTimer);
+      if (btn) { btn.disabled = false; btn.textContent = t('ads_continue', '繼續使用'); }
+    }
+  }, 1000);
+  if (left) left.textContent = t('ads_countdown', '廣告播放中，還剩 {s} 秒').replace('{s}', String(sec));
 }
 
 // 給其他模組用（transfer.js 的「開始傳送」也要走同一個廣告規則）

@@ -48,6 +48,20 @@ async def login(request: Request, body: dict = Body(...)) -> dict:
             "token": m["token"]}
 
 
+@router.post("/api/ads/start")
+async def ads_start(request: Request) -> dict:
+    """開始看廣告（記錄時間）。看滿 `ADS_MIN_SECONDS` 秒才能領次數。
+
+    小羅 2026-09-29：「彈出來就關掉，當然不能給他加次數，我得不到廣告費啊。」
+    """
+    from .core import config
+    from .services import ads as ads_service
+
+    subject = auth.current_subject(request)
+    seconds = ads_service.mark_start(subject)
+    return {"ok": True, "min_seconds": seconds, "default": int(getattr(config.settings, "ads_min_seconds", 15) or 15)}
+
+
 @router.post("/api/ads/reward")
 async def ads_reward(request: Request, body: dict = Body(default={})) -> dict:
     """看完廣告 → 依等級把免費次數加回來（小羅 2026-09-29）。
@@ -77,6 +91,13 @@ async def ads_reward(request: Request, body: dict = Body(default={})) -> dict:
         raise BadRequest("廣告功能尚未啟用")
     if not st["due"]:
         raise BadRequest("目前不需要看廣告")
+
+    # 必須「看滿廣告秒數」才給（伺服器端判定，前端改不動）
+    from .core import config
+
+    min_sec = int(getattr(config.settings, "ads_min_seconds", 15) or 15)
+    if not ads_service.watch_ok(subject, min_sec):
+        raise BadRequest(f"請先看廣告 {min_sec} 秒，看完才能繼續")
 
     n = ads_service.every_of(tier) or 1
     quota_service.adjust(kind, subject, -n)      # 加次數＝把「已用」減掉（可到負數＝贈送）

@@ -49,3 +49,32 @@ def state(tier: str, used: int) -> dict:
     every = every_of(tier)
     due = bool(enabled and every and used > 0 and used % every == 0)
     return {"enabled": enabled, "due": due, "every": every, "used": int(used or 0)}
+
+
+# ── 看廣告計時（伺服器端驗證：沒看滿 N 秒不給次數）────────────
+#   小羅 2026-09-29：「彈出來就關掉，當然不能給他加次數，我得不到廣告費啊。」
+#   用記憶體記「開始時間」（單一實例、有 TTL）→ 前端改不動、也不能作弊。
+_ad_started: dict[str, float] = {}
+_AD_TTL = 3600.0          # 1 小時沒動就清掉
+
+
+def mark_start(subject: str) -> int:
+    """記錄「這個人現在開始看廣告」，回傳要看滿幾秒。"""
+    import time as _t
+    from ..core import config
+
+    now = _t.time()
+    for k in [k for k, v in _ad_started.items() if now - v > _AD_TTL]:
+        _ad_started.pop(k, None)
+    _ad_started[subject] = now
+    return int(getattr(config.settings, "ads_min_seconds", 15) or 15)
+
+
+def watch_ok(subject: str, seconds: int) -> bool:
+    """有沒有看滿？沒記錄（直接打 reward）＝沒看過 → 不給。"""
+    import time as _t
+
+    started = _ad_started.get(subject)
+    if not started:
+        return False
+    return (_t.time() - started) >= max(0, int(seconds or 0))

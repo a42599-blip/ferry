@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v14';  // v14：2026-09-29 看廣告解鎖免費次數（閉環，廣告碼待接）
+const CACHE = 'ferry-img-v15';  // v15：2026-09-29 廣告看滿 15 秒才給次數
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

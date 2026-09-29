@@ -50,6 +50,8 @@ class Settings:
     #   月會員／永久會員＝不限（由 billing/_is_paid 判定）
     free_limit_guest: int = field(default_factory=lambda: _env_int("FREE_LIMIT_GUEST", 3))
     free_limit_member: int = field(default_factory=lambda: _env_int("FREE_LIMIT_MEMBER", 5))
+    # 廣告「必須看滿幾秒」才給次數（小羅 2026-09-29：正常 15 秒；沒看滿不給加、也不會有廣告費）
+    ads_min_seconds: int = field(default_factory=lambda: _env_int("ADS_MIN_SECONDS", 15))
 
     # 歷史記錄（存使用者瀏覽器，我們零儲存）
     history_limit: int = field(default_factory=lambda: _env_int("HISTORY_LIMIT", 50))
