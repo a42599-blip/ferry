@@ -72,8 +72,19 @@
          倒數與按鈕都在它「下面」（獨立一列）→ 永遠不會蓋到廣告。 -->
     <div class="adslot" id="ad-slot">
       <div class="adph" id="ad-ph" data-i18n="ads_loading">廣告載入中…</div>
-      <!-- 🔻【對接廣告】把廣告碼（Adsterra／HilltopAds／Google AdSense）貼在下面這一行，
-           其他地方都不用改；手機版與電腦版共用同一個彈窗（只會彈一個）。 -->
+      <!-- ── Adsterra Banner 300x250（scefo.com）──
+           2026-09-29 貼上：Ad Unit ID 31469246（Banner 300x250、Active）
+           ⚠️ 曝光計費（CPM）＝客人不用點擊就有收益；一個彈窗只放這一個廣告單元（不疊加）。 -->
+      <script>
+        atOptions = {
+          'key' : '80edcd5c36fc9b7c0c9700549d9d8e4e',
+          'format' : 'iframe',
+          'height' : 250,
+          'width' : 300,
+          'params' : {}
+        };
+      </script>
+      <script src="https://www.highrevenueformat.com/80edcd5c36fc9b7c0c9700549d9d8e4e/invoke.js"></script>
     </div>
     <div class="ad-left" id="ad-left"></div>
     <button class="big sm" id="ads-continue" data-i18n="ads_continue">繼續使用</button>
