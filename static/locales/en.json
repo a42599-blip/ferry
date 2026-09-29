@@ -360,5 +360,6 @@
   "teach_quota_note": "Quota resets daily at 00:00 in your timezone; paid members are unlimited and see no ads.",
   "tr_step9": "⚠️ The <b class=\"num-hl\">ad counter combines downloads and transfers</b>: after <b class=\"num-hl\">3</b> uses (guest) / <b class=\"num-hl\">5</b> uses (free member) in total, the next action needs an ad first (ads not enabled yet).",
   "ads_countdown": "Ad playing — {s}s left",
-  "ads_waiting": "Please wait…"
+  "ads_waiting": "Please wait…",
+  "tr_busy_switch": "Transfer in progress — finish or cancel it before switching devices"
 }

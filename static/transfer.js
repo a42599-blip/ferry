@@ -173,7 +173,10 @@
     box.innerHTML = '<div class="lbl" style="margin-bottom:6px">' + t('tr_known') + '</div>' + S.known.map((p, i) =>
       `<button class="big gh sm" style="margin-top:6px" data-peer="${esc(p)}">${esc(String(p).slice(0, 22))}… ${t('tr_reconnect')}</button>`).join('');
     box.querySelectorAll('[data-peer]').forEach((b) => b.addEventListener('click', async () => {
+      if (S.sending) { status(t('tr_busy_switch'), 'err'); return; }   // 傳輸中就別換
       try {
+        // ⚠️ 換一台之前先離開舊配對（一次只配一台；不然舊房間會殘留幽靈裝置）
+        if (S.code && S.peer && S.peer !== b.dataset.peer) await leavePair(0);
         const j = await api('/pair', { method: 'POST', body: JSON.stringify({ peer_id: S.peerId, target: b.dataset.peer }) });
         S.code = j.code; S.peer = j.peers[0];
         $('#mycode').textContent = j.code; $('#codebox').hidden = false;
@@ -195,6 +198,7 @@
     if (!target) return;
     status(t('tr_auto_reconnecting'));
     try {
+      if (S.code) await leavePair(0);          // 換一台前先離開舊的
       const j = await api('/pair', { method: 'POST', body: JSON.stringify({ peer_id: S.peerId, target }) });
       S.code = j.code; S.peer = j.peers[0];
       $('#mycode').textContent = j.code; $('#codebox').hidden = false;
@@ -215,12 +219,20 @@
   if (document.querySelector('#p-transfer')?.classList.contains('on')) setTimeout(autoReconnect, 800);
 
   $('#tr-gen').addEventListener('click', async () => {
-    try { await join(null); } catch (e) { status(e.message, 'err'); }
+    if (S.sending) return status(t('tr_busy_switch'), 'err');
+    try {
+      if (S.code) await leavePair(0);          // 重新產生＝換一台
+      await join(null);
+    } catch (e) { status(e.message, 'err'); }
   });
   $('#tr-join').addEventListener('click', async () => {
     const code = ($('#join-code').value || '').trim();
     if (code.length !== 6) return status(t('tr_enter6'), 'err');
-    try { await join(code); } catch (e) { status(e.message, 'err'); }
+    if (S.sending) return status(t('tr_busy_switch'), 'err');
+    try {
+      if (S.code) await leavePair(0);          // 換一台前先離開舊的
+      await join(code);
+    } catch (e) { status(e.message, 'err'); }
   });
   $('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#tr-join').click(); });
 
