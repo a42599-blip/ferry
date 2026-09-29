@@ -800,7 +800,8 @@ $('#download').addEventListener('click', async () => {
   $('#pct').textContent = '0%'; $('#pspeed').textContent = '';
   const env = window.FY?.env || {};
   const setPct = (p) => { bar.style.width = p + '%'; $('#pct').textContent = p + '%'; };
-  const title = (state.info.title || 'video').slice(0, 60);
+  // ⚠️ 檔名一律先清洗（抖音標題可能含換行 → iOS 認不出是影片、存不進相簿，2026-09-30 修）
+  const title = (window.FY?.cleanName?.(state.info.title) || 'video').slice(0, 60);
   const ext = f.audio ? (f.ext || 'm4a') : (f.ext || 'mp4');
   const filename = `${title}.${ext}`;
 

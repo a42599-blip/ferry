@@ -28,6 +28,19 @@ const FYEnv = (() => {
   };
 })();
 
+/** 清洗檔名：去掉控制字元與檔案系統保留字元。
+ *  ⚠️ 2026-09-30 實際踩到：抖音有些標題含「換行」→ 檔名帶著換行 → iOS 認不出這是影片，
+ *     分享面板只給「儲存到檔案」、沒有「儲存影片」→ 存不進相簿（v8i8 也一樣）。
+ */
+function _cleanFname(name, fallback = 'video.mp4') {
+  const s = String(name == null ? '' : name)
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')   // 控制字元（含 \n \r \t）
+    .replace(/[\\/:*?"<>|]+/g, ' ')            // 檔案系統保留字元
+    .replace(/\s+/g, ' ')
+    .trim();
+  return s || fallback;
+}
+
 /** 這個平台的「存到相簿」按鈕該寫什麼（各系統用語不同） */
 function saveLabel() {
   if (FYEnv.isIOS) return '儲存到照片';
@@ -113,6 +126,7 @@ function _escHtml(v) {
  * @returns {Promise<{ok:boolean, how:string}>}
  */
 async function saveBlob(blob, filename, onStatus) {
+  filename = _cleanFname(filename);
   const isMedia = /\.(mp4|mov|m4v|webm|mkv|jpe?g|png|gif|webp)$/i.test(filename);
   // ⚠️ MIME type 一定要對（2026-09-27 小羅：「FB 說儲存成功，但相簿裡沒有」）
   //    blob.type 常常是空的（伺服器沒回 Content-Type，或 proxy 轉發時掉了），
@@ -162,6 +176,7 @@ async function saveBlob(blob, filename, onStatus) {
  * iOS 會開新頁面；其他平台用 <a download>。
  */
 async function saveUrl(url, filename, onStatus) {
+  filename = _cleanFname(filename);
   if (FYEnv.isIOS || FYEnv.inApp) {
     window.open(url, '_blank');
     if (onStatus) onStatus('影片已開啟，請長按畫面選「儲存到照片」', 'warn');
@@ -211,4 +226,5 @@ function inAppNotice() {
 
 window.FY = Object.assign(window.FY || {}, {
   env: FYEnv, saveBlob, saveUrl, fetchWithProgress, saveLabel, inAppNotice, keepAwake: _keepAwake,
+  cleanName: _cleanFname,
 });
