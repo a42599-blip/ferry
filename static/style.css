@@ -390,12 +390,34 @@ input:focus{outline:none;border-color:var(--acc)}
 .tierline{color:var(--acc);font-size:12.5px}
 
 /* 廣告預留區 */
-.adsbox{position:fixed;inset:0;background:rgba(0,0,0,.72);display:grid;place-items:center;z-index:60}
-.adcard{background:#14171c;border:1px solid var(--line-soft);border-radius:12px;padding:20px;
-  max-width:340px;text-align:center}
-.adcard .adt{font-size:12px;letter-spacing:.16em;color:var(--lab2)}
-.adcard .adb{font-size:12.5px;color:var(--dim);margin:10px 0 14px;line-height:1.8}
-.adcard .adslot{min-height:80px;border:1px dashed var(--line-soft);border-radius:8px;margin-bottom:14px}
+/* ── 廣告彈窗（以「廣告」為主；倒數與按鈕在廣告下方，絕不遮到廣告）──
+   小羅 2026-09-29：
+     · 影片型廣告要更大的格子（原本 340px 太小）
+     · 倒數與「繼續」不能擋到廣告，但客人要看得到 → 各自獨立一列，排在廣告下面
+     · 手機也要好看，彈窗不能超過畫面（太高就捲動）
+     · 對廣告商要有交代：廣告要顯眼、真的看得清楚 */
+.adsbox{position:fixed;inset:0;background:rgba(0,0,0,.8);display:grid;place-items:center;
+  z-index:60;padding:12px}
+.adcard{background:#14171c;border:1px solid var(--line-soft);border-radius:14px;
+  padding:14px;width:min(94vw,560px);max-height:92vh;overflow:auto;text-align:center;
+  display:flex;flex-direction:column;gap:10px}
+.adcard .adt{flex:0 0 auto;font-size:12px;letter-spacing:.16em;color:var(--lab2)}
+.adcard .adb{flex:0 0 auto;font-size:12.5px;color:var(--dim);line-height:1.7}
+/* 廣告格：撐滿寬度、給影片足夠高度、內容置中；不會被任何東西蓋住 */
+.adcard .adslot{flex:1 1 auto;width:100%;min-height:250px;display:flex;align-items:center;
+  justify-content:center;overflow:hidden;border:1px dashed var(--line-soft);border-radius:10px;
+  background:#0e1116}
+.adcard .adslot iframe,.adcard .adslot img,.adcard .adslot video{max-width:100%}
+.adcard .adslot .adph{font-size:12.5px;color:var(--dim)}
+/* 倒數（在廣告下面，不會蓋到廣告）＋ 繼續按鈕（獨立一列，永遠可點） */
+.adcard .ad-left{flex:0 0 auto;min-height:18px;font-size:13px;color:var(--acc)}
+.adcard #ads-continue{flex:0 0 auto;width:100%}
+@media (max-width:520px){
+  .adcard{width:min(96vw,430px);padding:12px;gap:9px}
+  .adcard .adslot{min-height:200px}
+  .adcard .adb{font-size:12px}
+}
+@media (max-height:640px){ .adcard .adslot{min-height:150px} }
 @media (max-width:899px){ .who .wname{max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} }
 
 /* ── 會員規則說明（會員頁可展開）── */

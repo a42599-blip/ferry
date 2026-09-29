@@ -366,5 +366,6 @@
   "billing_off_ads": " and no ads at all.",
   "pay_beta_ads": " — no charges and no ads at all",
   "ads_body_live": "Watch this ad to continue.",
-  "err_AD_REQUIRED": "Watch a short ad to continue"
+  "err_AD_REQUIRED": "Watch a short ad to continue",
+  "ads_loading": "Loading ad…"
 }

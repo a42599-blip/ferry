@@ -366,5 +366,6 @@
   "billing_off_ads": "，也不會出現任何廣告。",
   "pay_beta_ads": "、也完全不會有廣告",
   "ads_body_live": "看完這段廣告就能繼續使用。",
-  "err_AD_REQUIRED": "看完廣告就能繼續使用"
+  "err_AD_REQUIRED": "看完廣告就能繼續使用",
+  "ads_loading": "廣告載入中…"
 }

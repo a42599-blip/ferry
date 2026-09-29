@@ -320,6 +320,12 @@ function apiError(j, status) {
 //   ⚠️ 將來正式上線（付費網站）時，這段公測說明要改成「付費會員福利」的說法（等小羅決定）。
 let _adsOn = false;
 function applyAdsNotes() {
+  // 廣告格裡若有真的廣告（廣告商塞進來的 iframe／img／ins）→ 收起「廣告載入中…」佔位字
+  const slot = $('#ad-slot'), ph = $('#ad-ph');
+  if (slot && ph) {
+    const hasAd = [...slot.children].some((el) => el !== ph);
+    ph.hidden = hasAd;
+  }
   $$('.ads-off-note').forEach((el) => { el.hidden = _adsOn; });
   $$('[data-i18n="ads_body"]').forEach((el) => {
     el.textContent = _adsOn ? t('ads_body_live') : t('ads_body');

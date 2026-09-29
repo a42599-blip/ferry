@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v19';  // v15：2026-09-29 廣告看滿 15 秒才給次數
+const CACHE = 'ferry-img-v20';  // v15：2026-09-29 廣告看滿 15 秒才給次數
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',
