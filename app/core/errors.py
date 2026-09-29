@@ -52,6 +52,19 @@ class QuotaExceeded(AppError):
     http_status = 429
 
 
+class AdRequired(AppError):
+    """該看廣告了（不是用完）。
+
+    小羅 2026-09-29：「只要他願意看廣告，就永遠再給他次數，
+    **永遠不要告訴他今天次數用完了請等明天** —— 他看得越多我越賺錢。」
+    → 廣告開關有開的等級，次數到頂時一律回這個（前端據此跳廣告），只有真的
+      「廣告關掉」或「不屬於要看廣告的等級」才會回 QUOTA_EXCEEDED。
+    """
+
+    code = "AD_REQUIRED"
+    http_status = 428
+
+
 class NotFound(AppError):
     code = "NOT_FOUND"
     http_status = 404

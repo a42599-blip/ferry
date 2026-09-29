@@ -189,6 +189,13 @@ function applyFlags(cfg) {
   if ($('#paybox')) $('#paybox').hidden = !billingOn(f);
   if ($('#pay-off')) $('#pay-off').hidden = billingOn(f);
 
+  // ── 廣告開關聯動（小羅 2026-09-29）───────────────────────
+  //   廣告開關一打開（任一等級要開始看廣告）→ 全站「完全不會有廣告／尚未啟用」那些字**自動消失**；
+  //   兩顆都關掉 → 再出現。不只首頁：所有帶 .ads-off-note 的說明都會跟著（用 class 統一控制）。
+  //   ⚠️ 將來正式上線（付費網站）時，這段公測說明要改成「付費會員福利」的說法（等小羅決定）。
+  _adsOn = !!(f['feature.ads_guest'] || f['feature.ads_member']);
+  applyAdsNotes();
+
   if (f['feature.maintenance']) {
     msg('#status', t('maintenance'), 'err');
   }
@@ -213,6 +220,7 @@ function go(tab) {
   updateCtx();
   if (tab === 'member') { refreshMember(); renderHistory(); }
   if (tab === 'plans') loadPlans();
+  applyAdsNotes();                       // 動態產生的說明也要跟著廣告開關（小羅 2026-09-29）
 }
 function updateCtx() {
   const tab = currentTab();
@@ -304,6 +312,20 @@ function apiError(j, status) {
   e.code = code || String(status);
   return e;
 }
+
+// ── 廣告開關 → 說明文字聯動（小羅 2026-09-29）──────────────
+//   廣告開關一打開（任一等級要開始看廣告）→ 全站「完全不會有廣告／尚未啟用」那些字
+//   **自動消失**；兩顆都關掉 → 再出現（不只首頁，所有帶 .ads-off-note 的說明都會跟著）。
+//   ⚠️ 因為有些說明是「後來才動態產生」（例如方案頁）→ 一定要在每次換頁／渲染後**重套一次**。
+//   ⚠️ 將來正式上線（付費網站）時，這段公測說明要改成「付費會員福利」的說法（等小羅決定）。
+let _adsOn = false;
+function applyAdsNotes() {
+  $$('.ads-off-note').forEach((el) => { el.hidden = _adsOn; });
+  $$('[data-i18n="ads_body"]').forEach((el) => {
+    el.textContent = _adsOn ? t('ads_body_live') : t('ads_body');
+  });
+}
+window.FY = Object.assign(window.FY || {}, { applyAdsNotes });
 
 // ── 設定 / 次數 ───────────────────────────────────
 async function loadConfig() {
@@ -629,6 +651,9 @@ async function doResolve() {
     loadQuota();
   } catch (err) {
     stopResolveProgress();
+    // 次數用完 → 若其實是該看廣告，直接跳廣告（看完自動重做這次解析）
+    if ((err.code === 'AD_REQUIRED' || err.code === 'QUOTA_EXCEEDED')
+        && await quotaAdRecover('download', () => doResolve())) return;
     msg('#status', err.message, 'err');
     // ⚠️ 失敗也要回報 —— 手機若在「請求還沒到伺服器」就逾時／被 Cloudflare 擋，
     //    伺服器端完全不會有紀錄，後台成功率就會假性 100%。
@@ -886,6 +911,20 @@ function renderWho(me) {
 //   開關：後台「廣告 ── 訪客／免費會員」兩個（預設關閉 → 完全不會出現）。
 let _adClearedAt = -1;      // 這一輪（同一個 used 值）已經看過廣告
 let _adPending = null;      // 被廣告擋下來的動作（看完廣告後要接著做）
+
+/** 次數用完時的保險（小羅 2026-09-29：「用完之後要再跳廣告，無限輪迴」）：
+ *  伺服器回 QUOTA_EXCEEDED 時，先更新次數狀態；如果其實是「該看廣告」→
+ *  直接把廣告彈出來，看完自動重做剛剛被擋下的動作。
+ *  （為什麼需要：前台狀態萬一過期，使用者才不會只看到「今天次數用完」而卡死。）
+ *  @returns true＝已經跳廣告（呼叫端直接 return） */
+async function quotaAdRecover(kind, resume) {
+  try { await loadQuota(); } catch { /* 忽略 */ }
+  const a = state.quota && state.quota.ads;
+  if (!a || !a.enabled || !a.due) return false;
+  _adClearedAt = -1;
+  return adGate(kind, resume);
+}
+window.FY = Object.assign(window.FY || {}, { quotaAdRecover: (k, r) => quotaAdRecover(k, r) });
 
 /** 動作前檢查：需要看廣告就顯示彈窗、記住「被擋下的動作」，回傳 true（呼叫端直接 return）。
  *  看完廣告按「繼續」→ 打 /api/ads/reward 依等級把次數加回來 → 再接著做原本的動作。 */
@@ -1151,8 +1190,9 @@ async function loadPayWays() {
   try { cfg = await api('/api/pay/providers'); } catch { return; }
   const ready = Object.entries(cfg.providers || {}).filter(([, v]) => v.ready);
   if (!ready.length) {
-    box.innerHTML = `<div class="note" style="margin:0"><b>${t('pay_beta')}</b><br>`
+    box.innerHTML = `<div class="note" style="margin:0"><b>${t('pay_beta')}<span class="ads-off-note" data-i18n="pay_beta_ads">、也完全不會有廣告</span></b><br>`
       + `${t('pay_not_ready')}</div>`;
+    applyAdsNotes();                     // 這段是動態產生的 → 產生完馬上套（不然開關打開時它不會消失）
     return;
   }
   box.innerHTML = ready.map(([id, v]) =>
@@ -1224,7 +1264,12 @@ $('#ads-continue').addEventListener('click', async () => {
   try {
     const j = await api('/api/ads/reward', { method: 'POST', body: JSON.stringify({ kind: p.kind }) });
     if (j && j.quota) renderQuota(j.quota);
-  } catch { /* 廣告未啟用／不需要看 → 直接放行 */ }
+    // ⚠️ 2026-09-29 修（小羅：「看完解鎖 3 次、再用完之後沒有再跳廣告，直接說今天用完」）：
+    //    看完廣告＝新的一輪開始 → **一定要把「這一輪已看過」的記號清掉**，
+    //    不然下一次用完 3（或 5）次時，前台會以為「這一輪已經看過」而直接放行
+    //    → 伺服器就回「今天次數用完」，使用者再也看不到廣告、也不能用。
+    _adClearedAt = -1;
+  } catch { /* 廣告未啟用／不需要看 → 直接放行（保留記號，避免萬一失敗一直彈） */ }
   await loadQuota();
   if (p.resume) p.resume();                       // 放行原本的動作
 });

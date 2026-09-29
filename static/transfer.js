@@ -433,6 +433,9 @@
       // claim 回的是單一 kind 的結果；重新抓完整狀態才能同時更新下載／傳輸兩個面板
       window._loadQuota?.();
     } catch (e) {
+      // 次數用完 → 若其實是該看廣告，直接跳廣告（看完自動重送）
+      if ((e.code === 'AD_REQUIRED' || e.code === 'QUOTA_EXCEEDED')
+          && await window.FY?.quotaAdRecover?.('transfer', () => startSend())) return;
       status(e.message, 'err');
       return;
     }

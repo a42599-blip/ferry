@@ -14,7 +14,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from ..core.config import settings
-from ..core.errors import QuotaExceeded
+from ..core.errors import AdRequired, QuotaExceeded
 from ..core import db
 
 # kind: "download" | "transfer"
@@ -95,6 +95,14 @@ def consume(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
     if _limit_on(kind) and not _is_paid(subject) and not _ads_off_for(subject):
         cur = used(kind, subject, tz_name=tz_name)
         if cur >= daily_limit(kind, subject):
+            # ⚠️ 2026-09-29 小羅：「只要他願意看廣告，就永遠再給他次數，**永遠不要**告訴他
+            #    『今天次數用完請等明天』—— 他看得越多我越賺錢。」
+            #    → 這個等級有開廣告（訪客 3／免費會員 5）時，一律回「該看廣告」，
+            #      前端會跳廣告、看完再加回同樣的次數 → 可以無限輪迴（見 ads.state 的 due）。
+            from . import ads as _ads
+
+            if _ads.enabled_for(tier_of(subject)):
+                raise AdRequired("看一段廣告就能繼續使用")
             raise QuotaExceeded("今天的免費次數用完了，明天 00:00 重新開始")
         try:
             db.execute(

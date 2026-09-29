@@ -259,7 +259,7 @@
   "err_HTTP_500": "服务器发生错误，请再试一次",
   "err_TIMEOUT": "等太久了，请再试一次",
   "err_HTTP_503": "服务暂时不可用，请稍后再试",
-  "quota_beta": "目前为公测期间，暂不收费、也完全不会有广告",
+  "quota_beta": "目前为公测期间，暂不收费",
   "pv_play": "播放",
   "paste_empty": "剪贴板是空的",
   "report_note": "任何平台下载不了都可以告诉我们（不用注册）。我们会汇总后尽快处理。",
@@ -276,7 +276,7 @@
   "btn_paste_only": "📋 贴上",
   "btn_parse": "🔍 解析",
   "pay_method": "付款方式",
-  "pay_beta": "目前为公测期间，暂不收费、也完全不会有广告",
+  "pay_beta": "目前为公测期间，暂不收费",
   "pay_not_ready": "付费功能正在准备中。开通后这里会出现信用卡／QR code 等付款方式。",
   "pay_qr_hint": "请用手机扫描 QR code 完成付款",
   "pay_qr_ready": "已产生付款 QR code，请扫描",
@@ -290,7 +290,7 @@
   "delete_confirm_final": "最后确认：真的要注销吗？\n（这个动作无法复原）",
   "delete_done": "账号已注销，谢谢你曾经使用。",
   "auth_off": "会员功能正在筹备中，敬请期待。",
-  "billing_off": "目前为公测期间，暂不收费，所有功能都可以免费使用，也不会出现任何广告。",
+  "billing_off": "目前为公测期间，暂不收费，所有功能都可以免费使用",
   "reply_title": "客服回覆",
   "reply_action": "处理内容",
   "reply_pending": "你的回报处理中",
@@ -361,5 +361,10 @@
   "tr_step9": "⚠️ 「<b class=\"num-hl\">看广告的次数是下载与传输合并计算</b>」：两者加起来满 <b class=\"num-hl\">3</b> 次（访客）／<b class=\"num-hl\">5</b> 次（免费会员），下一次动作前要先看一次广告（广告尚未启用）。",
   "ads_countdown": "广告播放中，还剩 {s} 秒",
   "ads_waiting": "请稍候…",
-  "tr_busy_switch": "正在传送中，请等它完成或按 ✕ 取消后再换设备"
+  "tr_busy_switch": "正在传送中，请等它完成或按 ✕ 取消后再换设备",
+  "quota_beta_ads": "、也完全不会有广告",
+  "billing_off_ads": "，也不会出现任何广告。",
+  "pay_beta_ads": "、也完全不会有广告",
+  "ads_body_live": "看完这段广告就能继续使用。",
+  "err_AD_REQUIRED": "看完广告就能继续使用"
 }

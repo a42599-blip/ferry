@@ -259,7 +259,7 @@
   "err_HTTP_500": "Server error. Please try again.",
   "err_TIMEOUT": "Timed out. Please try again.",
   "err_HTTP_503": "Service temporarily unavailable. Please try againlater.",
-  "quota_beta": "Free during public beta — no charges and no ads at all",
+  "quota_beta": "Free during public beta",
   "pv_play": "Play",
   "paste_empty": "Clipboard is empty",
   "report_note": "Any platform not working? Tell us (no sign-up needed). We review and fix quickly.",
@@ -276,7 +276,7 @@
   "btn_paste_only": "📋 Paste",
   "btn_parse": "🔍 Parse",
   "pay_method": "Payment method",
-  "pay_beta": "Free during public beta — no charges and no ads at all",
+  "pay_beta": "Free during public beta",
   "pay_not_ready": "Payments are being set up. Card / QR code options will appear here.",
   "pay_qr_hint": "Scan the QR code with your phone to pay",
   "pay_qr_ready": "Payment QR code ready — please scan",
@@ -290,7 +290,7 @@
   "delete_confirm_final": "Final check: really delete your account?\n(This cannot be undone)",
   "delete_done": "Account deleted. Thanks for using our service.",
   "auth_off": "Member features are coming soon.",
-  "billing_off": "Free during public beta — no charges, all features are free, and no ads will appear.",
+  "billing_off": "Free during public beta — no charges, all features are free",
   "reply_title": "Reply from support",
   "reply_action": "We did",
   "reply_pending": "We received your report",
@@ -361,5 +361,10 @@
   "tr_step9": "⚠️ The <b class=\"num-hl\">ad counter combines downloads and transfers</b>: after <b class=\"num-hl\">3</b> uses (guest) / <b class=\"num-hl\">5</b> uses (free member) in total, the next action needs an ad first (ads not enabled yet).",
   "ads_countdown": "Ad playing — {s}s left",
   "ads_waiting": "Please wait…",
-  "tr_busy_switch": "Transfer in progress — finish or cancel it before switching devices"
+  "tr_busy_switch": "Transfer in progress — finish or cancel it before switching devices",
+  "quota_beta_ads": " — no charges and no ads at all",
+  "billing_off_ads": " and no ads at all.",
+  "pay_beta_ads": " — no charges and no ads at all",
+  "ads_body_live": "Watch this ad to continue.",
+  "err_AD_REQUIRED": "Watch a short ad to continue"
 }
