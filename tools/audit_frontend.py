@@ -267,7 +267,7 @@ async def audit_admin(base: str, user: str, password: str) -> list[dict]:
         await pg.click("#login-form button[type=submit]")
         await pg.wait_for_timeout(2500)
 
-        for name in ("overview", "growth", "flags", "devices", "revenue", "errors", "system"):
+        for name in ("overview", "growth", "flags", "devices", "revenue", "ads", "errors", "system"):
             try:
                 await pg.locator(f'#side button[data-p="{name}"]:visible').first.click(timeout=4000)
                 await pg.wait_for_timeout(1400)

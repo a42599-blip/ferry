@@ -56,6 +56,7 @@
       <button data-p="members">會員資料</button>
       <button data-p="devices">會員與裝置</button>
       <button data-p="revenue">收益</button>
+      <button data-p="ads">📺 廣告</button>
       <button data-p="reports">客戶回報<span class="sidebadge" id="side-reports" hidden></span></button>
       <button data-p="quotas">次數管理</button>
       <button data-p="errors">錯誤與告警</button>
@@ -295,6 +296,38 @@
         </div>
       </section>
 
+      <!-- 📺 廣告統計（小羅 2026-09-29：看幾次、看多久、給幾次、誰在看、哪邊在看＋對帳）-->
+      <section class="pg" id="pg-ads">
+        <div class="kpis" id="ad-kpis"></div>
+        <div class="rows">
+          <div class="pnl grow2"><div class="lbl">每日趨勢（次數）</div><div id="ad-chart"></div></div>
+          <div class="pnl"><div class="lbl">依身分（誰在看）</div><div id="ad-tier"></div></div>
+        </div>
+        <div class="rows">
+          <div class="pnl"><div class="lbl">哪邊的客戶在看（國家）</div>
+            <div class="scroll" id="ad-country"></div></div>
+          <div class="pnl"><div class="lbl">裝置（手機／電腦）</div><div id="ad-platform"></div></div>
+        </div>
+        <div class="pnl">
+          <div class="lbl">反向對帳（我們記的次數 vs 廣告商回報）</div>
+          <p class="note">到廣告商後台看「當日曝光數」→ 填進來 → 自動算差異。
+            <b>差太多</b>＝可能我們漏記、或<b>廣告根本沒載入</b>（沒載到廣告就沒錢，要查）。
+            <br>我們的次數＝使用者「看滿 15 秒並按繼續」的次數（伺服器實測，前端改不掉）。</p>
+          <div class="inrow">
+            <input id="ad-rep-date" type="date">
+            <input id="ad-rep-count" type="number" min="0" placeholder="廣告商回報曝光數">
+            <button class="big sm" id="ad-rep-go">儲存回報數</button>
+          </div>
+          <div class="scroll" id="ad-recon"></div>
+        </div>
+        <div class="pnl">
+          <div class="lbl">最近 50 筆明細
+            <button class="gh sm" id="ad-export">⬇️ 匯出 CSV（對帳用）</button></div>
+          <div class="scroll" id="ad-recent"></div>
+          <p class="note">明細保留 180 天。「看了幾秒」是伺服器實測值。</p>
+        </div>
+      </section>
+
       <!-- 回報與額度 -->
       <!-- 模塊①：客戶回報（客戶在首頁填的問題都進來這裡）-->
       <section class="pg" id="pg-reports">
@@ -408,6 +441,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=41"></script>
+<script src="/admin/app.js?v=42"></script>
 </body>
 </html>

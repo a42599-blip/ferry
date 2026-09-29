@@ -49,6 +49,27 @@ CREATE INDEX IF NOT EXISTS idx_events_ts   ON events(ts);
 CREATE INDEX IF NOT EXISTS idx_events_kind ON events(kind, ts);
 CREATE INDEX IF NOT EXISTS idx_events_plat ON events(platform, ts);
 
+CREATE TABLE IF NOT EXISTS ad_views (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts           REAL    NOT NULL,          -- 什麼時候看的
+    subject      TEXT,                      -- 誰（dev:xxx 或 user:<member_id>）
+    tier         TEXT,                      -- guest / free / monthly / lifetime
+    member_id    TEXT,                      -- 會員 id（訪客為 NULL）
+    member_email TEXT,                      -- 會員 email（訪客為 NULL）
+    seconds      REAL,                      -- 實際看了幾秒
+    min_seconds  INTEGER,                   -- 當時要求看幾秒（正常 15）
+    granted      INTEGER,                   -- 這次給了幾次免費次數
+    kind         TEXT,                      -- download / transfer（當時被擋的動作）
+    used_before  INTEGER,                   -- 看之前「合併已用」
+    used_after   INTEGER,                   -- 看之後「合併已用」
+    country      TEXT,                      -- 哪個國家（Cloudflare cf-ipcountry）
+    device_id    TEXT,
+    platform     TEXT                       -- 手機 / 電腦
+);
+CREATE INDEX IF NOT EXISTS idx_adviews_ts ON ad_views(ts);
+CREATE INDEX IF NOT EXISTS idx_adviews_tier ON ad_views(tier);
+CREATE INDEX IF NOT EXISTS idx_adviews_country ON ad_views(country);
+
 CREATE TABLE IF NOT EXISTS settings (
     key        TEXT PRIMARY KEY,
     value      TEXT NOT NULL,

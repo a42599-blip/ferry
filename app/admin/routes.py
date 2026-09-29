@@ -148,6 +148,45 @@ async def all_flags(on: bool = Query(...), _: dict = Depends(require_admin)) -> 
 
 
 # ── 會員與裝置 ────────────────────────────────────────
+# ── 📺 廣告統計（小羅 2026-09-29：後台一定要看到看幾次、看多久、給幾次、誰在看）──
+@router.get("/ads")
+async def ads_stats(days: int = Query(30, ge=1, le=365),
+                    _: dict = Depends(require_admin)) -> dict:
+    from ..services import ads as ads_service
+
+    return {"ok": True, **ads_service.stats(days=days)}
+
+
+@router.post("/ads/reported")
+async def ads_set_reported(body: dict = Body(...),
+                           _: dict = Depends(require_admin)) -> dict:
+    """手動輸入「廣告商後台回報的曝光數」（對帳用）。"""
+    from ..services import ads as ads_service
+
+    try:
+        return {"ok": True, **ads_service.set_reported(body.get("date"), body.get("count"))}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ads/export")
+async def ads_export(days: int = Query(180, ge=1, le=365),
+                     _: dict = Depends(require_admin)) -> StreamingResponse:
+    """匯出廣告明細 CSV（對帳用）。"""
+    from ..services import ads as ads_service
+
+    rows = ads_service.export_rows(days=days)
+    buf = io.StringIO()
+    if rows:
+        writer = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]), media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="ad_views.csv"'})
+
+
 @router.get("/devices")
 async def devices(days: int = Query(30, ge=1, le=365), _: dict = Depends(require_admin)) -> dict:
     return {"ok": True, "devices": events.list_devices(days=days)}

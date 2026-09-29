@@ -112,6 +112,7 @@ async def ads_reward(request: Request, body: dict = Body(default={})) -> dict:
         return max(0, quota_service.used(k, subject))
 
     total = _net("download") + _net("transfer")
+    _used_before = total
     target = min(max(0, total - n), max(0, n - 1))
     other = "transfer" if kind == "download" else "download"
     for _k in (kind, other):
@@ -121,6 +122,22 @@ async def ads_reward(request: Request, body: dict = Body(default={})) -> dict:
         if cut:
             quota_service.adjust(_k, subject, cut)      # 正數＝把已用減掉（真的加次數）
             total -= cut
+    # ── 後台「📺 廣告」統計（小羅 2026-09-29：誰看幾次、看幾秒、給幾次、哪邊在看）──
+    _after = _net("download") + _net("transfer")
+    _email = ""
+    if mid:
+        try:
+            _email = (members_service.get(mid) or {}).get("email") or ""
+        except Exception:  # noqa: BLE001
+            _email = ""
+    ads_service.record_view(
+        subject=subject, tier=tier, member_id=mid or "", member_email=_email,
+        seconds=ads_service.elapsed(subject), min_seconds=min_sec, granted=n, kind=kind,
+        used_before=_used_before, used_after=_after,
+        country=(request.headers.get("cf-ipcountry") or "").upper(),
+        device_id=auth._device_id(request),
+        platform=ads_service.platform_of(request.headers.get("user-agent") or ""))
+
     return {"ok": True, "granted": n, "kind": kind,
             "quota": quota_service.status(subject), "tier": tier}
 

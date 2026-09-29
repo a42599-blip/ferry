@@ -49,6 +49,14 @@ const fmtBytes = (n) => {
   return v.toFixed(v < 10 && i > 0 ? 1 : 0) + ' ' + u[i];
 };
 const fmtTime = (ts) => ts ? new Date(ts * 1000).toLocaleString('zh-TW', { hour12: false }) : '–';
+//: 秒數 → 好讀時間（廣告「總觀看時間」用）
+const fmtDur = (secs) => {
+  const n = Math.max(0, Math.round(Number(secs) || 0));
+  if (n < 60) return n + ' 秒';
+  if (n < 3600) return Math.floor(n / 60) + ' 分 ' + (n % 60) + ' 秒';
+  return Math.floor(n / 3600) + ' 小時 ' + Math.floor((n % 3600) / 60) + ' 分';
+};
+const TIER_LABEL = { guest: '訪客', free: '免費會員', monthly: '月會員', lifetime: '永久會員' };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const days = () => $('#days').value;
 const pct = (v) => v === null || v === undefined ? '–'
@@ -223,6 +231,7 @@ async function render() {
     else if (curPage === 'members') await pgMembers();
     else if (curPage === 'devices') await pgDevices();
     else if (curPage === 'revenue') await pgRevenue();
+    else if (curPage === 'ads') await pgAds();
     else if (curPage === 'reports') await pgReports();
     else if (curPage === 'quotas') await pgQuotas();
     else if (curPage === 'errors') await pgErrors();
@@ -901,6 +910,62 @@ async function loadTrace(dev) {
 }
 
 // ── 收益 ─────────────────────────────────────────
+// ── 📺 廣告統計（小羅 2026-09-29 指定：後台一定要看到 5 件事＋反向對帳）──
+async function pgAds() {
+  const d = await api('/ads?days=' + days());
+  const s = d.summary || {};
+  $('#ad-kpis').innerHTML = [
+    kpi('廣告總次數', fmtN(s.views), `最近 ${fmtN(d.range_days)} 天`),
+    kpi('總觀看時間', fmtDur(s.secs), `平均 ${s.avg_secs} 秒／次`),
+    kpi('總給出次數', fmtN(s.granted), '因看廣告加回來的免費次數'),
+    kpi('今天', fmtN(s.today_views), `給 ${fmtN(s.today_granted)} 次／${fmtDur(s.today_secs)}`),
+  ].join('');
+
+  $('#ad-chart').innerHTML = chart((d.daily || []).map((r) => ({ d: r.d, c: r.views })), '次',
+    (d.daily || []).length ? `給出次數合計 ${fmtN(s.granted)}` : '');
+
+  $('#ad-tier').innerHTML = table([
+    { t: '身分', v: (r) => TIER_LABEL[r.tier] || r.tier || '–' },
+    { t: '次數', v: 'views', num: true }, { t: '給出次數', v: 'granted', num: true },
+    { t: '平均秒數', v: (r) => (Number(r.avg_secs) || 0).toFixed(1), num: true },
+  ], d.by_tier, '還沒有廣告紀錄（後台兩顆廣告開關目前是關的）');
+
+  $('#ad-country').innerHTML = table([
+    { t: '國家', v: 'country' }, { t: '次數', v: 'views', num: true },
+    { t: '給出次數', v: 'granted', num: true },
+  ], d.by_country, '還沒有國家資料');
+
+  $('#ad-platform').innerHTML = table([
+    { t: '裝置', v: 'platform' }, { t: '次數', v: 'views', num: true },
+  ], d.by_platform, '還沒有裝置資料');
+
+  // ── 反向對帳 ──
+  const rec = d.recon || { rows: [] };
+  $('#ad-recon').innerHTML = table([
+    { t: '日期', v: 'd' },
+    { t: '我們記的次數', v: 'ours', num: true },
+    { t: '廣告商回報', v: (r) => r.reported ? fmtN(r.reported) : '（未填）', num: true },
+    { t: '差異', v: (r) => r.reported ? (r.diff > 0 ? '<span class="badge ok">+' + r.diff + '</span>'
+        : r.diff < 0 ? '<span class="badge" style="color:var(--err)">' + r.diff + '</span>' : '0')
+        : '–', html: true },
+  ], rec.rows, '還沒有廣告紀錄可對帳');
+  $('#ad-recon').insertAdjacentHTML('afterbegin', `<div class="metric"><span>合計</span>
+    <span>我們 ${fmtN(rec.total_ours)} 次　廣告商 ${fmtN(rec.total_reported)} 次　
+    差異 <b>${rec.total_reported - rec.total_ours >= 0 ? '+' : ''}${fmtN(rec.total_reported - rec.total_ours)}</b></span></div>`);
+
+  // ── 最近 50 筆 ──
+  $('#ad-recent').innerHTML = table([
+    { t: '時間', v: 'time' },
+    { t: '誰', v: (r) => esc(r.who) },
+    { t: '身分', v: 'tier_label' },
+    { t: '看幾秒', v: 'seconds', num: true },
+    { t: '給幾次', v: 'granted', num: true },
+    { t: '動作', v: (r) => r.kind === 'transfer' ? '無損傳輸' : '無水印下載' },
+    { t: '國家', v: (r) => r.country || '–' },
+    { t: '看前/後已用', v: (r) => `${r.used_before} → ${r.used_after}` },
+  ], d.recent, '還沒有廣告紀錄');
+}
+
 async function pgRevenue() {
   const d = await api('/revenue?days=' + days());
   const s = d.summary;
@@ -1124,6 +1189,23 @@ $('#clean-run').addEventListener('click', async () => {
   const d = await api('/data/cleanup', { method: 'POST', body: JSON.stringify({ confirm: true, older_than_days: Number($('#clean-days').value) }) });
   $('#clean-msg').textContent = `已刪除 ${fmtN(d.deleted)} 筆。`;
   $('#clean-run').disabled = true;
+});
+$('#ad-rep-go')?.addEventListener('click', async () => {
+  const date = $('#ad-rep-date').value;
+  const count = Number($('#ad-rep-count').value || 0);
+  if (!date) return queue('請先選日期');
+  await api('/ads/reported', { method: 'POST', body: JSON.stringify({ date, count }) });
+  queue('已儲存廣告商回報數：' + date + ' → ' + count);
+  pgAds();
+});
+$('#ad-export')?.addEventListener('click', () => {
+  fetch('/admin/api/ads/export?days=' + days(),
+    { headers: { Authorization: 'Bearer ' + localStorage.getItem(TKEY) } })
+    .then((r) => r.blob()).then((b) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(b); a.download = 'ferry-ad-views.csv';
+      a.click(); URL.revokeObjectURL(a.href);
+    });
 });
 $('#export').addEventListener('click', () => {
   fetch('/admin/api/data/export', { headers: { Authorization: 'Bearer ' + localStorage.getItem(TKEY) } })
