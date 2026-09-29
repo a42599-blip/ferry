@@ -51,11 +51,18 @@ _leaving: dict[str, float] = {}        # peer_id -> 寬限到什麼時候（關�
 
 
 def _touch(peer_id: str, code: str, name: str | None = None) -> None:
-    """標記這個 peer 還活著（有活動）→ 順便取消「離開寬限」。"""
+    """標記這個 peer 還活著（有活動）→ 順便取消「離開寬限」。
+
+    ⚠️ 2026-09-29（小羅要「同一個裝置回來自動重連」）：只要還有人在活動，房間就**不要過期**。
+       原本房間是「建立後 120 秒」就自動消失 → 自動重連會失敗（對方明明還在線上）。
+    """
     _leaving.pop(peer_id, None)
     old = _presence.get(peer_id) or {}
     _presence[peer_id] = {"code": code, "at": time.time(),
                           "name": old.get("name", "") if name is None else (name or "")}
+    room = _rooms.get(code)
+    if room is not None:
+        room.created_at = time.time()      # 有人活動＝延長房間壽命
 
 
 def _gone(peer_id: str) -> bool:

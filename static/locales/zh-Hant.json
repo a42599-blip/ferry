@@ -57,6 +57,8 @@
   "tr_connected": "已連線，可以開始傳送了",
   "tr_broken": "連線中斷。請確認兩台裝置在同一個 WiFi，並保持頁面開啟。",
   "tr_closed": "連線已關閉",
+  "tr_auto_reconnecting": "正在自動重連上次的裝置…",
+  "tr_auto_failed": "上次的裝置目前不在線上，請用 6 位碼重新配對",
   "tr_cancel_title": "取消這個檔案",
   "tr_cancelled": "已取消",
   "tr_cancelled_peer": "對方已取消",

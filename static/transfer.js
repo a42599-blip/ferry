@@ -57,6 +57,11 @@
 
   S.peerId = deviceId();
 
+  // ── 上次配對的裝置（自動重連用；只存裝置 id，不存任何檔案／帳號資訊）──
+  const LAST_KEY = 'fy_last_peer';
+  const rememberLast = () => { try { if (S.peer) localStorage.setItem(LAST_KEY, S.peer); } catch { /* 忽略 */ } };
+  const forgetLast = () => { try { localStorage.removeItem(LAST_KEY); } catch { /* 忽略 */ } };
+
   // ── 選檔 ─────────────────────────────────────────
   function addFiles(list) {
     touch();
@@ -158,7 +163,7 @@
     }
     renderKnown();
     touch();
-    if (j.peers?.length) { S.peer = j.peers[0]; onPeerFound(); }
+    if (j.peers?.length) { S.peer = j.peers[0]; rememberLast(); onPeerFound(); }
     else { status(t('tr_waiting')); startPoll(); }
   }
 
@@ -172,11 +177,42 @@
         const j = await api('/pair', { method: 'POST', body: JSON.stringify({ peer_id: S.peerId, target: b.dataset.peer }) });
         S.code = j.code; S.peer = j.peers[0];
         $('#mycode').textContent = j.code; $('#codebox').hidden = false;
+        rememberLast();
         touch();
         onPeerFound();
       } catch (err) { status(err.message, 'err'); }
     }));
   }
+
+  /** 自動重連上次的裝置（小羅：「同一個裝置回來時自動重連，不用再點一次配對」）。
+   *  ⚠️ 對方不在線上／已經過期 → 安靜回到「還沒配對」，不吵使用者。 */
+  let _autoTried = false;
+  async function autoReconnect() {
+    if (_autoTried || S.code || S.peer) return;
+    _autoTried = true;
+    let target = '';
+    try { target = localStorage.getItem(LAST_KEY) || ''; } catch { target = ''; }
+    if (!target) return;
+    status(t('tr_auto_reconnecting'));
+    try {
+      const j = await api('/pair', { method: 'POST', body: JSON.stringify({ peer_id: S.peerId, target }) });
+      S.code = j.code; S.peer = j.peers[0];
+      $('#mycode').textContent = j.code; $('#codebox').hidden = false;
+      touch();
+      onPeerFound();
+    } catch {
+      forgetLast();                     // 對方不在線上（或已過期）→ 不要再一直試
+      status(t('tr_auto_failed'));
+    }
+  }
+
+  // 打開「傳輸」分頁時試一次（使用者本來就是來傳檔的，才不會白連）
+  document.addEventListener('click', (e) => {
+    const tab = e.target.closest && e.target.closest('[data-tab="transfer"]');
+    if (tab) setTimeout(autoReconnect, 400);
+  });
+  // 載入時若本來就在「傳輸」分頁（例如重新整理）→ 也自動重連
+  if (document.querySelector('#p-transfer')?.classList.contains('on')) setTimeout(autoReconnect, 800);
 
   $('#tr-gen').addEventListener('click', async () => {
     try { await join(null); } catch (e) { status(e.message, 'err'); }
@@ -216,7 +252,7 @@
           renderPeers(t('tr_peer_left'));      // 配對狀態列也寫，訊息不會被後面的連線訊息蓋掉
           status(t('tr_peer_left'), 'err');
         }
-        if (!S.peer && j.peers?.length) { S.peer = j.peers[0]; onPeerFound(); }
+        if (!S.peer && j.peers?.length) { S.peer = j.peers[0]; rememberLast(); onPeerFound(); }
         for (const m of j.messages || []) await handleSignal(m);
       } catch (e) {
         if (String(e.message).includes('過期') || String(e.message).includes('不存在')) {
@@ -240,6 +276,7 @@
     try { S.pc?.close(); } catch { /* 忽略 */ }
     S.dc = null; S.pc = null; S.peer = null; S.code = null; S.sending = false;
     S.receiving = null; S.cancelIdx.clear(); S.sendIds = {};
+    forgetLast();
     $('#tr-send').disabled = true;
     renderPeers(t('tr_none_yet'));
   }

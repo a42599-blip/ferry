@@ -57,6 +57,8 @@
   "tr_connected": "Connected — you can send now",
   "tr_broken": "Connection lost. Make sure both devices are on the same Wi-Fi and keep the page open.",
   "tr_closed": "Connection closed",
+  "tr_auto_reconnecting": "Reconnecting to your last device…",
+  "tr_auto_failed": "Your last device is offline — pair again with the 6-digit code",
   "tr_cancel_title": "Cancel this file",
   "tr_cancelled": "Cancelled",
   "tr_cancelled_peer": "Cancelled by peer",
