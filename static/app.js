@@ -606,7 +606,7 @@ function stopResolveProgress() {
 }
 
 async function doResolve() {
-  if (adGate()) return;                 // 該看廣告 → 先看完再解析
+  if (adGate('download', () => doResolve())) return;   // 該看廣告 → 先看完再解析
   let url = extractUrl($('#url').value);
   // 輸入框空的 → 自動讀剪貼簿（一鍵「貼上並解析」）
   if (!url) {
@@ -730,7 +730,7 @@ function selectFormat(i) {
 
 // ── 下載（跨平台：iOS 存相簿／Android 下載／桌機選路徑）──
 $('#download').addEventListener('click', async () => {
-  if (adGate()) return;                 // 該看廣告 → 先看完再下載
+  if (adGate('download', () => $('#download').click())) return;   // 該看廣告 → 先看完再下載
   const f = state.info?.formats?.[state.selected];
   if (!f) return;
   const track = $('#track'), bar = $('#bar'), pm = $('#pm');
@@ -885,19 +885,22 @@ function renderWho(me) {
 //   → 廣告不是「用完當下」跳出來，而是**下一次要動作時**擋下來先看廣告。
 //   開關：後台「廣告 ── 訪客／免費會員」兩個（預設關閉 → 完全不會出現）。
 let _adClearedAt = -1;      // 這一輪（同一個 used 值）已經看過廣告
+let _adPending = null;      // 被廣告擋下來的動作（看完廣告後要接著做）
 
-/** 動作前檢查：需要看廣告就顯示並回傳 true（呼叫端要直接 return）。 */
-function adGate() {
+/** 動作前檢查：需要看廣告就顯示彈窗、記住「被擋下的動作」，回傳 true（呼叫端直接 return）。
+ *  看完廣告按「繼續」→ 打 /api/ads/reward 依等級把次數加回來 → 再接著做原本的動作。 */
+function adGate(kind, resume) {
   const a = state.quota && state.quota.ads;
   if (!a || !a.enabled || !a.due) return false;
-  if (a.used === _adClearedAt) return false;      // 已經看過 → 放行
+  if (a.used === _adClearedAt) return false;      // 這一輪已經看過 → 放行
+  _adPending = { kind: kind || 'download', resume: typeof resume === 'function' ? resume : null };
   const box = $('#adsbox');
-  if (box) box.hidden = false;                    // 先看廣告，看完再繼續
+  if (box) box.hidden = false;                    // 先看廣告，看完才能繼續
   return true;
 }
 
 // 給其他模組用（transfer.js 的「開始傳送」也要走同一個廣告規則）
-window.FY = Object.assign(window.FY || {}, { adGate: () => adGate() });
+window.FY = Object.assign(window.FY || {}, { adGate: (k, r) => adGate(k, r) });
 
 // ── 會員 ─────────────────────────────────────────
 async function refreshMember() {
@@ -1187,9 +1190,18 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   renderHistory();
 })();
 
-// 廣告看完按「繼續使用」→ 記住「這一輪已看過」，之後的動作品直接放行
-$('#ads-continue').addEventListener('click', () => {
+// 廣告看完按「繼續使用」→ ① 打 API 把次數加回來 ② 更新次數顯示 ③ 接著做剛剛被擋下的動作
+$('#ads-continue').addEventListener('click', async () => {
+  const box = $('#adsbox');
+  if (box) box.hidden = true;
+  const p = _adPending || { kind: 'download', resume: null };
+  _adPending = null;
   const a = state.quota && state.quota.ads;
-  if (a) _adClearedAt = a.used;
-  $('#adsbox').hidden = true;
+  if (a) _adClearedAt = a.used;                   // 先記住，避免 API 失敗時一直彈
+  try {
+    const j = await api('/api/ads/reward', { method: 'POST', body: JSON.stringify({ kind: p.kind }) });
+    if (j && j.quota) renderQuota(j.quota);
+  } catch { /* 廣告未啟用／不需要看 → 直接放行 */ }
+  await loadQuota();
+  if (p.resume) p.resume();                       // 放行原本的動作
 });

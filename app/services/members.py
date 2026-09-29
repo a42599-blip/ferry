@@ -696,7 +696,7 @@ def _quota_state(kind: str, member_id: str) -> dict:
     from . import quota as _q
 
     subj = f"user:{member_id}"
-    return {"used": _q.used(kind, subj), "limit": _q.daily_limit(kind),
+    return {"used": _q.used(kind, subj), "limit": _q.daily_limit(kind, subj),
             "remaining": _q.remaining(kind, subj)}
 
 

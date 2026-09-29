@@ -48,6 +48,42 @@ async def login(request: Request, body: dict = Body(...)) -> dict:
             "token": m["token"]}
 
 
+@router.post("/api/ads/reward")
+async def ads_reward(request: Request, body: dict = Body(default={})) -> dict:
+    """看完廣告 → 依等級把免費次數加回來（小羅 2026-09-29）。
+
+    ⚠️ 現在**只是預留**：廣告碼還沒接（彈窗是空白的）。
+       之後接廣告時，只要把廣告碼貼進前台 `#ad-slot` 就好，這裡不用改。
+
+    規則：
+      · 訪客：用滿 3 次 → 第 4 次要看廣告 → 看完「再給 3 次」
+      · 免費會員：用滿 5 次 → 第 6 次要看廣告 → 看完「再給 5 次」
+      · 月／永久會員：沒有開關、永遠不看
+    防濫用（三個都要過）：① 該等級的廣告開關要開 ② 現在真的「該看廣告」③ 一次只補一格
+    """
+    from .services import ads as ads_service
+    from .services import members as members_service
+    from .services import quota as quota_service
+
+    mid = auth.current_member_id(request)
+    tier = members_service.tier_of(mid)
+    subject = auth.current_subject(request)
+    kind = "transfer" if str((body or {}).get("kind") or "") == "transfer" else "download"
+
+    # 廣告的計次＝下載＋傳輸「合併」（與 /api/quota 的 ads.used 一致）
+    used_all = quota_service.used("download", subject) + quota_service.used("transfer", subject)
+    st = ads_service.state(tier, used_all)
+    if not st["enabled"]:
+        raise BadRequest("廣告功能尚未啟用")
+    if not st["due"]:
+        raise BadRequest("目前不需要看廣告")
+
+    n = ads_service.every_of(tier) or 1
+    quota_service.adjust(kind, subject, -n)      # 加次數＝把「已用」減掉（可到負數＝贈送）
+    return {"ok": True, "granted": n, "kind": kind,
+            "quota": quota_service.status(subject), "tier": tier}
+
+
 @router.post("/api/member/nickname")
 async def set_nickname(request: Request, body: dict = Body(...)) -> dict:
     """會員自己改暱稱（小羅 2026-09-29：「讓客戶自己改自己的名稱」）。"""

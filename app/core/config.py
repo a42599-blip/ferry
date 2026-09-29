@@ -45,6 +45,11 @@ class Settings:
     # 🆕 2026-09-26 小羅定案：免費次數改為每日 5 次（原 3 次）
     free_download_per_day: int = field(default_factory=lambda: _env_int("FREE_DOWNLOAD_PER_DAY", 5))
     free_transfer_per_day: int = field(default_factory=lambda: _env_int("FREE_TRANSFER_PER_DAY", 5))
+    # 每日免費次數「依等級」（小羅 2026-09-29：「匿名 3 次、註冊會員一天 5 次」）
+    #   訪客（未登入）＝ free_limit_guest；免費會員＝ free_limit_member
+    #   月會員／永久會員＝不限（由 billing/_is_paid 判定）
+    free_limit_guest: int = field(default_factory=lambda: _env_int("FREE_LIMIT_GUEST", 3))
+    free_limit_member: int = field(default_factory=lambda: _env_int("FREE_LIMIT_MEMBER", 5))
 
     # 歷史記錄（存使用者瀏覽器，我們零儲存）
     history_limit: int = field(default_factory=lambda: _env_int("HISTORY_LIMIT", 50))

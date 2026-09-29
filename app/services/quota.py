@@ -37,7 +37,29 @@ def _date_key(tz_name: str = "Asia/Taipei", now: datetime | None = None) -> str:
     return now.astimezone(tz).strftime("%Y-%m-%d")
 
 
-def daily_limit(kind: str) -> int:
+def tier_of(subject: str) -> str:
+    """這個 subject 的等級：guest／free／monthly／lifetime（延遲 import 避免循環）。"""
+    if subject and subject.startswith("user:"):
+        try:
+            from . import members
+
+            return members.tier_of(subject[5:])
+        except Exception:  # noqa: BLE001
+            return "free"
+    return "guest"
+
+
+def daily_limit(kind: str, subject: str | None = None) -> int:
+    """每日免費次數。**依等級**：訪客 3 次、免費會員 5 次（月／永久由 _is_paid 判為不限）。
+
+    小羅 2026-09-29：「沒有註冊給他 3 次；註冊會員一天 5 次。」
+    """
+    if subject:
+        tier = tier_of(subject)
+        if tier == "guest":
+            return settings.free_limit_guest
+        if tier == "free":
+            return settings.free_limit_member
     return settings.free_transfer_per_day if kind == "transfer" else settings.free_download_per_day
 
 
@@ -61,7 +83,7 @@ def remaining(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> int:
     """
     if not _limit_on(kind) or _is_paid(subject):
         return 9999  # 不限（公測全開／該模組開關關掉／會員）
-    return max(0, daily_limit(kind) - used(kind, subject, tz_name=tz_name))
+    return max(0, daily_limit(kind, subject) - used(kind, subject, tz_name=tz_name))
 
 
 def consume(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
@@ -72,7 +94,7 @@ def consume(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
     dk = _date_key(tz_name)
     if _limit_on(kind) and not _is_paid(subject):
         cur = used(kind, subject, tz_name=tz_name)
-        if cur >= daily_limit(kind):
+        if cur >= daily_limit(kind, subject):
             raise QuotaExceeded("今天的免費次數用完了，明天 00:00 重新開始")
         try:
             db.execute(
@@ -87,7 +109,7 @@ def consume(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
 
     return {
         "kind": kind,
-        "limit": daily_limit(kind),
+        "limit": daily_limit(kind, subject),
         "used": used(kind, subject, tz_name=tz_name),
         "remaining": remaining(kind, subject, tz_name=tz_name),
         "reset_at": f"{dk}T00:00:00（{tz_name} 隔日）",
@@ -134,14 +156,14 @@ def status(subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
     tr_unlimited = not _limit_on("transfer") or paid
     return {
         "download": {
-            "limit": daily_limit("download"),
+            "limit": daily_limit("download", subject),
             "used": used("download", subject, tz_name=tz_name),
             "remaining": remaining("download", subject, tz_name=tz_name),
             "reset_hint": hint,
             "unlimited": dl_unlimited,
         },
         "transfer": {
-            "limit": daily_limit("transfer"),
+            "limit": daily_limit("transfer", subject),
             "used": used("transfer", subject, tz_name=tz_name),
             "remaining": remaining("transfer", subject, tz_name=tz_name),
             "reset_hint": hint,

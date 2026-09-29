@@ -39,7 +39,11 @@ _FLAG_OF_TIER = {
 
 
 def state(tier: str, used: int) -> dict:
-    """回傳給前台的廣告狀態。due=False 時前台什麼都不做。"""
+    """回傳給前台的廣告狀態。due=False 時前台什麼都不做。
+
+    `due=True` ＝「**下一次動作之前要先看一次廣告**」（不是用完當下就跳）。
+    看完廣告 → 前台打 `POST /api/ads/reward` → 依等級把次數加回來（見 api_member）。
+    """
     flag = _FLAG_OF_TIER.get(tier)
     enabled = bool(flag) and flags.feature_enabled(flag)
     every = every_of(tier)
