@@ -194,6 +194,7 @@ function applyFlags(cfg) {
   //   兩顆都關掉 → 再出現。不只首頁：所有帶 .ads-off-note 的說明都會跟著（用 class 統一控制）。
   //   ⚠️ 將來正式上線（付費網站）時，這段公測說明要改成「付費會員福利」的說法（等小羅決定）。
   _adsOn = !!(f['feature.ads_guest'] || f['feature.ads_member']);
+  applyAdCode(cfg.ads_network || 'adsterra');   // 只載入「目前上線中」那一家
   applyAdsNotes();
 
   if (f['feature.maintenance']) {
@@ -319,6 +320,37 @@ function apiError(j, status) {
 //   ⚠️ 因為有些說明是「後來才動態產生」（例如方案頁）→ 一定要在每次換頁／渲染後**重套一次**。
 //   ⚠️ 將來正式上線（付費網站）時，這段公測說明要改成「付費會員福利」的說法（等小羅決定）。
 let _adsOn = false;
+
+// ── 廣告碼對照表（key＝後台「廣告商」代號）──────────────────────
+//   小羅 2026-09-29：「多接幾家，將來切換才知道統計跟哪邊對接；
+//   換一家廠商時，不同家的數量不會加在一起。」
+//   ⚠️ 一次只會把「目前上線中」那一家放進彈窗（不會同時載入兩家 → 曝光不混、也不會 ad stacking）。
+//   ⚠️ 要新增一家：①後台廣告頁切換成那家 ②把它的廣告碼貼到下面對應的 key。
+const AD_CODES = {
+  // Adsterra：Banner 300x250（scefo.com｜Ad Unit 31469246｜曝光計費 CPM）
+  adsterra: `
+    <script>
+      atOptions = {
+        'key' : '80edcd5c36fc9b7c0c9700549d9d8e4e',
+        'format' : 'iframe',
+        'height' : 250,
+        'width' : 300,
+        'params' : {}
+      };
+    <\/script>
+    <script src="https://www.highrevenueformat.com/80edcd5c36fc9b7c0c9700549d9d8e4e/invoke.js"><\/script>`,
+  // hilltopads: `…把 HilltopAds 的廣告碼貼在這裡（Video VAST／Banner）…`,
+  // adsense:    `…把 AdSense 的廣告碼貼在這裡…`,
+};
+
+function applyAdCode(net) {
+  const slot = $('#ad-slot');
+  if (!slot) return;
+  const html = AD_CODES[net] || '';
+  if (!html) return;                     // 這家還沒貼碼 → 保留「廣告載入中…」佔位字
+  slot.insertAdjacentHTML('beforeend', html);
+}
+
 function applyAdsNotes() {
   // 廣告格裡若有真的廣告（廣告商塞進來的 iframe／img／ins）→ 收起「廣告載入中…」佔位字
   const slot = $('#ad-slot'), ph = $('#ad-ph');

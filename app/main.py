@@ -188,8 +188,12 @@ async def debug_ip():
 
 @app.get("/api/config")
 async def get_config():
-    """前端啟動時讀這個：功能開關、平台開關、次數規則。"""
-    return {"ok": True, **flags.snapshot()}
+    """前端啟動時讀這個：功能開關、平台開關、次數規則、目前上線的廣告商。"""
+    from .services import ads as _ads
+
+    _net = _ads.network_of()
+    return {"ok": True, "ads_network": _net, "ads_network_label": _ads.network_label(_net),
+            **flags.snapshot()}
 
 
 @app.get("/api/debug/youtube")

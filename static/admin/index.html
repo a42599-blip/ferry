@@ -299,6 +299,18 @@
       <!-- 📺 廣告統計（小羅 2026-09-29：看幾次、看多久、給幾次、誰在看、哪邊在看＋對帳）-->
       <section class="pg" id="pg-ads">
         <div class="kpis" id="ad-kpis"></div>
+        <!-- 廣告商切換（小羅 2026-09-29：多接幾家，切換時統計才不會混在一起） -->
+        <div class="pnl">
+          <div class="lbl">廣告商（目前上線中／切換）</div>
+          <p class="note">只有「上線中」那一家會出現在彈窗；<b>統計與對帳都按家分開</b>，
+            所以換廠商時不會把兩家的數字加在一起。
+            <br>要換一家：①在這裡切換 ②把那一家的廣告碼貼進 <code>static/app.js</code> 的 <code>AD_CODES</code>（貼一次就好）。</p>
+          <div class="inrow">
+            <select id="ad-net"></select>
+            <button class="big sm" id="ad-net-go">切換成這一家</button>
+          </div>
+          <div class="scroll" id="ad-bynet" style="margin-top:10px"></div>
+        </div>
         <div class="rows">
           <div class="pnl grow2"><div class="lbl">每日趨勢（次數）</div><div class="chart" id="ad-chart"></div></div>
           <div class="pnl"><div class="lbl">依身分（誰在看）</div><div id="ad-tier"></div></div>
@@ -441,6 +453,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=42"></script>
+<script src="/admin/app.js?v=43"></script>
 </body>
 </html>

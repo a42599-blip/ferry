@@ -109,7 +109,42 @@ def watch_ok(subject: str, seconds: int) -> bool:
 #   ＋ 反向對帳：手動輸入廣告商後台的回報曝光數 → 自動算差異
 # ══════════════════════════════════════════════════════════
 AD_VIEW_KEEP_DAYS = 180          # 明細保留 180 天（體積很小，但不要無限長大）
-_REPORTED_KEY = "ads.reported"   # 廣告商回報數（settings 表，JSON：{"2026-09-29": 123}）
+_REPORTED_KEY = "ads.reported"   # 廣告商回報數（settings 表，JSON：{網路: {"2026-09-29": 123}}）
+_NETWORK_KEY = "ads.network"     # 目前「哪一家上線中」
+
+#: 目前系統知道、可以切換的廣告商（第一欄＝代號、第二欄＝顯示名）
+#: ⚠️ 小羅 2026-09-29：「多接幾家，將來切換才知道統計跟哪邊對接，不然不同家會混在一起。」
+NETWORKS: tuple[tuple[str, str], ...] = (
+    ("adsterra", "Adsterra（Banner 300x250，曝光計費）"),
+    ("hilltopads", "HilltopAds（Video VAST／Banner）"),
+    ("adsense", "Google AdSense（Rewarded／Display）"),
+    ("applixir", "AppLixir（網站版獎勵式影片）"),
+    ("monetag", "Monetag（備援，多格式）"),
+    ("other", "其他（自行貼碼）"),
+)
+
+
+def network_of(name: str = "") -> str:
+    """取得（或設定）目前上線的廣告商代號。"""
+    from ..core import db
+
+    if name:
+        db.execute(
+            "INSERT INTO settings(key, value, updated_at) VALUES(?,?,?)"
+            " ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
+            (_NETWORK_KEY, str(name), __import__("time").time()))
+        return str(name)
+    try:
+        rows = db.query("SELECT value FROM settings WHERE key=?", (_NETWORK_KEY,))
+        if rows and rows[0]["value"]:
+            return str(rows[0]["value"])
+    except Exception:  # noqa: BLE001
+        pass
+    return "adsterra"
+
+
+def network_label(code: str) -> str:
+    return next((label for c, label in NETWORKS if c == code), code or "–")
 
 
 def platform_of(ua: str) -> str:
@@ -131,7 +166,8 @@ def elapsed(subject: str) -> float:
 def record_view(*, subject: str, tier: str, member_id: str = "", member_email: str = "",
                 seconds: float = 0.0, min_seconds: int = 15, granted: int = 0,
                 kind: str = "", used_before: int = 0, used_after: int = 0,
-                country: str = "", device_id: str = "", platform: str = "") -> None:
+                country: str = "", device_id: str = "", platform: str = "",
+                ad_network: str = "") -> None:
     """記一筆「看廣告」（後台統計＋對帳用；永不拋錯）。"""
     import time as _t
 
@@ -141,12 +177,12 @@ def record_view(*, subject: str, tier: str, member_id: str = "", member_email: s
     try:
         db.execute(
             "INSERT INTO ad_views(ts, subject, tier, member_id, member_email, seconds,"
-            " min_seconds, granted, kind, used_before, used_after, country, device_id, platform)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " min_seconds, granted, kind, used_before, used_after, country, device_id, platform,"
+            " ad_network) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (now, subject, tier, member_id or None, member_email or None,
              float(seconds or 0), int(min_seconds or 0), int(granted or 0), kind or None,
              int(used_before or 0), int(used_after or 0), country or None,
-             device_id or None, platform or None))
+             device_id or None, platform or None, ad_network or network_of()))
     except Exception:  # noqa: BLE001 — 統計不能影響使用者
         return
     # 順手清舊資料（每 20 筆一次，不要每次掃）
@@ -166,14 +202,17 @@ def _reported_load() -> dict:
         if rows and rows[0]["value"]:
             data = json.loads(rows[0]["value"])
             if isinstance(data, dict):
-                return {str(k): int(v or 0) for k, v in data.items()}
+                # 新格式：{網路: {日期: 次數}}；舊格式：{日期: 次數} → 自動升級成 adsterra 的
+                if any(isinstance(v, dict) for v in data.values()):
+                    return {str(k): dict(v) for k, v in data.items() if isinstance(v, dict)}
+                return {"adsterra": {str(k): int(v or 0) for k, v in data.items()}}
     except Exception:  # noqa: BLE001
         pass
     return {}
 
 
-def set_reported(date: str, count: int) -> dict:
-    """設定某一天廣告商回報的曝光數（對帳用）。"""
+def set_reported(date: str, count: int, network: str = "") -> dict:
+    """設定某一天「某一家廣告商」回報的曝光數（對帳用；不同家分開記）。"""
     import time as _t
 
     from ..core import db
@@ -182,7 +221,13 @@ def set_reported(date: str, count: int) -> dict:
     key = str(date or "").strip()
     if not key:
         raise ValueError("缺少日期")
-    data[key] = max(0, int(count or 0))
+    net = network or network_of()
+    if net not in data or not isinstance(data.get(net), dict):
+        data = dict(data)
+        data[net] = {}
+    nested = dict(data[net])
+    nested[key] = max(0, int(count or 0))
+    data[net] = nested
     db.execute(
         "INSERT INTO settings(key, value, updated_at) VALUES(?,?,?)"
         " ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
@@ -239,11 +284,20 @@ def _tier_label(tier: str) -> str:
             "lifetime": "永久會員"}.get(tier or "", tier or "–")
 
 
-def stats(days: int = 30) -> dict:
-    """後台「📺 廣告」頁的全部數據（含對帳）。"""
+def stats(days: int = 30, network: str = "") -> dict:
+    """後台「📺 廣告」頁的全部數據（含對帳）。
+
+    `network`：只算某一家廣告商（小羅要求「不同家不要混在一起」）；留空＝全部。
+    """
     from ..core import db
 
     since = _since(days)
+    where = "ts>=?"
+    args: list = [since]
+    if network:
+        where += " AND COALESCE(ad_network, 'adsterra')=?"
+        args.append(network)
+    w = (where, tuple(args))
 
     def one(sql: str, args: tuple = ()) -> dict:
         rows = db.query(sql, args)
@@ -252,32 +306,33 @@ def stats(days: int = 30) -> dict:
     today = one(
         "SELECT COUNT(*) AS views, COALESCE(SUM(granted),0) AS granted,"
         " COALESCE(SUM(seconds),0) AS secs FROM ad_views"
-        " WHERE date(ts,'unixepoch','+8 hours')=date('now','+8 hours')")
+        " WHERE date(ts,'unixepoch','+8 hours')=date('now','+8 hours')"
+        " AND COALESCE(ad_network,'adsterra') = ?", (network or network_of(),))
     s = one(
         "SELECT COUNT(*) AS views, COALESCE(SUM(seconds),0) AS secs,"
         " COALESCE(AVG(seconds),0) AS avg_secs, COALESCE(SUM(granted),0) AS granted,"
         " COUNT(DISTINCT COALESCE(member_id, subject)) AS users"
-        " FROM ad_views WHERE ts>=?", (since,))
+        " FROM ad_views WHERE " + w[0], w[1])
     daily = [dict(r) for r in db.query(
         "SELECT date(ts,'unixepoch','+8 hours') AS d, COUNT(*) AS views,"
         " COALESCE(SUM(granted),0) AS granted, COALESCE(SUM(seconds),0) AS secs"
-        " FROM ad_views WHERE ts>=? GROUP BY d ORDER BY d", (since,))]
+        " FROM ad_views WHERE " + w[0] + " GROUP BY d ORDER BY d", w[1])]
     by_tier = [dict(r) for r in db.query(
         "SELECT tier, COUNT(*) AS views, COALESCE(SUM(granted),0) AS granted,"
-        " COALESCE(AVG(seconds),0) AS avg_secs FROM ad_views WHERE ts>=?"
-        " GROUP BY tier ORDER BY views DESC", (since,))]
+        " COALESCE(AVG(seconds),0) AS avg_secs FROM ad_views WHERE " + w[0] +
+        " GROUP BY tier ORDER BY views DESC", w[1])]
     by_country = [dict(r) for r in db.query(
         "SELECT COALESCE(country,'(未知)') AS country, COUNT(*) AS views,"
-        " COALESCE(SUM(granted),0) AS granted FROM ad_views WHERE ts>=?"
-        " GROUP BY country ORDER BY views DESC LIMIT 30", (since,))]
+        " COALESCE(SUM(granted),0) AS granted FROM ad_views WHERE " + w[0] +
+        " GROUP BY country ORDER BY views DESC LIMIT 30", w[1])]
     by_platform = [dict(r) for r in db.query(
         "SELECT COALESCE(platform,'(未知)') AS platform, COUNT(*) AS views"
-        " FROM ad_views WHERE ts>=? GROUP BY platform ORDER BY views DESC", (since,))]
+        " FROM ad_views WHERE " + w[0] + " GROUP BY platform ORDER BY views DESC", w[1])]
     recent = []
     for r in db.query(
             "SELECT ts, subject, tier, member_email, seconds, granted, kind, country,"
-            " platform, used_before, used_after FROM ad_views WHERE ts>=?"
-            " ORDER BY ts DESC LIMIT 50", (since,)):
+            " platform, used_before, used_after FROM ad_views WHERE " + w[0] +
+            " ORDER BY ts DESC LIMIT 50", w[1]):
         r = dict(r)
         r["time"] = _fmt(r["ts"])
         r["who"] = r.get("member_email") or r.get("subject") or "–"
@@ -286,7 +341,8 @@ def stats(days: int = 30) -> dict:
         recent.append(r)
 
     # ── 反向對帳：我們記的次數 vs 廣告商回報（手動輸入）──
-    reported = _reported_load()
+    _all_reported = _reported_load()
+    reported = _all_reported.get(network or network_of(), {})
     recon = []
     t_ours = t_rep = 0
     for row in daily:
@@ -295,8 +351,17 @@ def stats(days: int = 30) -> dict:
         t_rep += rep
         recon.append({"d": row["d"], "ours": int(row["views"] or 0), "reported": rep,
                       "diff": rep - int(row["views"] or 0)})
+    by_network = [dict(r) for r in db.query(
+        "SELECT COALESCE(ad_network,'adsterra') AS net, COUNT(*) AS views,"
+        " COALESCE(SUM(granted),0) AS granted, COALESCE(SUM(seconds),0) AS secs"
+        " FROM ad_views WHERE ts>=? GROUP BY net ORDER BY views DESC", (since,))]
+
     return {
         "range_days": max(1, int(days)),
+        "network": network or "",
+        "active_network": network_of(),
+        "networks": [{"code": c, "label": lbl} for c, lbl in NETWORKS],
+        "by_network": by_network,
         "summary": {
             "views": int(s.get("views") or 0),
             "secs": float(s.get("secs") or 0),
@@ -313,6 +378,7 @@ def stats(days: int = 30) -> dict:
         "by_platform": by_platform,
         "recent": recent,
         "recon": {"rows": recon, "total_ours": t_ours, "total_reported": t_rep,
-                  "diff": t_rep - t_ours, "has_reported": bool(reported)},
+                  "diff": t_rep - t_ours, "has_reported": bool(reported),
+                  "network": network or network_of()},
         "reported": reported,
     }

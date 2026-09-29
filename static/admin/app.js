@@ -911,8 +911,11 @@ async function loadTrace(dev) {
 
 // ── 收益 ─────────────────────────────────────────
 // ── 📺 廣告統計（小羅 2026-09-29 指定：後台一定要看到 5 件事＋反向對帳）──
+let d_activeNetwork = '';
 async function pgAds() {
-  const d = await api('/ads?days=' + days());
+  const sel = $('#ad-net');
+  const picked = (sel && sel.value) || '';
+  const d = await api('/ads?days=' + days() + (picked ? '&network=' + encodeURIComponent(picked) : ''));
   const s = d.summary || {};
   $('#ad-kpis').innerHTML = [
     kpi('廣告總次數', fmtN(s.views), `最近 ${fmtN(d.range_days)} 天`),
@@ -952,6 +955,22 @@ async function pgAds() {
   $('#ad-recon').insertAdjacentHTML('afterbegin', `<div class="metric"><span>合計</span>
     <span>我們 ${fmtN(rec.total_ours)} 次　廣告商 ${fmtN(rec.total_reported)} 次　
     差異 <b>${rec.total_reported - rec.total_ours >= 0 ? '+' : ''}${fmtN(rec.total_reported - rec.total_ours)}</b></span></div>`);
+
+  // ── 廣告商切換 ＋ 各家分開的數字 ──
+  if (sel) {
+    const nets = d.networks || [];
+    sel.innerHTML = nets.map((n) => `<option value="${esc(n.code)}"${n.code === (picked || d.active_network) ? ' selected' : ''}>${esc(n.label)}</option>`).join('');
+  }
+  const active = d.active_network || 'adsterra';
+  d_activeNetwork = d.network || active;
+  $('#ad-bynet').innerHTML = `<div class="metric"><span>目前上線中</span><span><b>${esc(active)}</b>${
+    d.ads_network_label ? '（' + esc(d.ads_network_label) + '）' : ''}</span></div>`
+    + table([
+      { t: '廣告商', v: (r) => esc(r.net) + (r.net === active ? ' ←上線中' : '') },
+      { t: '次數', v: 'views', num: true },
+      { t: '給出次數', v: 'granted', num: true },
+      { t: '總秒數', v: (r) => fmtDur(r.secs), num: true },
+    ], d.by_network || [], '還沒有任何廣告紀錄');
 
   // ── 最近 50 筆 ──
   $('#ad-recent').innerHTML = table([
@@ -1190,11 +1209,19 @@ $('#clean-run').addEventListener('click', async () => {
   $('#clean-msg').textContent = `已刪除 ${fmtN(d.deleted)} 筆。`;
   $('#clean-run').disabled = true;
 });
+$('#ad-net-go')?.addEventListener('click', async () => {
+  const code = $('#ad-net').value;
+  const r = await api('/ads/network', { method: 'POST', body: JSON.stringify({ network: code }) });
+  queue('已切換廣告商：' + (r.active_network || code));
+  $('#ad-net').value = '';
+  pgAds();
+});
 $('#ad-rep-go')?.addEventListener('click', async () => {
   const date = $('#ad-rep-date').value;
   const count = Number($('#ad-rep-count').value || 0);
   if (!date) return queue('請先選日期');
-  await api('/ads/reported', { method: 'POST', body: JSON.stringify({ date, count }) });
+  await api('/ads/reported', { method: 'POST', body: JSON.stringify({
+    date, count, network: (d_activeNetwork || '') }) });
   queue('已儲存廣告商回報數：' + date + ' → ' + count);
   pgAds();
 });

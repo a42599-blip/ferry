@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS ad_views (
     used_after   INTEGER,                   -- 看之後「合併已用」
     country      TEXT,                      -- 哪個國家（Cloudflare cf-ipcountry）
     device_id    TEXT,
-    platform     TEXT                       -- 手機 / 電腦
+    platform     TEXT,                      -- 手機 / 電腦
+    ad_network   TEXT                       -- 這筆是被哪一家廣告商看到的（adsterra／hilltopads／adsense…）
 );
 CREATE INDEX IF NOT EXISTS idx_adviews_ts ON ad_views(ts);
 CREATE INDEX IF NOT EXISTS idx_adviews_tier ON ad_views(tier);
@@ -323,6 +324,12 @@ def connect() -> sqlite3.Connection:
         _conn.execute("PRAGMA journal_mode=WAL")
         _conn.execute("PRAGMA synchronous=NORMAL")
         _conn.executescript(SCHEMA)
+        # 舊資料庫升級：新增欄位時要 ALTER（沒有的話會拋錯，吞掉即可）
+        for _sql in ("ALTER TABLE ad_views ADD COLUMN ad_network TEXT",):
+            try:
+                _conn.execute(_sql)
+            except Exception:  # noqa: BLE001
+                pass
         _migrate(_conn)
         _conn.commit()
         return _conn

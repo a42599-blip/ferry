@@ -150,11 +150,23 @@ async def all_flags(on: bool = Query(...), _: dict = Depends(require_admin)) -> 
 # ── 會員與裝置 ────────────────────────────────────────
 # ── 📺 廣告統計（小羅 2026-09-29：後台一定要看到看幾次、看多久、給幾次、誰在看）──
 @router.get("/ads")
-async def ads_stats(days: int = Query(30, ge=1, le=365),
+async def ads_stats(days: int = Query(30, ge=1, le=365), network: str = Query(""),
                     _: dict = Depends(require_admin)) -> dict:
     from ..services import ads as ads_service
 
-    return {"ok": True, **ads_service.stats(days=days)}
+    return {"ok": True, **ads_service.stats(days=days, network=network)}
+
+
+@router.post("/ads/network")
+async def ads_set_network(body: dict = Body(...),
+                          _: dict = Depends(require_admin)) -> dict:
+    """切換「目前上線中的廣告商」（統計會按家分開，不會混在一起）。"""
+    from ..services import ads as ads_service
+
+    code = str((body or {}).get("network") or "").strip()
+    if code not in [c for c, _ in ads_service.NETWORKS]:
+        raise HTTPException(status_code=400, detail="不認識的廣告商代號")
+    return {"ok": True, "active_network": ads_service.network_of(code)}
 
 
 @router.post("/ads/reported")
@@ -164,7 +176,8 @@ async def ads_set_reported(body: dict = Body(...),
     from ..services import ads as ads_service
 
     try:
-        return {"ok": True, **ads_service.set_reported(body.get("date"), body.get("count"))}
+        return {"ok": True, **ads_service.set_reported(
+            body.get("date"), body.get("count"), body.get("network") or "")}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
