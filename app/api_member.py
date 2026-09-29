@@ -100,7 +100,27 @@ async def ads_reward(request: Request, body: dict = Body(default={})) -> dict:
         raise BadRequest(f"請先看廣告 {min_sec} 秒，看完才能繼續")
 
     n = ads_service.every_of(tier) or 1
-    quota_service.adjust(kind, subject, -n)      # 加次數＝把「已用」減掉（可到負數＝贈送）
+
+    # ⚠️⚠️ 2026-09-29 修（小羅：「看完 15 秒按繼續，又跳一個廣告，一直跳、根本不能用」）：
+    #   ① `quota_service.adjust` 的規則是「**正數＝加次數（把已用減掉）**」（見 quota.adjust 說明），
+    #      原本傳 `-n` 反而＝「再用掉 n 次」→ 已用越看越多 → 廣告永遠 due（無限迴圈）。
+    #   ② 廣告的計次是「下載＋傳輸**合併**」，所以加次數也要對「合併」處理：
+    #      只扣被擋的那一種時，若另一種已經用滿，合併次數還是 >= 門檻 → 又跳一次廣告。
+    #   ③ 目標：看完之後「合併已用」要**低於門檻**（不然客人會再被跳一次），
+    #      而且「至少可以再用 n 次」。
+    def _net(k: str) -> int:
+        return max(0, quota_service.used(k, subject))
+
+    total = _net("download") + _net("transfer")
+    target = min(max(0, total - n), max(0, n - 1))
+    other = "transfer" if kind == "download" else "download"
+    for _k in (kind, other):
+        if total <= target:
+            break
+        cut = min(_net(_k), total - target)
+        if cut:
+            quota_service.adjust(_k, subject, cut)      # 正數＝把已用減掉（真的加次數）
+            total -= cut
     return {"ok": True, "granted": n, "kind": kind,
             "quota": quota_service.status(subject), "tier": tier}
 

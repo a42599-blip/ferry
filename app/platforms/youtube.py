@@ -76,6 +76,23 @@ _STRATEGIES: tuple[tuple[str, dict[str, Any], str], ...] = (
     ("cookies", {"player_client": ["tv", "web_safari"]}, "cookie"),  # 只有設了 YT_COOKIES_JSON 才用
 )
 
+#: 畫質「夠豐富」的門檻：到這個數量就不用再花時間試下一個身分（照小羅要的「十幾二十種」）
+_RICH_ENOUGH = 8.0
+
+
+def _fmt_score(info) -> float:
+    """這個身分的畫質清單有多豐富（用來在多個身分都成功時挑最好的）。
+
+    ⚠️ 2026-09-29 小羅：「同一個連結，之前有十幾二十種畫質可以選，現在只剩 360P 一種，
+       連『只抓音訊』都不見了。」→ 因為 mweb+通行證這個身分，YouTube 只回它 1 種（360P），
+       而它排在第一位、成功就回傳 → 就把最完整的身分（web_embedded）擋掉了。
+    """
+    fmts = getattr(info, "formats", None) or []
+    score = float(len(fmts))
+    top = max([int(getattr(f, "height", 0) or 0) for f in fmts] or [0])
+    return score + (top / 1000.0)        # 同數量時，畫質高的優先
+
+
 _COOLDOWN = 300.0          # 失敗的方案暫停幾秒
 _CACHE_TTL = 1200.0        # 同一支影片快取幾秒（googlevideo 網址約 6 小時失效）
 _CACHE_MAX = 500
@@ -165,6 +182,11 @@ class YoutubeResolver(YtDlpResolver):
 
         pot = await asyncio.to_thread(_pot_ready)
         proxy = _WARP_PROXY if await asyncio.to_thread(_warp_ready) else None
+        # ⚠️ 2026-09-29：不再「第一個成功就用它」——改成挑「畫質最豐富」的那個身分。
+        #    （實測踩到：mweb+通行證只給 1 種 360P，卻因為排第一而把 web_embedded 的
+        #      十幾二十種畫質擋掉，連「只抓音訊」都不見。）
+        best: Optional[VideoInfo] = None
+        best_score = -1.0
         for name, ea, needs in self._ordered():
             left = _TOTAL_BUDGET - (time.monotonic() - started)
             if left < 4:
@@ -187,18 +209,27 @@ class YoutubeResolver(YtDlpResolver):
                 if isinstance(exc, PlatformBlocked):          # 被擋才暫停；單支影片的問題不暫停
                     _state["down_until"][name] = time.time() + _COOLDOWN
             else:
-                _state["last_ok"] = name
-                _state["down_until"].pop(name, None)
+                score = _fmt_score(info)
                 info.extra["yt_strategy"] = name
                 info.extra["yt_route"] = "warp" if proxy else "direct"
                 info.extra["yt_tried"] = tried
-                return info
+                if score > best_score:
+                    best, best_score = info, score
+                    _state["last_ok"] = name          # 下載要用「最後選中的」那個身分
+                    _state["down_until"].pop(name, None)
+                if best_score >= _RICH_ENOUGH:
+                    break                              # 已經夠豐富 → 不用再花時間試
+                tried.append(f"{name}: 成功但只有 {len(info.formats)} 種畫質 → 再找更完整的")
             finally:
                 if cookiefile:
                     try:
                         os.remove(cookiefile)
                     except OSError:
                         pass
+
+        if best is not None:
+            best.extra["yt_best"] = _state["last_ok"]
+            return best
 
         raise PlatformBlocked(
             f"{self.label} 暫時無法下載，請稍後再試",

@@ -47,7 +47,12 @@ def state(tier: str, used: int) -> dict:
     flag = _FLAG_OF_TIER.get(tier)
     enabled = bool(flag) and flags.feature_enabled(flag)
     every = every_of(tier)
-    due = bool(enabled and every and used > 0 and used % every == 0)
+    # ⚠️ 2026-09-29 修（小羅：「按繼續之後又跳廣告」）：
+    #    原本用 `used % every == 0`（剛好整除才 due）→ 客人「下載 3 次＋傳輸 3 次＝合併 6 次」時，
+    #    看完廣告把已用從 6 減 3 → 3 → **3 還是 3 的倍數 → 仍然 due → 又跳一次廣告**（重複跳）。
+    #    小羅要的規則：「每用 N 次看一次廣告；看完可以再用 N 次」→
+    #    只看「合併已用 >= N」就要看廣告（看完會把已用減回 0，所以不會連續跳）。
+    due = bool(enabled and every and used >= every)
     return {"enabled": enabled, "due": due, "every": every, "used": int(used or 0)}
 
 
