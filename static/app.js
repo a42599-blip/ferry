@@ -327,27 +327,26 @@ let _adsOn = false;
 //   ⚠️ 一次只會把「目前上線中」那一家放進彈窗（不會同時載入兩家 → 曝光不混、也不會 ad stacking）。
 //   ⚠️ 要新增一家：①後台廣告頁切換成那家 ②把它的廣告碼貼到下面對應的 key。
 const AD_CODES = {
-  // Adsterra：Banner 300x250（scefo.com｜Ad Unit 31469246｜曝光計費 CPM）
-  adsterra: `
-    <script>
-      atOptions = {
-        'key' : '80edcd5c36fc9b7c0c9700549d9d8e4e',
-        'format' : 'iframe',
-        'height' : 250,
-        'width' : 300,
-        'params' : {}
-      };
-    <\/script>
-    <script src="https://www.highrevenueformat.com/80edcd5c36fc9b7c0c9700549d9d8e4e/invoke.js"><\/script>`,
-  // hilltopads: `…把 HilltopAds 的廣告碼貼在這裡（Video VAST／Banner）…`,
-  // adsense:    `…把 AdSense 的廣告碼貼在這裡…`,
+  // ⚠️ 2026-09-29 小羅指示：「這種廣告不能用（假防毒詐騙）→ 先把廣告代碼拉掉，
+  //    但彈窗格式留著：客戶看 15 秒 → 按繼續 → 照樣可以使用，只是框裡沒有廣告。」
+  //    等找到「乾淨的」廣告商（AdSense／Ezoic 之類）再把碼貼回來。
+  //
+  // 要接哪一家，就在下面加一行（key＝後台廣告商代號）：
+  //   adsterra: `…Adsterra 的碼…`,
+  //   hilltopads: `…HilltopAds 的碼…`,
+  //   adsense: `…AdSense 的碼…`,
 };
 
 function applyAdCode(net) {
   const slot = $('#ad-slot');
   if (!slot) return;
   const html = AD_CODES[net] || '';
-  if (!html) return;                     // 這家還沒貼碼 → 保留「廣告載入中…」佔位字
+  if (!html) {
+    // 沒貼碼（或已經把碼拉掉）→ 廣告格整格收起來，彈窗只留說明＋倒數＋繼續（小羅 2026-09-29）
+    slot.hidden = true;
+    return;
+  }
+  slot.hidden = false;
   slot.insertAdjacentHTML('beforeend', html);
 }
 
