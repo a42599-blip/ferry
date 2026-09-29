@@ -38,14 +38,30 @@ _FLAG_OF_TIER = {
 }
 
 
+def enabled_for(tier: str) -> bool:
+    """這個等級的廣告開關有沒有開（關掉＝該等級**不再限制次數**，見 quota）。
+
+    小羅 2026-09-29：「那兩個三次跟五次的開關你要對應好，**我關掉它就不再限制**。」
+      · 訪客   → feature.ads_guest
+      · 免費會員 → feature.ads_member
+      · 月／永久 → 沒有開關（永遠不看廣告、也沒有限制）
+    """
+    flag = _FLAG_OF_TIER.get(tier)
+    if not flag:
+        return False
+    try:
+        return bool(flags.feature_enabled(flag))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def state(tier: str, used: int) -> dict:
     """回傳給前台的廣告狀態。due=False 時前台什麼都不做。
 
     `due=True` ＝「**下一次動作之前要先看一次廣告**」（不是用完當下就跳）。
     看完廣告 → 前台打 `POST /api/ads/reward` → 依等級把次數加回來（見 api_member）。
     """
-    flag = _FLAG_OF_TIER.get(tier)
-    enabled = bool(flag) and flags.feature_enabled(flag)
+    enabled = enabled_for(tier)
     every = every_of(tier)
     # ⚠️ 2026-09-29 修（小羅：「按繼續之後又跳廣告」）：
     #    原本用 `used % every == 0`（剛好整除才 due）→ 客人「下載 3 次＋傳輸 3 次＝合併 6 次」時，

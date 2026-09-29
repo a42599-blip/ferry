@@ -27,7 +27,16 @@
     sending: false, receiving: null, speed: { bytes: 0, at: 0, timer: null }, known: [],
     //: 收到但還沒辦法加入的 ICE 候選（要等 setRemoteDescription 之後才加）
     pendingIce: [], connectTimer: null,
+    //: 被取消的傳送索引／接收中的檔案（小羅 2026-09-29：卡住或傳錯要能取消）
+    cancelIdx: new Set(), cancelledIds: new Set(), sendIds: {},
+    //: 最後一次「有動作」的時間（閒置 5 分鐘要自動斷開；輪詢不算動作）
+    lastAct: Date.now(), idleTimer: null,
   };
+
+  //: 閒置多久自動斷開（小羅 2026-09-29 指定：5 分鐘）
+  const IDLE_MS = 5 * 60 * 1000;
+  const LEAVE_GRACE = 6;          // 關頁面時給的寬限秒數（重新整理會馬上回來 → 不算離開）
+  const touch = () => { S.lastAct = Date.now(); };
 
   const deviceId = () => {
     let id = localStorage.getItem('fy_device_id');
@@ -50,6 +59,7 @@
 
   // ── 選檔 ─────────────────────────────────────────
   function addFiles(list) {
+    touch();
     for (const f of list) {
       const name = f.webkitRelativePath || f.name;
       if (S.files.some((x) => x.name === name && x.size === f.size)) continue;
@@ -147,6 +157,7 @@
       $('#joined-note').hidden = true;
     }
     renderKnown();
+    touch();
     if (j.peers?.length) { S.peer = j.peers[0]; onPeerFound(); }
     else { status(t('tr_waiting')); startPoll(); }
   }
@@ -161,6 +172,7 @@
         const j = await api('/pair', { method: 'POST', body: JSON.stringify({ peer_id: S.peerId, target: b.dataset.peer }) });
         S.code = j.code; S.peer = j.peers[0];
         $('#mycode').textContent = j.code; $('#codebox').hidden = false;
+        touch();
         onPeerFound();
       } catch (err) { status(err.message, 'err'); }
     }));
@@ -195,6 +207,15 @@
       if (!S.code) return;
       try {
         const j = await api(`/poll?code=${S.code}&peer_id=${encodeURIComponent(S.peerId)}`);
+        // ⚠️ 2026-09-29（小羅：「對方關掉網頁要自動斷開」）：對方不在名單裡＝已經離開
+        if (S.peer && Array.isArray(j.peers) && !j.peers.includes(S.peer)) {
+          try { S.dc?.close(); } catch { /* 忽略 */ }
+          try { S.pc?.close(); } catch { /* 忽略 */ }
+          S.dc = null; S.pc = null; S.peer = null; S.sending = false; S.receiving = null;
+          $('#tr-send').disabled = true;
+          renderPeers(t('tr_peer_left'));      // 配對狀態列也寫，訊息不會被後面的連線訊息蓋掉
+          status(t('tr_peer_left'), 'err');
+        }
         if (!S.peer && j.peers?.length) { S.peer = j.peers[0]; onPeerFound(); }
         for (const m of j.messages || []) await handleSignal(m);
       } catch (e) {
@@ -205,6 +226,51 @@
     }, 900);
   }
   function stopPoll() { if (S.poll) { clearInterval(S.poll); S.poll = null; } }
+
+  /** 主動離開配對（清乾淨，回到「還沒配對」的狀態）。 */
+  async function leavePair(grace = 0) {
+    if (!S.code) return;
+    try {
+      await api('/leave', { method: 'POST', body: JSON.stringify({
+        peer_id: S.peerId, code: S.code, grace }) });
+    } catch { /* 忽略 */ }
+    if (grace) return;                       // 只是關頁面：先不要清 UI（寬限期內可能又回來）
+    stopPoll();
+    try { S.dc?.close(); } catch { /* 忽略 */ }
+    try { S.pc?.close(); } catch { /* 忽略 */ }
+    S.dc = null; S.pc = null; S.peer = null; S.code = null; S.sending = false;
+    S.receiving = null; S.cancelIdx.clear(); S.sendIds = {};
+    $('#tr-send').disabled = true;
+    renderPeers(t('tr_none_yet'));
+  }
+
+  /** 關掉網頁（不是重新整理）→ 帶寬限通知伺服器；重新整理會在幾秒內回來，所以不算離開。 */
+  window.addEventListener('pagehide', () => {
+    if (!S.code) return;
+    try {
+      const base = window.FY_HEADERS ? window.FY_HEADERS() : {};
+      fetch('/api/signal/leave', {
+        method: 'POST', keepalive: true,
+        headers: { 'Content-Type': 'application/json', ...base },
+        body: JSON.stringify({ peer_id: S.peerId, code: S.code, grace: LEAVE_GRACE }),
+      }).catch(() => {});
+    } catch { /* 忽略 */ }
+  });
+
+  /** 閒置檢查：5 分鐘沒有動作（沒有傳、沒有收、沒有操作）→ 自動斷開。 */
+  function startIdleWatch() {
+    if (S.idleTimer) return;
+    S.idleTimer = setInterval(() => {
+      if (!S.code || !S.peer) return;
+      if (S.sending || S.receiving) return;                  // 正在傳＝有動作
+      if (Date.now() - S.lastAct < IDLE_MS) return;
+      status(t('tr_idle_off'), 'err');
+      leavePair(0);
+      renderPeers(t('tr_idle_off'));
+      renderKnown();
+    }, 30000);
+  }
+  startIdleWatch();
 
   const sendSignal = (payload) => api('/send', { method: 'POST', body: JSON.stringify({
     code: S.code, from_peer: S.peerId, to_peer: S.peer, payload }) }).catch(() => {});
@@ -262,6 +328,7 @@
       const st = S.pc.connectionState;
       if (st === 'connected') {
       clearTimeout(S.connectTimer);
+      touch();
       // 讓「誰要做什麼」一目了然：送方按開始傳送，收方什麼都不用按
       status(S.files.length ? t('tr_connected_send') : t('tr_connected_recv'), 'ok');
       renderPeers(t('tr_connected'));
@@ -292,6 +359,7 @@
     dc.binaryType = 'arraybuffer';
     dc.bufferedAmountLowThreshold = LOW_WATER;
     dc.onopen = () => {
+      touch();
       if (S.pc?.connectionState === 'connected') status(t('tr_connected'), 'ok');
       $('#tr-send').disabled = !S.files.length;
     };
@@ -319,7 +387,7 @@
       status(e.message, 'err');
       return;
     }
-    S.sending = true; $('#tr-send').disabled = true;
+    S.sending = true; $('#tr-send').disabled = true; touch();
     const list = S.files.slice();
     const started = performance.now();
     let sent = 0;
@@ -332,11 +400,20 @@
         updateRow('send', i, 0, t('tr_calc'));
         const sha = await sha256OfFile(item.file);
         const id = `${Date.now()}-${i}`;
+        S.sendIds = S.sendIds || {};
+        S.sendIds[i] = id;
+        S.cancelIdx.delete(i);
         dcSend(JSON.stringify({ t: 'start', id, name: item.name, size: item.size, sha }));
         updateRow('send', i, 0, t('tr_xfer'));
 
         let off = 0;
         while (off < item.size) {
+          if (S.cancelIdx.has(i)) {                 // 使用者按了 ✕ → 這一個不傳了
+            S.cancelIdx.delete(i);
+            dcSend(JSON.stringify({ t: 'cancel', id }));
+            updateRow('send', i, 0, t('tr_cancelled'), 'err');
+            break;
+          }
           if (S.dc.readyState !== 'open') throw new Error('連線已中斷');
           if (S.dc.bufferedAmount > HIGH_WATER) {
             await new Promise((r) => {
@@ -351,6 +428,8 @@
           updateRow('send', i, off / item.size, `${fmtBytes(off)} / ${fmtBytes(item.size)}`);
           tuneChunk(S.dc.bufferedAmount);
         }
+        if (S.cancelIdx.has(i)) continue;          // 已取消的檔案不要送 end
+        touch();
         dcSend(JSON.stringify({ t: 'end', id }));
         updateRow('send', i, 1, t('tr_waitack'));
       }
@@ -382,6 +461,9 @@
     }
     const r = S.receiving;
     if (!r) return;
+    // ⚠️ 已取消的檔案：DataChannel 緩衝中還在飛的資料要丟掉，不然「已取消」會被進度蓋回去
+    if (S.cancelledIds.has(r.id)) return;
+    touch();
     const bytes = new Uint8Array(data);
     r.chunks.push(bytes);
     r.got += bytes.length;
@@ -392,11 +474,22 @@
 
   function onControl(m) {
     if (m.t === 'start') {
+      S.cancelledIds.delete(m.id);
       const idx = $('#recv-list').children.length;
       S.receiving = { id: m.id, name: m.name, size: m.size, sha: m.sha,
                       chunks: [], got: 0, hasher: new SHA256(), index: idx };
       addRow('recv', m.name, m.size);
       status(t('tr_receiving') + m.name);
+    } else if (m.t === 'cancel') {
+      // 對方按了 ✕（或他取消傳送）→ 把這一個丟掉、顯示已取消
+      const r = S.receiving;
+      if (m.id) S.cancelledIds.add(m.id);
+      if (r && (!m.id || r.id === m.id)) {
+        S.receiving = null;
+        updateRow('recv', r.index, 0, t('tr_cancelled_peer'), 'err');
+        status(t('tr_cancelled_peer') + '：' + r.name, 'err');
+      }
+      if (m.id) S.cancelIdx.add(m.id);
     } else if (m.t === 'end') {
       finishReceive();
     } else if (m.t === 'ack') {
@@ -428,7 +521,11 @@
     return `<span class="th">📦</span>
       <div style="flex:1;min-width:0">
         <div class="row-between" style="display:flex;justify-content:space-between;gap:8px">
-          <span class="nm">${esc(name)}</span><span class="sz">${fmtBytes(size)}</span></div>
+          <span class="nm">${esc(name)}</span>
+          <span style="display:flex;gap:6px;align-items:center;white-space:nowrap">
+            <span class="sz">${fmtBytes(size)}</span>
+            <button class="linkbtn tr-x" type="button" title="${esc(t('tr_cancel_title'))}"
+                    aria-label="${esc(t('tr_cancel_title'))}">✕</button></span></div>
         <div class="track" style="margin-top:8px"><i style="width:0"></i></div>
         <div class="pm" style="margin-top:6px"><span class="st"></span></div>
       </div>`;
@@ -458,6 +555,39 @@
     li.querySelector('.track i').style.width = Math.round(Math.min(1, ratio) * 100) + '%';
     const st = li.querySelector('.st');
     if (st) { st.textContent = text || ''; st.className = 'st ' + cls; }
+  }
+
+  /** 使用者按了某一列的 ✕：取消那個檔案（傳送中／接收中都支援）。 */
+  function cancelRow(k) {
+    if (!k) return;
+    const [kind, idxs] = k.split('-');
+    const i = Number(idxs);
+    if (kind === 'send') {
+      S.cancelIdx.add(i);                       // 傳送迴圈會在下一塊之前停下來
+      updateRow('send', i, 0, t('tr_cancelled'), 'err');
+      status(t('tr_cancelled'), 'err');
+      const id = S.sendIds[i];
+      if (id) { S.cancelledIds.add(id); dcSend(JSON.stringify({ t: 'cancel', id })); }
+      return;
+    }
+    // 接收中：丟掉半成品、通知對方停
+    const r = S.receiving;
+    if (r && r.index === i) {
+      S.cancelledIds.add(r.id);
+      S.receiving = null;
+      dcSend(JSON.stringify({ t: 'cancel', id: r.id }));
+      updateRow('recv', i, 0, t('tr_cancelled'), 'err');
+      status(t('tr_cancelled') + '：' + r.name, 'err');
+    }
+  }
+  for (const sel of ['#send-list', '#recv-list']) {
+    const box = $(sel);
+    if (!box) continue;
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest && e.target.closest('.tr-x');
+      if (!b) return;
+      cancelRow(b.closest('li')?.dataset.k);
+    });
   }
 
   function startSpeed() {

@@ -28,6 +28,10 @@ router = APIRouter()
 
 CODE_TTL = 120          # 配對碼 2 分鐘有效（規格書第 9 章）
 ONLINE_TTL = 40         # 多久沒心跳算離線
+#: 關頁面／重新整理時，先給幾秒寬限：重新整理會馬上回來（poll 會清掉），關掉就不會回來
+LEAVE_GRACE = 6
+#: 閒置上限（小羅 2026-09-29：「5 分鐘以上沒有動作就自動斷開」）
+IDLE_TTL = 300
 MAX_BOXES = 2000        # 房間上限，避免爆掉
 MAX_JOIN_FAILS = 8      # 同一來源 2 分鐘內錯幾次就擋（規格書：錯誤次數限制）
 FAIL_WINDOW = 120
@@ -43,6 +47,30 @@ class Room:
 _rooms: dict[str, Room] = {}
 _presence: dict[str, dict] = {}        # peer_id -> {"code":..., "at":..., "ua":...}
 _fails: dict[str, list[float]] = {}    # 來源 -> 失敗時間
+_leaving: dict[str, float] = {}        # peer_id -> 寬限到什麼時候（關頁面用）
+
+
+def _touch(peer_id: str, code: str, name: str | None = None) -> None:
+    """標記這個 peer 還活著（有活動）→ 順便取消「離開寬限」。"""
+    _leaving.pop(peer_id, None)
+    old = _presence.get(peer_id) or {}
+    _presence[peer_id] = {"code": code, "at": time.time(),
+                          "name": old.get("name", "") if name is None else (name or "")}
+
+
+def _gone(peer_id: str) -> bool:
+    """這個 peer 是不是「已經不在了」（逾時 or 離開寬限已過）。"""
+    now = time.time()
+    p = _presence.get(peer_id)
+    if p is None or now - p["at"] > ONLINE_TTL:
+        return True
+    until = _leaving.get(peer_id)
+    return bool(until and now > until)
+
+
+def _live_peers(room: Room, me: str) -> list[str]:
+    """房間裡「還活著」的其他裝置（逾時的不要列出來）。"""
+    return [p for p in room.peers if p != me and not _gone(p)]
 
 
 def _new_code() -> str:
@@ -58,6 +86,15 @@ def _cleanup() -> None:
         _rooms.pop(code, None)
     for pid in [p for p, v in _presence.items() if now - v["at"] > ONLINE_TTL]:
         _presence.pop(pid, None)
+    for pid in [p for p, until in _leaving.items() if now > until]:
+        # ⚠️ 寬限時間過了＝真的離開（否則還要再等 ONLINE_TTL 40 秒 → 小羅：「關掉網頁要自動斷開」）
+        _leaving.pop(pid, None)
+        _presence.pop(pid, None)
+    # ⚠️ 2026-09-29（小羅：「配對會自動斷開嗎？」）：逾時／已離開的人要**真的從房間移除**，
+    #    否則對方關掉網頁後，另一邊永遠還看到「對方在線」→ 不會自動斷開。
+    for room in _rooms.values():
+        for pid in [p for p in list(room.peers) if _gone(p)]:
+            room.peers.pop(pid, None)
     while len(_rooms) > MAX_BOXES:
         _rooms.pop(next(iter(_rooms)))
 
@@ -102,6 +139,8 @@ class JoinIn(BaseModel):
     code: str | None = None
     peer_id: str
     name: str | None = None
+    #: 關頁面時帶 grace（秒）：先給寬限，重新整理馬上回來就不算離開（小羅 2026-09-29）
+    grace: float = 0
 
 
 class SignalIn(BaseModel):
@@ -142,9 +181,9 @@ async def join(body: JoinIn):
         _rooms[room.code] = room
 
     room.peers.setdefault(body.peer_id, [])
-    _presence[body.peer_id] = {"code": room.code, "at": time.time(), "name": body.name or ""}
+    _touch(body.peer_id, room.code, body.name)
 
-    peers = [p for p in room.peers if p != body.peer_id]
+    peers = _live_peers(room, body.peer_id)
     if peers:
         _remember_pair(body.peer_id, peers[0])
         events.track("transfer_pair", device_id=body.peer_id, mode="code",
@@ -171,12 +210,11 @@ async def pair(body: PairIn):
     if room is None:
         raise BadRequest("配對已過期，請重新產生配對碼", code="PAIRING_NOT_FOUND")
     room.peers.setdefault(body.peer_id, [])
-    _presence[body.peer_id] = {"code": room.code, "at": time.time()}
+    _touch(body.peer_id, room.code)
     _remember_pair(body.peer_id, body.target)
     events.track("transfer_pair", device_id=body.peer_id, mode="known-peer",
                  meta={"with": body.target})
-    return {"ok": True, "code": room.code,
-            "peers": [p for p in room.peers if p != body.peer_id]}
+    return {"ok": True, "code": room.code, "peers": _live_peers(room, body.peer_id)}
 
 
 class ClaimIn(BaseModel):
@@ -204,10 +242,7 @@ async def send(body: SignalIn):
     room = _rooms.get(body.code)
     if room is None:
         raise BadRequest("配對碼不存在或已過期", code="PAIRING_NOT_FOUND")
-    _presence[body.from_peer] = {
-        "code": body.code, "at": time.time(),
-        "name": _presence.get(body.from_peer, {}).get("name", ""),
-    }
+    _touch(body.from_peer, body.code)
     box = room.peers.setdefault(body.to_peer, [])
     box.append({"from": body.from_peer, "payload": body.payload, "at": time.time()})
     return {"ok": True, "queued": len(box)}
@@ -215,17 +250,15 @@ async def send(body: SignalIn):
 
 @router.get("/poll")
 async def poll(code: str, peer_id: str):
+    # ⚠️ 每次輪詢都清一次：對方關掉頁面／逾時才會被「即時」從房間移除（小羅 2026-09-29）
+    _cleanup()
     room = _rooms.get(code)
     if room is None:
         raise BadRequest("配對碼不存在或已過期", code="PAIRING_NOT_FOUND")
-    _presence[peer_id] = {
-        "code": code, "at": time.time(),
-        "name": _presence.get(peer_id, {}).get("name", ""),
-    }
+    _touch(peer_id, code)
     box = room.peers.setdefault(peer_id, [])
     msgs, box[:] = list(box), []
-    return {"ok": True, "messages": msgs,
-            "peers": [p for p in room.peers if p != peer_id]}
+    return {"ok": True, "messages": msgs, "peers": _live_peers(room, peer_id)}
 
 
 @router.post("/done")
@@ -240,10 +273,23 @@ async def done(body: DoneIn):
 
 @router.post("/leave")
 async def leave(body: JoinIn):
+    """離開配對。
+
+    ⚠️ 小羅 2026-09-29：「有一方關掉網頁就要自動斷開；但**重新整理不算**。」
+       瀏覽器沒辦法分辨「關閉」和「重新整理」，所以關頁面時前台會帶 `grace`（例如 6 秒）：
+         · 是重新整理 → 幾秒內就會重新 poll／join → `_touch()` 會把寬限取消 ✅ 不算離開
+         · 是真的關掉 → 寬限一過，`_cleanup()` 就會把這個人從房間移除 ✅ 自動斷開
+    """
+    grace = float(body.grace or 0)
+    if grace > 0:
+        _leaving[body.peer_id] = time.time() + min(grace, 60.0)
+        return {"ok": True, "grace": grace}
+
     room = _rooms.get(body.code or "")
     if room:
         room.peers.pop(body.peer_id, None)
         if not room.peers:
             _rooms.pop(room.code, None)
     _presence.pop(body.peer_id, None)
+    _leaving.pop(body.peer_id, None)
     return {"ok": True}
