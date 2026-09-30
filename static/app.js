@@ -145,6 +145,12 @@ function buildPlans() {
   if ($('#plan-free-list')) $('#plan-free-list').innerHTML = fill(t('plan_free_list', []));
   if ($('#plan-monthly-list')) $('#plan-monthly-list').innerHTML = fill(t('plan_monthly_list', []));
   if ($('#plan-lifetime-list')) $('#plan-lifetime-list').innerHTML = fill(t('plan_lifetime_list', []));
+  // 怎麼付款／怎麼退款（小羅 2026-09-30：金流商審核要看到，客戶也要一次看懂）
+  const kv = (arr) => (arr || []).map(
+    ([k, v]) => `<div class="r"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  if ($('#plans-pay-list')) $('#plans-pay-list').innerHTML = kv(t('plans_pay_list', []));
+  if ($('#plans-refund-list')) $('#plans-refund-list').innerHTML = kv(t('plans_refund_list', []));
+  if ($('#plans-fx-list')) $('#plans-fx-list').innerHTML = kv(t('plans_fx_list', []));
 }
 
 // ── 開關連動：關掉的功能，前台整個消失 ─────────────────

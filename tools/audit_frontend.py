@@ -220,7 +220,7 @@ async def audit_functional(pg, base: str) -> list[dict]:
     if not re.match(r"^[\d.]+$", price):
         bad("方案價格", f"拿到「{price}」")
     else:
-        good(f"方案價格 → US$ {price}")
+        good(f"方案價格 → NT$ {price}")
 
     # 7) 教學頁內容
     await pg.locator('[data-tab="teach"]:visible').first.click()

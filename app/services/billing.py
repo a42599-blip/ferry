@@ -33,8 +33,9 @@ PLAN_LIFETIME = "lifetime"
 
 PLANS: dict[str, dict[str, Any]] = {
     PLAN_FREE: {"name": "免費", "price": 0.0, "unlimited": False, "period_days": None},
-    PLAN_MONTHLY: {"name": "月會員", "price": 2.99, "unlimited": True, "period_days": 31},
-    PLAN_LIFETIME: {"name": "終身會員", "price": 59.0, "unlimited": True, "period_days": None},
+    # 2026-09-30 小羅定案：月會員 NT$88、終身會員 NT$988（台幣，配合台灣金流商）
+    PLAN_MONTHLY: {"name": "月會員", "price": 88.0, "unlimited": True, "period_days": 31},
+    PLAN_LIFETIME: {"name": "終身會員", "price": 988.0, "unlimited": True, "period_days": None},
 }
 
 PROVIDERS = {
@@ -135,7 +136,7 @@ def create_checkout(subject: str, plan: str, provider: str,
     from . import events
 
     events.add_order(oid, member_id=subject, plan=plan, amount=price,
-                     currency="USD", status="pending", note=f"provider={provider}")
+                     currency="TWD", status="pending", note=f"provider={provider}")
     if provider == "stripe":
         return {"ok": True, "order_id": oid, "provider": provider,
                 "checkout_url": f"{base_url}/api/pay/checkout/{oid}",
@@ -192,7 +193,7 @@ def activate(order_id: str, *, raw_amount: float | None = None) -> dict:
     fee = round(price * 0.05, 2)            # 概估手續費（實際以金流商帳單為準）
 
     events.add_order(order_id, member_id=row["member_id"], plan=plan, amount=price,
-                     currency=row["currency"] or "USD", fee=fee, status="paid",
+                     currency=row["currency"] or "TWD", fee=fee, status="paid",
                      note=row["note"])
     events.mark_paid(order_id)
 
@@ -325,7 +326,7 @@ def request_payout(amount: float, method: str = "bank", note: str = "") -> dict:
     db.execute(
         "INSERT INTO payouts (ts, amount, fee, currency, method, note, status)"
         " VALUES (?,?,?,?,?,?,?)",
-        (time.time(), amount, 0.0, "USD", method or "bank", (note or "")[:300], "pending"))
+        (time.time(), amount, 0.0, "TWD", method or "bank", (note or "")[:300], "pending"))
     row = db.one("SELECT * FROM payouts ORDER BY id DESC LIMIT 1")
     return dict(row) if row else {}
 

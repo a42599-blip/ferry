@@ -116,7 +116,7 @@
   "plan_current": "Current plan",
   "btn_subscribe": "Subscribe",
   "plan_per_month": "/mo",
-  "plan_early": "Early bird, limited to 200",
+  "plan_early": "Early bird · was NT$1,980 · limited to 200",
   "pay_preparing": "Payments aren't live yet — the checkout flow is ready and goes live once the payment gateway is connected.",
   "pay_ready": "Payment gateway connected. You can start charging.",
   "member_title": "Account",
@@ -367,5 +367,92 @@
   "pay_beta_ads": " — no charges and no ads at all",
   "ads_body_live": "Watch this ad to continue.",
   "err_AD_REQUIRED": "Watch a short ad to continue",
-  "ads_loading": "Loading ad…"
+  "ads_loading": "Loading ad…",
+  "plans_pay_title": "How to pay",
+  "plans_pay_note": "Membership is activated automatically right after payment — no manual step.",
+  "plans_pay_list": [
+    [
+      "Payment methods",
+      "Credit card (Visa / MasterCard / JCB / UnionPay), Apple Pay, Google Pay, ATM transfer, convenience-store code/barcode."
+    ],
+    [
+      "Monthly",
+      "NT$88 / 30 days — activated instantly, unlimited downloads and transfers while active."
+    ],
+    [
+      "Lifetime",
+      "NT$988 one-time (regular NT$1,980, early-bird limited to 200). Valid for the lifetime of this service."
+    ],
+    [
+      "Activation",
+      "Activated automatically by the system after payment — no waiting for manual review."
+    ],
+    [
+      "Security",
+      "All payments are processed by our payment provider (NewebPay, etc.). We never see or store your card details."
+    ]
+  ],
+  "plans_refund_title": "How to get a refund",
+  "plans_refund_note": "See the Refund Policy for full conditions.",
+  "plans_refund_list": [
+    [
+      "Within 7 days, unused",
+      "Full refund if requested within 7 days of payment and no paid feature has been used (0 downloads and 0 transfers)."
+    ],
+    [
+      "Paid feature already used",
+      "Because this is a digital service delivered instantly, refunds are not available."
+    ],
+    [
+      "Duplicate charge / not activated",
+      "Full refund."
+    ],
+    [
+      "How to request",
+      "Email a42599@gmail.com with your account email, order number, payment method and time."
+    ],
+    [
+      "Processing time",
+      "3–7 business days after confirmation; card refunds take about 7–14 business days to appear."
+    ]
+  ],
+  "plans_legal_title": "Terms & support",
+  "plans_contact_note": "Support: a42599@gmail.com | Phone: 0980-222196 | Daily 09:00–21:00 (GMT+8)",
+  "doc_updated": "Last updated: 2026-09-30",
+  "doc_back": "← Back to Ferry",
+  "doc_terms_title": "Terms of Service",
+  "doc_terms_body": "<h2>1. What this service is</h2>\n<p>Ferry (scefo.com) provides online tools for downloading media you are entitled to access and for lossless transfer between your own devices. It is a tool only: we do not upload, keep or store whatever you resolve or transfer.</p>\n<h2>2. Accounts</h2>\n<p>Registration requires a valid email address. Keep your password safe. Accounts are for personal use only and may not be rented, transferred or shared.</p>\n<h2>3. Acceptable use</h2>\n<ul>\n<li>Personal backup and fair use only. Do not use the service to infringe copyright or for any unlawful purpose.</li>\n<li>Do not distribute, redistribute or sell content you obtained through the service.</li>\n<li>Do not bypass paid content or DRM, and do not overload the service with automated bulk requests.</li>\n<li>We may suspend or terminate accounts that violate these rules.</li>\n</ul>\n<h2>4. Paid plans and activation</h2>\n<p>Monthly NT$88 (30 days); Lifetime NT$988 (one-time). Membership is activated automatically after payment. Price changes do not apply retroactively to previous purchases.</p>\n<h2>5. Usage limits</h2>\n<p>Free users get a daily allowance (reset at 00:00 in your local time zone). Paid members have unlimited downloads and transfers while their membership is active.</p>\n<h2>6. Changes, maintenance and downtime</h2>\n<p>Third-party platform policies, technical limits or maintenance may require us to change supported platforms or features, or to pause the service. We will give notice whenever possible.</p>\n<h2>7. Intellectual property</h2>\n<p>The software, interface, trademarks and text of this service belong to us or our licensors. You receive only a right to use the service under these Terms.</p>\n<h2>8. Disclaimer</h2>\n<p>You are responsible for confirming that the content you download is legal for you to use. We are not liable for any damages arising from your use of the service.</p>\n<h2>9. Termination</h2>\n<p>You may delete your account at any time from the Member page. We may disable accounts that breach these Terms.</p>\n<h2>10. Governing law</h2>\n<p>These Terms are governed by the laws of the Republic of China (Taiwan). Disputes are subject to the first-instance jurisdiction of the New Taipei District Court, Taiwan.</p>",
+  "doc_privacy_title": "Privacy Policy",
+  "doc_privacy_body": "<h2>1. What we collect</h2>\n<ul>\n<li>Registration: email address, nickname, password (stored as a one-way hash).</li>\n<li>Usage: sign-in times, free-quota usage, device identifier, IP address (for quota counting and abuse prevention).</li>\n<li>Payment: order number, plan, amount and payment status (card numbers are handled by the payment provider and never reach us).</li>\n</ul>\n<h2>2. What we do NOT collect</h2>\n<p>We never download, copy or store the media you resolve or transfer. Your download history stays in your own browser (local storage).</p>\n<h2>3. Why we use it</h2>\n<p>To provide the service, count free usage, activate memberships and send notices, prevent abuse, and improve quality.</p>\n<h2>4. Cookies and local storage</h2>\n<p>We use browser local storage for language preference, device identifier, sign-in token and download history. Clearing browser data removes them.</p>\n<h2>5. Third parties</h2>\n<p>Payments are processed by our payment provider (e.g. NewebPay) under its own privacy policy. If advertising is enabled, ad partners may use cookies under their policies. We never sell or trade your personal data.</p>\n<h2>6. Security and retention</h2>\n<p>Data is stored on protected servers and transmitted over encrypted connections. We delete or anonymise data when it is no longer needed.</p>\n<h2>7. Your rights</h2>\n<p>You may access, correct or delete your data: delete your account from the Member page, or email a42599@gmail.com.</p>\n<h2>8. Minors</h2>\n<p>If you are under 18, please use the service with the consent of a parent or guardian.</p>\n<h2>9. Changes to this policy</h2>\n<p>Updates are published on this page together with a new last-updated date.</p>",
+  "doc_refund_title": "Refund Policy",
+  "doc_refund_body": "<h2>1. When a full refund is available</h2>\n<ul>\n<li>Within 7 days of payment and no paid feature has been used (0 downloads and 0 transfers).</li>\n<li>Duplicate charges, system errors, or payment completed without activation.</li>\n</ul>\n<h2>2. When a refund is not available</h2>\n<ul>\n<li>The paid feature has been used (you already downloaded or transferred): this is a digital service supplied instantly, which falls under the reasonable exception to the 7-day right of withdrawal (Article 19, Consumer Protection Act).</li>\n<li>Problems caused by your own device, network, or changes in third-party platform policies — we will help you troubleshoot, but this is not a refund reason.</li>\n<li>The account was suspended for breaching the Terms of Service.</li>\n</ul>\n<h2>3. How to request</h2>\n<p>Email a42599@gmail.com with: (1) account email, (2) order number, (3) payment method and time, (4) reason for the refund.</p>\n<h2>4. Processing time</h2>\n<p>We reply within 1–2 business days and process approved refunds within 3–7 business days. Card refunds depend on the issuing bank and usually appear within 7–14 business days.</p>\n<h2>5. Fees</h2>\n<p>Payment-processing fees charged by the provider may be deducted from the refunded amount where applicable; we will tell you beforehand.</p>\n<h2>6. Disputes</h2>\n<p>If you disagree with the outcome, email us again and we will help check with the payment provider.</p>",
+  "doc_contact_title": "Contact Us",
+  "doc_contact_body": "<div class=\"kv\">\n<div class=\"r\"><div class=\"k\">Support email</div><div class=\"v\">a42599@gmail.com</div></div>\n<div class=\"r\"><div class=\"k\">Support phone</div><div class=\"v\">0980-222196</div></div>\n<div class=\"r\"><div class=\"k\">Hours</div><div class=\"v\">Daily 09:00-21:00 (GMT+8)</div></div>\n<div class=\"r\"><div class=\"k\">Business address</div><div class=\"v\">No. 10, Aly. 4, Ln. 371, Xidong Rd., Sanxia Dist., New Taipei City 237, Taiwan</div></div>\n<div class=\"r\"><div class=\"k\">Response time</div><div class=\"v\">Within 1-2 business days</div></div>\n</div>\n<h2>Payments and refunds</h2>\n<p>Membership activates automatically after payment. If activation fails, you were charged twice, or you need a refund, email us with your account email, order number and payment time.</p>\n<h2>Downloads and transfers</h2>\n<p>Please check the Tutorial page first. If a platform cannot be resolved, email us the link and we will look into it.</p>",
+  "plans_fx_title": "Exchange rates & fees (international users)",
+  "plans_fx_note": "Want a rough idea first? Check the official converters below (the rate at the moment of payment applies):",
+  "fx_link_mc": "Mastercard currency converter",
+  "fx_link_visa": "Visa exchange rate calculator",
+  "fx_link_xe": "XE currency converter (multilingual)",
+  "plans_fx_list": [
+    [
+      "Billing currency",
+      "This service is priced in New Taiwan dollars (TWD). The price shown (NT$88 / NT$988) is the amount we charge."
+    ],
+    [
+      "What you actually pay",
+      "Your issuing bank converts TWD into your local currency at the exchange rate in effect at the moment of payment. Your statement is the final amount."
+    ],
+    [
+      "Foreign transaction fee",
+      "Most banks add a foreign transaction fee of about 1%-2%. Rules differ by bank - please check with your card issuer."
+    ],
+    [
+      "Paying via Alipay / WeChat Pay etc.",
+      "If you pay through a third-party payment platform, its own exchange rate and fees at that moment apply."
+    ],
+    [
+      "Why we do not show a fixed rate",
+      "Exchange rates change every day and each bank or card network converts at a different moment, so we do not hard-code a number - we only link to the official converters for reference."
+    ]
+  ]
 }

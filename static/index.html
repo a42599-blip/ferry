@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=34">
+<link rel="stylesheet" href="/style.css?v=35">
 <style>
 /* ⚠️ 手機導覽的「關鍵樣式」內嵌在這裡（小羅 2026-09-27）。
    原因：他的手機卡在舊的 style.css 快取（舊版 .tabs 是 display:none），
@@ -284,19 +284,19 @@
       <div class="plans">
         <div class="plan">
           <h3 data-i18n="plan_free">免費</h3>
-          <div class="price num">US$ 0</div>
+          <div class="price num">NT$ 0</div>
           <ul id="plan-free-list"></ul>
           <button class="big gh" disabled data-i18n="plan_current">目前使用中</button>
         </div>
         <div class="plan hot">
           <h3 data-i18n="plan_monthly">月會員</h3>
-          <div class="price num">US$ <span data-price="monthly">2.99</span><i data-i18n="plan_per_month">/月</i></div>
+          <div class="price num">NT$ <span data-price="monthly">88</span><i data-i18n="plan_per_month">/月</i></div>
           <ul id="plan-monthly-list"></ul>
           <button class="big" data-buy="monthly" data-i18n="btn_subscribe">立即開通</button>
         </div>
         <div class="plan">
           <h3 data-i18n="plan_lifetime">終身會員</h3>
-          <div class="price num">US$ <span data-price="lifetime">59</span><i data-i18n="plan_early">早鳥・限 200 名</i></div>
+          <div class="price num">NT$ <span data-price="lifetime">988</span><i data-i18n="plan_early">早鳥・原價 NT$1,980・限 200 名</i></div>
           <ul id="plan-lifetime-list"></ul>
           <button class="big" data-buy="lifetime" data-i18n="btn_subscribe">立即開通</button>
         </div>
@@ -311,6 +311,34 @@
       </div>
       <div class="offbox" id="pay-off" hidden><span data-i18n="billing_off">目前為公測期間，暫不收費，所有功能都可以免費使用</span><span class="ads-off-note" data-i18n="billing_off_ads">，也不會出現任何廣告。</span></div>
       <div class="msg" id="pay-status" hidden></div>
+
+      <!-- ── 怎麼付款／怎麼退款（小羅 2026-09-30：金流商審核會看，客戶也一次看懂）── -->
+      <h2 class="sec" data-i18n="plans_pay_title">怎麼付款</h2>
+      <div class="kv" id="plans-pay-list"></div>
+      <p class="note" data-i18n="plans_pay_note">付款完成後系統會自動開通，不需要人工等待。</p>
+
+      <!-- ── 匯率與手續費（小羅 2026-09-30：國外用戶要看懂會被收多少）── -->
+      <h2 class="sec" data-i18n="plans_fx_title">匯率與手續費（國外用戶）</h2>
+      <div class="kv" id="plans-fx-list"></div>
+      <p class="note" data-i18n="plans_fx_note">想先知道大概多少？可到下列官方匯率換算器查（以刷卡當下匯率為準）：</p>
+      <div class="legal-links">
+        <a href="https://www.mastercard.com/global/en/personal/get-support/convert-currency.html" target="_blank" rel="noopener" data-i18n="fx_link_mc">Mastercard 匯率換算器</a>
+        <a href="https://www.visa.com/support/consumer/travel-support/exchange-rate-calculator.html" target="_blank" rel="noopener" data-i18n="fx_link_visa">Visa 匯率計算器</a>
+        <a href="https://www.xe.com/currencyconverter/" target="_blank" rel="noopener" data-i18n="fx_link_xe">XE 匯率換算（多國語言）</a>
+      </div>
+      <h2 class="sec" data-i18n="plans_refund_title">怎麼退款</h2>
+      <div class="kv" id="plans-refund-list"></div>
+      <p class="note" data-i18n="plans_refund_note">完整條件請見「退費政策」。</p>
+
+      <!-- ── 條款與客服（客服電話／信箱與金流商登記的一致）── -->
+      <h2 class="sec" data-i18n="plans_legal_title">條款與客服</h2>
+      <div class="legal-links" id="plans-legal">
+        <a href="/terms.html" data-i18n="doc_terms_title">服務條款</a>
+        <a href="/privacy.html" data-i18n="doc_privacy_title">隱私權政策</a>
+        <a href="/refund.html" data-i18n="doc_refund_title">退費政策</a>
+        <a href="/contact.html" data-i18n="doc_contact_title">聯絡我們</a>
+      </div>
+      <p class="note" data-i18n="plans_contact_note">客服信箱 a42599@gmail.com｜客服電話 0980-222196｜每日 09:00–21:00</p>
     </div>
   </section>
 
@@ -428,7 +456,7 @@
 
 <script src="/sha256.js?v=27"></script>
 <script src="/save.js?v=28"></script>
-<script src="/app.js?v=43"></script>
+<script src="/app.js?v=44"></script>
 <script src="/transfer.js?v=33"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）

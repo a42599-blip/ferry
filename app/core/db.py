@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS orders (
     member_id   TEXT,
     plan        TEXT NOT NULL,
     amount      REAL NOT NULL DEFAULT 0,
-    currency    TEXT NOT NULL DEFAULT 'USD',
+    currency    TEXT NOT NULL DEFAULT 'TWD',
     fee         REAL NOT NULL DEFAULT 0,
     status      TEXT NOT NULL DEFAULT 'pending',
     created_at  REAL NOT NULL,
@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS plan_history (
     from_plan   TEXT,
     to_plan     TEXT    NOT NULL,
     amount      REAL    DEFAULT 0,
-    currency    TEXT    DEFAULT 'USD',
+    currency    TEXT    DEFAULT 'TWD',
     at          REAL    NOT NULL,
     expires_at  REAL,                      -- 這次變更後的到期時間
     reason      TEXT,                      -- signup / first_pay / renew / upgrade / expire / refund / admin
@@ -159,7 +159,7 @@ CREATE TABLE IF NOT EXISTS payouts (
     ts          REAL    NOT NULL,
     amount      REAL    NOT NULL,
     fee         REAL    DEFAULT 0,
-    currency    TEXT    DEFAULT 'USD',
+    currency    TEXT    DEFAULT 'TWD',
     method      TEXT,                       -- bank / paypal / stripe ...
     note        TEXT,
     status      TEXT    DEFAULT 'pending',  -- pending / done / cancelled

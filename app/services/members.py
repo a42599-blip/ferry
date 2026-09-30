@@ -206,7 +206,7 @@ def log_plan(member_id: str, email: str | None, from_plan: str | None, to_plan: 
     db.execute(
         "INSERT INTO plan_history(member_id, email, from_plan, to_plan, amount,"
         " currency, at, expires_at, reason, note) VALUES(?,?,?,?,?,?,?,?,?,?)",
-        (member_id, email, from_plan, to_plan, float(amount or 0), "USD",
+        (member_id, email, from_plan, to_plan, float(amount or 0), "TWD",
          time.time(), expires_at, reason, (note or "")[:300]))
 
 

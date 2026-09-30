@@ -543,7 +543,7 @@ async function pgGrowth() {
     [['進站瀏覽', d.page_view], ['解析', d.resolve], ['下載', d.download], ['傳輸', d.transfer]]
       .map(([n, o]) => `<div class="metric"><span>${n}</span>
         <span>${fmtN(o.current)} <span class="dim">/ ${fmtN(o.previous)}</span> ${pct(o.change_pct)}</span></div>`).join('') +
-    `<div class="metric"><span>收益</span><span>US$ ${fmtN(d.revenue.current)} <span class="dim">/ ${fmtN(d.revenue.previous)}</span> ${pct(d.revenue.change_pct)}</span></div>`;
+    `<div class="metric"><span>收益</span><span>NT$ ${fmtN(d.revenue.current)} <span class="dim">/ ${fmtN(d.revenue.previous)}</span> ${pct(d.revenue.change_pct)}</span></div>`;
   // ── 平台排行榜（可交叉比對）──
   const rank = d.platform_ranking || [];
   if (rank.length) {
@@ -693,7 +693,7 @@ async function pgDevices() {
 
   $('#mem-plans').innerHTML = (st.plans || []).length ? table([
     { t: '方案', v: (r) => esc(r.name) },
-    { t: '價格', v: (r) => 'US$ ' + fmtN(r.price), num: true },
+    { t: '價格', v: (r) => 'NT$ ' + fmtN(r.price), num: true },
     { t: '人數', v: (r) => `<b>${fmtN(r.count)}</b>`, html: true },
     { t: '佔比', v: (r) => {
         const total = st.total || 1;
@@ -728,7 +728,7 @@ async function pgDevices() {
         const hist = (m.history || []).map((h) =>
           `<div class="hrow"><span class="dim">${fmtTime(h.at)}</span>　`
           + `${esc(PL[h.from_plan] || h.from_plan || '—')} → <b>${esc(PL[h.to_plan] || h.to_plan)}</b>`
-          + (h.amount ? `　US$ ${h.amount}` : '')
+          + (h.amount ? `　NT$ ${h.amount}` : '')
           + (h.reason ? `　<span class="dim">${esc(h.reason)}</span>` : '')
           + (h.note ? `　<span class="dim">${esc(h.note)}</span>` : '') + `</div>`).join('')
           || '<div class="dim">尚無變更紀錄</div>';
@@ -989,8 +989,8 @@ async function pgRevenue() {
   const d = await api('/revenue?days=' + days());
   const s = d.summary;
   $('#rev-kpis').innerHTML = [
-    kpi('本期收益', 'US$ ' + fmtN(s.month), `最近 ${days()} 天`),
-    kpi('累計收益', 'US$ ' + fmtN(s.total), `手續費 US$ ${fmtN(s.fees)}`),
+    kpi('本期收益', 'NT$ ' + fmtN(s.month), `最近 ${days()} 天`),
+    kpi('累計收益', 'NT$ ' + fmtN(s.total), `手續費 NT$ ${fmtN(s.fees)}`),
     kpi('已付款訂單', fmtN(s.orders), ''),
     kpi('付費方案數', fmtN((s.by_plan || []).length), ''),
   ].join('');
@@ -1014,16 +1014,16 @@ async function pgRevenue() {
   // ── 提現 ──
   const b = po.summary;
   $('#rev-balance').innerHTML = [
-    ['累計收入', 'US$ ' + fmtN(b.gross)],
-    ['已提現', 'US$ ' + fmtN(b.paid_out)],
-    ['處理中', 'US$ ' + fmtN(b.pending)],
-    ['可提餘額', '<b>US$ ' + fmtN(b.available) + '</b>'],
+    ['累計收入', 'NT$ ' + fmtN(b.gross)],
+    ['已提現', 'NT$ ' + fmtN(b.paid_out)],
+    ['處理中', 'NT$ ' + fmtN(b.pending)],
+    ['可提餘額', '<b>NT$ ' + fmtN(b.available) + '</b>'],
   ].map(([k, v]) => `<div class="metric"><span>${k}</span><span>${v}</span></div>`).join('');
   $('#po-method').innerHTML = Object.entries(po.methods)
     .map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
   $('#rev-payouts').innerHTML = po.payouts.length ? table([
     { t: '時間', v: (r) => fmtTime(r.ts) },
-    { t: '金額', v: (r) => 'US$ ' + fmtN(r.amount), num: true },
+    { t: '金額', v: (r) => 'NT$ ' + fmtN(r.amount), num: true },
     { t: '方式', v: (r) => esc((po.methods || {})[r.method] || r.method || '–') },
     { t: '備註', v: (r) => esc(r.note || '–') },
     { t: '狀態', v: (r) => r.status === 'done' ? '<span class="badge ok">已撥款</span>'
@@ -1038,16 +1038,16 @@ async function pgRevenue() {
   $('#po-go').onclick = async () => {
     const amt = Number($('#po-amount').value || 0);
     if (!amt) return alert('請填提現金額');
-    if (!confirm(`確定申請提現 US$ ${amt}？`)) return;
+    if (!confirm(`確定申請提現 NT$ ${amt}？`)) return;
     try {
       await api('/payout/request', { method: 'POST', body: JSON.stringify({
         amount: amt, method: $('#po-method').value, note: $('#po-note').value }) });
       $('#po-amount').value = ''; $('#po-note').value = '';
-      queue(`已建立提現申請 US$ ${amt}（到金流商後台撥款後回來標記完成）`);
+      queue(`已建立提現申請 NT$ ${amt}（到金流商後台撥款後回來標記完成）`);
       pgRevenue();
     } catch (e) { alert(e.message); }
   };
-  queue(`本期 US$ ${fmtN(s.month)}　累計 US$ ${fmtN(s.total)}　訂單 ${fmtN(s.orders)} 筆　可提 US$ ${fmtN(po.summary.available)}`);
+  queue(`本期 NT$ ${fmtN(s.month)}　累計 NT$ ${fmtN(s.total)}　訂單 ${fmtN(s.orders)} 筆　可提 NT$ ${fmtN(po.summary.available)}`);
 }
 
 // ── 錯誤與告警 ───────────────────────────────────
@@ -1343,7 +1343,7 @@ async function openMemberCard(mid) {
   const q = m.quota || {};
   const hist = (m.history || []).map((h) => `<div class="hrow">${fmtTime(h.at)}　`
     + `${esc(PL_NAME[h.from_plan] || h.from_plan || '—')} → <b>${esc(PL_NAME[h.to_plan] || h.to_plan)}</b>`
-    + (h.amount ? `　US$ ${h.amount}` : '')
+    + (h.amount ? `　NT$ ${h.amount}` : '')
     + (h.reason ? `　<span class="dim">${esc(h.reason)}</span>` : '')
     + (h.note ? `　<span class="dim">${esc(h.note)}</span>` : '') + '</div>').join('')
     || '<div class="dim">尚無紀錄</div>';
@@ -1365,7 +1365,7 @@ async function openMemberCard(mid) {
       <span class="ki">${isPaid ? '⭐' : '👤'}</span>
       <span class="kn">${esc(kindName)}</span>
       ${isPaid
-        ? `<span class="kd">US$ ${m.price}${totalDays ? ` / ${totalDays} 天` : '（永久）'}</span>`
+        ? `<span class="kd">NT$ ${m.price}${totalDays ? ` / ${totalDays} 天` : '（永久）'}</span>`
         : '<span class="kd">每日免費 5 次（下載／傳輸分開）</span>'}
       ${isPaid && m.remaining_days !== null
         ? `<span class="kleft">剩 ${m.remaining_days} 天</span>` : ''}
@@ -1376,7 +1376,7 @@ async function openMemberCard(mid) {
       <div><span>喱稱</span><b>${esc(m.nickname || '–')}</b>${m.nickname ? ' <button class="gh" id="adj-nick-clr" style="padding:1px 6px;font-size:11px">清除</button>' : ''}</div>
       <div><span>Email</span><b>${esc(m.email || '–')}</b></div>
       <div><span>會員種類</span><b>${esc(kindName)}</b></div>
-      <div><span>方案價格</span>${isPaid ? `US$ ${m.price}` : '免費'}</div>
+      <div><span>方案價格</span>${isPaid ? `NT$ ${m.price}` : '免費'}</div>
       <div><span>帳號狀態</span>${m.status === 'suspended'
           ? '<span class="badge err">已停權</span>' : '<span class="badge ok">正常</span>'}</div>
       <div><span>註冊時間</span>${fmtTime(m.created_at)}</div>
