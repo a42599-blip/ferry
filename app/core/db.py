@@ -320,6 +320,9 @@ def _migrate(c: sqlite3.Connection) -> None:
             "refund_amount": "REAL DEFAULT 0",
             # 金流商的交易序號（藍新的 TradeNo／商店訂單編號）→ 互相核對用
             "provider_txn": "TEXT",
+            # 付款方式（信用卡／ATM／超商／Apple Pay／LINE Pay／支付寶…）
+            # 金流商回傳時寫入；後台可以「依付款方式」分開統計
+            "pay_method": "TEXT",
         },
         "payouts": {
             "provider": "TEXT",

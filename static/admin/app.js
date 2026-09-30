@@ -1012,6 +1012,7 @@ async function pgRevenue() {
     kpi('已撥款（累計）', 'NT$ ' + fmtN(t.paid_out), '金流商 → 我的帳戶'),
     kpi('待撥款（平台帳上）', 'NT$ ' + fmtN(t.balance), '＝淨收入 − 已撥款'),
     kpi('付款人數', fmtN(t.payers), `訂單 ${fmtN(t.orders)} 筆`),
+    kpi('付款方式', fmtN((o.rows_method || []).length) + ' 種', '信用卡／行動支付／ATM／超商…'),
   ].join('');
 
   // ── 對帳總表：每個平台一列 ＋ 合計一列 ──
@@ -1028,6 +1029,19 @@ async function pgRevenue() {
     { t: '已撥款', v: (r) => fmtN(r.paid_out), num: true },
     { t: '待撥款', v: (r) => fmtN(r.balance), num: true },
   ], trows, '還沒有收款紀錄');
+  // ── 付款方式（渠道）統計：每個方式一列 ＋ 合計 ──
+  const mrows = (o.rows_method || []).concat([Object.assign({ total: true }, o.totals_method || {})]);
+  $('#rev-methods').innerHTML = table([
+    { t: '付款方式', v: (r) => r.total ? '<b>合計</b>' : '<b>' + esc(r.provider) + '</b>', html: true },
+    { t: '訂單', v: (r) => fmtN(r.orders), num: true },
+    { t: '付款人數', v: (r) => fmtN(r.payers), num: true },
+    { t: '本期收款', v: (r) => fmtN(r.gross), num: true },
+    { t: '手續費', v: (r) => fmtN(r.fees), num: true },
+    { t: '本期退款', v: (r) => fmtN(r.refunded), num: true },
+    { t: '本期淨額', v: (r) => '<b>' + fmtN(r.net) + '</b>', html: true, num: true },
+    { t: '累計收入', v: (r) => fmtN(r.gross_all), num: true },
+  ], mrows, '還沒有收款紀錄');
+
   $('#rev-refund-kpi').innerHTML = Object.entries(RS).map(([k, label]) =>
     `<div class="metric"><span>${esc(label)}</span>
       <span><b>${fmtN(rcnt(k))}</b> 筆　NT$ ${fmtN(ramt(k))}</span></div>`).join('')
@@ -1072,6 +1086,7 @@ async function pgRevenue() {
     { t: '方案', v: (r) => esc(PLAN_TW[r.plan] || r.plan) },
     { t: '金額', v: (r) => 'NT$ ' + fmtN(r.amount), num: true },
     { t: '平台', v: (r) => esc(PLAT_LABEL(r.provider)) },
+    { t: '付款方式', v: (r) => esc(r.pay_method || '–') },
     { t: '金流商交易序號', v: (r) => esc(r.provider_txn || '–') },
     { t: '狀態', v: (r) => esc(r.status === 'paid' ? '已付款' : r.status) },
     { t: '時間', v: (r) => fmtTime(r.created_at) },
@@ -1146,6 +1161,7 @@ async function pgRevenue() {
         '狀態：' + (o.status === 'paid' ? '已付款' : o.status)
           + '　已退款 NT$ ' + fmtN(o.refund_amount || 0),
         '平台：' + PLAT_LABEL(o.provider)
+          + (o.pay_method ? '　付款方式 ' + o.pay_method : '')
           + (o.provider_txn ? '　交易序號 ' + o.provider_txn : ''),
       ].join('\n');
       if (!confirm('請先核實「這筆是不是這個人的」：\n\n' + info + '\n\n要登記退款申請嗎？')) return;

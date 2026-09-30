@@ -38,6 +38,38 @@ PLANS: dict[str, dict[str, Any]] = {
     PLAN_LIFETIME: {"name": "終身會員", "price": 988.0, "unlimited": True, "period_days": None},
 }
 
+#: 付款方式（渠道）中文化：金流商回傳的值 → 顯示名稱
+#  藍新的 PaymentType／綠界的 PaymentType 都會走這張表（大小寫、有無底線都吃）
+PAY_METHODS = {
+    "credit": "信用卡", "credit_nod3d": "信用卡（無 3D）", "信用卡": "信用卡",
+    "unionpay": "銀聯卡", "credit_unionpay": "銀聯卡",
+    "applepay": "Apple Pay", "googlepay": "Google Pay", "samsungpay": "Samsung Pay",
+    "linepay": "LINE Pay", "esunwallet": "玉山 Wallet", "taiwanpay": "台灣 Pay",
+    "twqr": "TWQR（台灣Pay）", "jkopay": "街口支付", "pi": "Pi 拍錢包",
+    "webatm": "網路 ATM", "atm": "ATM 轉帳",
+    "cvs": "超商代碼", "barcode": "超商條碼",
+    "alipay": "支付寶", "wechat": "微信支付", "weixin": "微信支付",
+    "bnpl": "無卡分期", "afreecatv": "AfreecaTV",
+    "payoneer": "Payoneer 信用卡", "card": "信用卡",
+}
+#: 金流商通知裡可能放「付款方式」的欄位名（依重要性排序）
+_METHOD_KEYS = ("PaymentType", "payment_type", "pay_method", "PaymentMethod",
+                "paymentType", "ChoosePayment", "PayType", "支付方式", "payment_method")
+
+
+def _norm_method(raw: str) -> str:
+    """把金流商回傳的付款方式正規化（回中文顯示名稱；認不得就保留原文）。"""
+    v = str(raw or "").strip()
+    if not v:
+        return ""
+    key = v.lower().replace("-", "_").replace(" ", "")
+    for prefix in ("credit_", "credit"):          # CREDIT_NOD3D / CREDIT_3D → 信用卡
+        if key.startswith(prefix) and key not in PAY_METHODS:
+            key = "credit"
+            break
+    return PAY_METHODS.get(key, v[:40])
+
+
 PROVIDERS = {
     "ecpay": {"label": "綠界 ECPay", "env": ["ECPAY_MERCHANT_ID", "ECPAY_HASH_KEY", "ECPAY_HASH_IV"]},
     "newebpay": {"label": "藍新 NewebPay", "env": ["NEWEBPAY_MERCHANT_ID", "NEWEBPAY_HASH_KEY", "NEWEBPAY_HASH_IV"]},
@@ -195,7 +227,8 @@ def _verify_signature(provider: str, raw: bytes, headers: dict) -> bool:
     return False
 
 
-def activate(order_id: str, *, raw_amount: float | None = None, txn: str = "") -> dict:
+def activate(order_id: str, *, raw_amount: float | None = None, txn: str = "",
+             method: str = "") -> dict:
     """把訂單標成已付款，並開通會員方案。
 
     ⚠️ 金額一律以「訂單上的金額」為準（防止通知帶來的金額被改），
@@ -247,6 +280,8 @@ def activate(order_id: str, *, raw_amount: float | None = None, txn: str = "") -
                      note=note, provider=(row["provider"] or ""))
     events.mark_paid(order_id)
     events.set_order_txn(order_id, txn)
+    if method:
+        events.set_order_method(order_id, method)
     if mismatch:
         try:
             import asyncio
@@ -322,6 +357,12 @@ def handle_webhook(provider: str, raw: bytes, headers: dict) -> dict:
     # 金流商交易序號（對帳要跟金流商互相核對用）＋回報金額（核實用）
     txn = (data.get("TradeNo") or data.get("trade_no") or data.get("TransactionId")
            or data.get("交易序號") or "")
+    # 付款方式（信用卡／ATM／超商／Apple Pay／LINE Pay…）→ 後台可依此分開統計
+    method = ""
+    for k in _METHOD_KEYS:
+        if data.get(k):
+            method = _norm_method(data[k])
+            break
     amt = None
     for k in ("amount", "Amt", "TradeAmt", "Amount", "TotalAmount", "TradeAmount"):
         if data.get(k) not in (None, ""):
@@ -330,7 +371,7 @@ def handle_webhook(provider: str, raw: bytes, headers: dict) -> dict:
                 break
             except (TypeError, ValueError):
                 continue
-    return activate(str(oid), raw_amount=amt, txn=str(txn))
+    return activate(str(oid), raw_amount=amt, txn=str(txn), method=method)
 
 
 
@@ -509,31 +550,71 @@ def order_detail(order_id: str) -> dict:
 #  收益總覽（對帳用）：分平台 ＋ 合計 ＋ 撥款 ＋ 退款
 # ══════════════════════════════════════════════════════════════════
 def revenue_overview(days: int = 0) -> dict:
+    """收益總覽（對帳用）：**分平台** ＋ **分付款方式** ＋ 合計 ＋ 撥款 ＋ 退款。
+
+    小羅 2026-09-30 要求：
+      ① 各平台/各渠道（信用卡、行動支付、ATM、超商…）**分開統計**，最後也要有合計
+      ② 待撥款＝平台帳上還沒撥給我的錢
+    """
     since = _since(days)
 
-    def grouped(sql: str, params: tuple = ()) -> dict:
-        return {(r["provider"] or ""): dict(r) for r in db.query(sql, params)}
+    def dim(key_expr: str, *, period: bool) -> dict:
+        where = "status IN ('paid','refunded')"
+        params: tuple = ()
+        if period:
+            where += " AND created_at>=?"
+            params = (since,)
+        rows = db.query(
+            "SELECT COALESCE(NULLIF(%s,''),'（未記錄）') AS k,"
+            " COUNT(*) AS orders, COUNT(DISTINCT member_id) AS payers,"
+            " COALESCE(SUM(amount),0) AS gross, COALESCE(SUM(fee),0) AS fees,"
+            " COALESCE(SUM(COALESCE(refund_amount,0)),0) AS refunded"
+            " FROM orders WHERE %s GROUP BY k" % (key_expr, where), params)
+        return {str(r["k"]): dict(r) for r in rows}
 
-    period = grouped(
-        "SELECT COALESCE(provider,'') AS provider, COUNT(*) AS orders,"
-        " COUNT(DISTINCT member_id) AS payers, COALESCE(SUM(amount),0) AS gross,"
-        " COALESCE(SUM(fee),0) AS fees,"
-        " COALESCE(SUM(COALESCE(refund_amount,0)),0) AS refunded"
-        " FROM orders WHERE status IN ('paid','refunded') AND created_at>=?"
-        " GROUP BY provider", (since,))
-    alltime = grouped(
-        "SELECT COALESCE(provider,'') AS provider, COUNT(*) AS orders,"
-        " COALESCE(SUM(amount),0) AS gross,"
-        " COALESCE(SUM(COALESCE(refund_amount,0)),0) AS refunded"
-        " FROM orders WHERE status IN ('paid','refunded') GROUP BY provider")
-    paid = grouped(
-        "SELECT COALESCE(provider,'') AS provider,"
-        " COALESCE(SUM(COALESCE(amount_twd, amount)),0) AS paid_out"
-        " FROM payouts WHERE status='done' GROUP BY provider")
-    pend = grouped(
-        "SELECT COALESCE(provider,'') AS provider,"
-        " COALESCE(SUM(COALESCE(amount_twd, amount)),0) AS pending_out"
-        " FROM payouts WHERE status='pending' GROUP BY provider")
+    def payout_map(col: str, status: str) -> dict:
+        rows = db.query(
+            "SELECT COALESCE(NULLIF(%s,''),'（未記錄）') AS k,"
+            " COALESCE(SUM(COALESCE(amount_twd, amount)),0) AS amt"
+            " FROM payouts WHERE status=? GROUP BY k" % col, (status,))
+        return {str(r["k"]): float(r["amt"] or 0) for r in rows}
+
+    def build(per: dict, allt: dict, paid: dict, pend: dict, *, with_payout: bool) -> list[dict]:
+        out = []
+        for k in sorted(set(list(per) + list(allt) + list(paid) + list(pend))):
+            a = allt.get(k, {})
+            q = per.get(k, {})
+            gross_all = round(float(a.get("gross", 0)), 2)
+            refunded = round(float(a.get("refunded", 0)), 2)
+            net_all = round(gross_all - refunded, 2)
+            po = round(float(paid.get(k, 0)), 2) if with_payout else 0.0
+            pe = round(float(pend.get(k, 0)), 2) if with_payout else 0.0
+            out.append({
+                "provider": k,
+                "orders": int(q.get("orders", 0)),
+                "payers": int(q.get("payers", 0)),
+                "gross": round(float(q.get("gross", 0)), 2),
+                "fees": round(float(q.get("fees", 0)), 2),
+                "refunded": refunded,
+                "net": round(round(float(q.get("gross", 0)), 2) - refunded, 2),
+                "gross_all": gross_all,
+                "net_all": net_all,
+                "paid_out": po,
+                "pending_out": pe,
+                "balance": round(net_all - po - pe, 2),
+            })
+        return out
+
+    def totals(rows: list[dict]) -> dict:
+        keys = ("orders", "payers", "gross", "fees", "refunded", "net", "gross_all",
+                "net_all", "paid_out", "pending_out", "balance")
+        return {k: round(sum(r[k] for r in rows), 2) for k in keys}
+
+    rows = build(dim("provider", period=True), dim("provider", period=False),
+                 payout_map("provider", "done"), payout_map("provider", "pending"),
+                 with_payout=True)
+    rows_method = build(dim("pay_method", period=True), dim("pay_method", period=False),
+                        {}, {}, with_payout=False)
 
     refund_by: dict[str, dict] = {}
     for r in db.query("SELECT status, COUNT(*) AS c, COALESCE(SUM(amount),0) AS amt"
@@ -541,40 +622,16 @@ def revenue_overview(days: int = 0) -> dict:
         refund_by[str(r["status"])] = {"count": int(r["c"]),
                                        "amount": round(float(r["amt"]), 2)}
 
-    rows = []
-    for k in sorted(set(list(period) + list(alltime) + list(paid) + list(pend))):
-        p = period.get(k, {})
-        a = alltime.get(k, {})
-        gross_all = round(float(a.get("gross", 0)), 2)
-        refunded = round(float(a.get("refunded", 0)), 2)
-        net_all = round(gross_all - refunded, 2)
-        out = round(float(paid.get(k, {}).get("paid_out", 0)), 2)
-        pen = round(float(pend.get(k, {}).get("pending_out", 0)), 2)
-        rows.append({
-            "provider": k or "（未標示）",
-            "orders": int(p.get("orders", 0)),
-            "payers": int(p.get("payers", 0)),
-            "gross": round(float(p.get("gross", 0)), 2),
-            "fees": round(float(p.get("fees", 0)), 2),
-            "refunded": refunded,
-            "net": round(round(float(p.get("gross", 0)), 2) - refunded, 2),
-            "gross_all": gross_all,
-            "net_all": net_all,
-            "paid_out": out,
-            "pending_out": pen,
-            "balance": round(net_all - out - pen, 2),
-        })
-
-    num_keys = ("orders", "payers", "gross", "fees", "refunded", "net", "gross_all",
-                "net_all", "paid_out", "pending_out", "balance")
-    totals = {k: round(sum(r[k] for r in rows), 2) for k in num_keys}
     return {
         "days": days,
         "rows": rows,
-        "totals": totals,
+        "rows_method": rows_method,
+        "totals": totals(rows),
+        "totals_method": totals(rows_method),
         "refunds": refund_by,
         "refund_status": REFUND_STATUS,
         "payout_methods": PAYOUT_METHODS,
+        "pay_channels": {k: v for k, v in PAY_METHODS.items()},
         "payout_list": payouts(50),
         "refund_list": refunds(50),
     }

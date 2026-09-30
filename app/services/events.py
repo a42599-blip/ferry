@@ -452,6 +452,12 @@ def orders(limit: int = 200) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def set_order_method(order_id: str, method: str) -> None:
+    """記錄「這筆是用哪個付款方式付的」（信用卡／ATM／超商／Apple Pay…）。"""
+    if method:
+        db.execute("UPDATE orders SET pay_method=? WHERE id=?", (str(method)[:40], order_id))
+
+
 def set_order_txn(order_id: str, txn: str) -> None:
     """記錄金流商的交易序號（以後跟金流商對帳、查這筆付款用）。"""
     if txn:
