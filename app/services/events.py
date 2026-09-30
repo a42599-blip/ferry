@@ -449,12 +449,13 @@ def orders(limit: int = 200) -> list[dict]:
 
 
 def add_order(order_id: str, *, member_id: Optional[str], plan: str, amount: float,
-              currency: str = "USD", fee: float = 0.0, status: str = "pending",
-              note: Optional[str] = None) -> None:
+              currency: str = "TWD", fee: float = 0.0, status: str = "pending",
+              note: Optional[str] = None, provider: str = "") -> None:
     db.execute(
         "INSERT OR REPLACE INTO orders(id, member_id, plan, amount, currency, fee, status,"
-        " created_at, note) VALUES(?,?,?,?,?,?,?,?,?)",
-        (order_id, member_id, plan, amount, currency, fee, status, time.time(), note),
+        " created_at, note, provider) VALUES(?,?,?,?,?,?,?,?,?,?)",
+        (order_id, member_id, plan, amount, currency, fee, status, time.time(), note,
+         provider or None),
     )
 
 

@@ -136,7 +136,8 @@ def create_checkout(subject: str, plan: str, provider: str,
     from . import events
 
     events.add_order(oid, member_id=subject, plan=plan, amount=price,
-                     currency="TWD", status="pending", note=f"provider={provider}")
+                     currency="TWD", status="pending", note=f"provider={provider}",
+                     provider=provider)
     if provider == "stripe":
         return {"ok": True, "order_id": oid, "provider": provider,
                 "checkout_url": f"{base_url}/api/pay/checkout/{oid}",
@@ -276,67 +277,204 @@ def summary(days: int = 30) -> dict:
 #        為什麼不由程式自動撥款：牽涉金流商的驗證與 2FA，人工確認比較安全。
 # ══════════════════════════════════════════════════════════════════
 
-#: 提現方式（先放常用的；之後可加）
+#: 撥款方式（這只是「記錄」；真實撥款在金流商後台操作）
 PAYOUT_METHODS = {
-    "bank": "銀行匯款",
-    "paypal": "PayPal",
-    "stripe": "Stripe 撥款",
+    "bank": "銀行匯款（金流商 → 我的銀行帳戶）",
+    "payoneer": "Payoneer 提現",
     "other": "其他",
 }
 
-#: 金流商抽成（僅供試算；實際以各家合約為準）
-FEE_RATE = {"ecpay": 0.029, "newebpay": 0.028, "stripe": 0.034, "": 0.03}
+#: 金流商抽成（僅供試算；實際以各家帳單為準）
+FEE_RATE = {"ecpay": 0.0288, "newebpay": 0.028, "stripe": 0.034, "payoneer": 0.03,
+            "ezpay": 0.03, "": 0.03}
 
 
-def payout_summary(days: int = 0) -> dict:
-    """可提餘額＝已付款訂單總額 − 已提現（含處理中）− 預估手續費。"""
-    since = time.time() - days * 86400 if days else 0
-    gross = float(db.scalar(
-        "SELECT COALESCE(SUM(amount),0) FROM orders WHERE status='paid'" +
-        (" AND created_at>=?" if days else ""), ((since,) if days else ())) or 0)
-    paid_out = float(db.scalar(
-        "SELECT COALESCE(SUM(amount),0) FROM payouts WHERE status='done'") or 0)
-    pending = float(db.scalar(
-        "SELECT COALESCE(SUM(amount),0) FROM payouts WHERE status='pending'") or 0)
-    fee_total = float(db.scalar(
-        "SELECT COALESCE(SUM(fee),0) FROM payouts") or 0)
-    return {
-        "gross": round(gross, 2),
-        "paid_out": round(paid_out, 2),
-        "pending": round(pending, 2),
-        "fees": round(fee_total, 2),
-        "available": round(max(0.0, gross - paid_out - pending), 2),
-        "methods": PAYOUT_METHODS,
-    }
+def _since(days: int) -> float:
+    return time.time() - days * 86400 if days else 0.0
 
 
-def payouts(limit: int = 100) -> list[dict]:
-    return [dict(r) for r in db.query(
-        "SELECT * FROM payouts ORDER BY ts DESC LIMIT ?", (limit,))]
-
-
-def request_payout(amount: float, method: str = "bank", note: str = "") -> dict:
-    """建立一筆提現申請（狀態 pending，等你在金流商後台實際撥款後再標完成）。"""
+# ══════════════════════════════════════════════════════════════════
+#  撥款紀錄（小羅 2026-09-30）
+#  ⚠️ 真實撥款在「金流商後台」按（藍新 → 申請撥款 → 匯到台新），
+#     這裡只登記「哪個平台、哪天、撥了多少、匯到哪個帳戶」，用來對帳。
+# ══════════════════════════════════════════════════════════════════
+def payout_add(*, provider: str = "", amount: float = 0, fee: float = 0,
+               method: str = "bank", account: str = "", currency: str = "TWD",
+               fx_rate: float | None = None, amount_twd: float | None = None,
+               note: str = "", status: str = "done") -> dict:
     amount = round(float(amount or 0), 2)
     if amount <= 0:
-        raise BadRequest("提現金額要大於 0")
-    s = payout_summary()
-    if amount > s["available"]:
-        raise BadRequest(f"可提餘額只有 US$ {s['available']}，不能提 US$ {amount}")
+        raise BadRequest("撥款金額要大於 0")
+    twd = amount_twd
+    if twd is None:
+        twd = round(amount * (fx_rate or 1.0), 2) if (currency or "TWD") != "TWD" else amount
     db.execute(
-        "INSERT INTO payouts (ts, amount, fee, currency, method, note, status)"
-        " VALUES (?,?,?,?,?,?,?)",
-        (time.time(), amount, 0.0, "TWD", method or "bank", (note or "")[:300], "pending"))
+        "INSERT INTO payouts (ts, amount, fee, currency, method, note, status, done_at,"
+        " provider, account, fx_rate, amount_twd) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        (time.time(), amount, round(float(fee or 0), 2), currency or "TWD",
+         method or "bank", (note or "")[:300], status,
+         time.time() if status == "done" else None, provider or None, account or None,
+         fx_rate, twd))
     row = db.one("SELECT * FROM payouts ORDER BY id DESC LIMIT 1")
     return dict(row) if row else {}
 
 
-def set_payout_status(pid: int, status: str) -> bool:
+def payouts(limit: int = 200) -> list[dict]:
+    return [dict(r) for r in db.query("SELECT * FROM payouts ORDER BY ts DESC LIMIT ?", (limit,))]
+
+
+def payout_set_status(pid: int, status: str) -> bool:
     if status not in ("pending", "done", "cancelled"):
         raise BadRequest("狀態不正確")
     db.execute("UPDATE payouts SET status=?, done_at=? WHERE id=?",
                (status, time.time() if status == "done" else None, pid))
     return True
+
+
+def payout_summary(days: int = 0) -> dict:
+    """（相容舊介面）由 revenue_overview 算出來。"""
+    t = revenue_overview(days)["totals"]
+    return {"gross": t["gross_all"], "paid_out": t["paid_out"], "pending": t["pending_out"],
+            "fees": t["fees"], "available": t["balance"], "methods": PAYOUT_METHODS}
+
+
+# ══════════════════════════════════════════════════════════════════
+#  退款（小羅 2026-09-30：要看得出「已退／未退／處理中」）
+#  狀態：applied 申請中 → processing 處理中 → done 已退款（或 rejected 已拒絕）
+#  實際刷退由金流商處理；狀態改成 done 時，會把會員降回免費並寫方案歷史。
+# ══════════════════════════════════════════════════════════════════
+REFUND_STATUS = {
+    "applied": "申請中（已收到，待確認）",
+    "processing": "處理中（已向金流商提出）",
+    "done": "已退款",
+    "rejected": "已拒絕",
+}
+
+
+def refund_apply(*, order_id: str = "", email: str = "", amount: float | None = None,
+                 reason: str = "", note: str = "") -> dict:
+    o = db.one("SELECT * FROM orders WHERE id=?", (order_id,)) if order_id else None
+    member_id = (o["member_id"] if o else "") or ""
+    provider = (o["provider"] if o else "") or ""
+    if amount is None:
+        amount = float(o["amount"]) if o else 0
+    amount = round(float(amount or 0), 2)
+    if amount <= 0:
+        raise BadRequest("退款金額要大於 0")
+    db.execute(
+        "INSERT INTO refunds (order_id, member_id, email, provider, amount, currency,"
+        " reason, status, apply_at, note) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (order_id or None, member_id or None, (email or "")[:200], provider or None,
+         amount, ((o["currency"] if o else "TWD") or "TWD"), (reason or "")[:300],
+         "applied", time.time(), (note or "")[:300]))
+    row = db.one("SELECT * FROM refunds ORDER BY id DESC LIMIT 1")
+    return dict(row) if row else {}
+
+
+def refunds(limit: int = 200) -> list[dict]:
+    return [dict(r) for r in db.query(
+        "SELECT * FROM refunds ORDER BY apply_at DESC LIMIT ?", (limit,))]
+
+
+def refund_set_status(rid: int, status: str, note: str = "") -> bool:
+    if status not in REFUND_STATUS:
+        raise BadRequest("退款狀態不正確")
+    row = db.one("SELECT * FROM refunds WHERE id=?", (rid,))
+    if not row:
+        raise BadRequest("找不到這筆退款")
+    db.execute("UPDATE refunds SET status=?, done_at=?,"
+               " note=COALESCE(?, note) WHERE id=?",
+               (status, time.time() if status in ("done", "rejected") else None,
+                (note or None), rid))
+    if status == "done":
+        oid = row["order_id"]
+        if oid:
+            db.execute("UPDATE orders SET refund_amount=COALESCE(refund_amount,0)+?"
+                       " WHERE id=?", (float(row["amount"] or 0), oid))
+        mid = row["member_id"]
+        if mid:
+            from . import members
+
+            m = members.get(mid)
+            if m and (m.get("plan") or "free") != "free":
+                members.set_plan(mid, "free", None, amount=-float(row["amount"] or 0),
+                                 reason="refund", note="退款 #%s" % rid)
+    return True
+
+
+# ══════════════════════════════════════════════════════════════════
+#  收益總覽（對帳用）：分平台 ＋ 合計 ＋ 撥款 ＋ 退款
+# ══════════════════════════════════════════════════════════════════
+def revenue_overview(days: int = 0) -> dict:
+    since = _since(days)
+
+    def grouped(sql: str, params: tuple = ()) -> dict:
+        return {(r["provider"] or ""): dict(r) for r in db.query(sql, params)}
+
+    period = grouped(
+        "SELECT COALESCE(provider,'') AS provider, COUNT(*) AS orders,"
+        " COUNT(DISTINCT member_id) AS payers, COALESCE(SUM(amount),0) AS gross,"
+        " COALESCE(SUM(fee),0) AS fees,"
+        " COALESCE(SUM(COALESCE(refund_amount,0)),0) AS refunded"
+        " FROM orders WHERE status IN ('paid','refunded') AND created_at>=?"
+        " GROUP BY provider", (since,))
+    alltime = grouped(
+        "SELECT COALESCE(provider,'') AS provider, COUNT(*) AS orders,"
+        " COALESCE(SUM(amount),0) AS gross,"
+        " COALESCE(SUM(COALESCE(refund_amount,0)),0) AS refunded"
+        " FROM orders WHERE status IN ('paid','refunded') GROUP BY provider")
+    paid = grouped(
+        "SELECT COALESCE(provider,'') AS provider,"
+        " COALESCE(SUM(COALESCE(amount_twd, amount)),0) AS paid_out"
+        " FROM payouts WHERE status='done' GROUP BY provider")
+    pend = grouped(
+        "SELECT COALESCE(provider,'') AS provider,"
+        " COALESCE(SUM(COALESCE(amount_twd, amount)),0) AS pending_out"
+        " FROM payouts WHERE status='pending' GROUP BY provider")
+
+    refund_by: dict[str, dict] = {}
+    for r in db.query("SELECT status, COUNT(*) AS c, COALESCE(SUM(amount),0) AS amt"
+                      " FROM refunds GROUP BY status"):
+        refund_by[str(r["status"])] = {"count": int(r["c"]),
+                                       "amount": round(float(r["amt"]), 2)}
+
+    rows = []
+    for k in sorted(set(list(period) + list(alltime) + list(paid) + list(pend))):
+        p = period.get(k, {})
+        a = alltime.get(k, {})
+        gross_all = round(float(a.get("gross", 0)), 2)
+        refunded = round(float(a.get("refunded", 0)), 2)
+        net_all = round(gross_all - refunded, 2)
+        out = round(float(paid.get(k, {}).get("paid_out", 0)), 2)
+        pen = round(float(pend.get(k, {}).get("pending_out", 0)), 2)
+        rows.append({
+            "provider": k or "（未標示）",
+            "orders": int(p.get("orders", 0)),
+            "payers": int(p.get("payers", 0)),
+            "gross": round(float(p.get("gross", 0)), 2),
+            "fees": round(float(p.get("fees", 0)), 2),
+            "refunded": refunded,
+            "net": round(round(float(p.get("gross", 0)), 2) - refunded, 2),
+            "gross_all": gross_all,
+            "net_all": net_all,
+            "paid_out": out,
+            "pending_out": pen,
+            "balance": round(net_all - out - pen, 2),
+        })
+
+    num_keys = ("orders", "payers", "gross", "fees", "refunded", "net", "gross_all",
+                "net_all", "paid_out", "pending_out", "balance")
+    totals = {k: round(sum(r[k] for r in rows), 2) for k in num_keys}
+    return {
+        "days": days,
+        "rows": rows,
+        "totals": totals,
+        "refunds": refund_by,
+        "refund_status": REFUND_STATUS,
+        "payout_methods": PAYOUT_METHODS,
+        "payout_list": payouts(50),
+        "refund_list": refunds(50),
+    }
 
 
 def provider_setup_guide() -> list[dict]:

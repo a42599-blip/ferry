@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS plan_history (
 CREATE INDEX IF NOT EXISTS idx_planh_member ON plan_history(member_id);
 CREATE INDEX IF NOT EXISTS idx_planh_at ON plan_history(at);
 
--- 提現紀錄（後台把收入提出來時記錄；實際撥款由金流商處理）
+-- 撥款紀錄（小羅 2026-09-30：真實撥款在「金流商後台」操作，這裡只登記「已到帳」的紀錄）
 CREATE TABLE IF NOT EXISTS payouts (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     ts          REAL    NOT NULL,
@@ -162,10 +162,33 @@ CREATE TABLE IF NOT EXISTS payouts (
     currency    TEXT    DEFAULT 'TWD',
     method      TEXT,                       -- bank / paypal / stripe ...
     note        TEXT,
-    status      TEXT    DEFAULT 'pending',  -- pending / done / cancelled
-    done_at     REAL
+    status      TEXT    DEFAULT 'done',     -- done 已到帳 / pending 處理中 / cancelled 取消
+    done_at     REAL,
+    provider    TEXT,                       -- newebpay / ecpay / payoneer / ezpay（哪個平台撥的）
+    account     TEXT,                       -- 匯入哪個帳戶（台新 / LINE Bank …）
+    fx_rate     REAL,                       -- 外幣換算匯率（原幣 → 台幣）
+    amount_twd  REAL                        -- 換算後的台幣金額
 );
 CREATE INDEX IF NOT EXISTS idx_payouts_ts ON payouts(ts);
+
+-- 退款紀錄（小羅 2026-09-30：要能看「哪些已退、哪些沒退、哪些處理中」）
+--   實際刷退由金流商（藍新等）處理，這裡追蹤狀態與金額
+CREATE TABLE IF NOT EXISTS refunds (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id    TEXT,
+    member_id   TEXT,
+    email       TEXT,
+    provider    TEXT,                       -- newebpay / ecpay / ...
+    amount      REAL    NOT NULL DEFAULT 0,
+    currency    TEXT    DEFAULT 'TWD',
+    reason      TEXT,
+    status      TEXT    DEFAULT 'applied',  -- applied 申請中 / processing 處理中 / done 已退款 / rejected 已拒絕
+    apply_at    REAL    NOT NULL,
+    done_at     REAL,
+    note        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_refunds_status ON refunds(status);
+CREATE INDEX IF NOT EXISTS idx_refunds_order ON refunds(order_id);
 
 -- 使用者回報問題（任何人都能送，不限會員）
 CREATE TABLE IF NOT EXISTS feedback (
@@ -292,6 +315,15 @@ def _migrate(c: sqlite3.Connection) -> None:
             "fee": "REAL DEFAULT 0",
             "paid_at": "REAL",
             "note": "TEXT",
+            # 小羅 2026-09-30：對帳要用（哪個平台收的、退了多少）
+            "provider": "TEXT",
+            "refund_amount": "REAL DEFAULT 0",
+        },
+        "payouts": {
+            "provider": "TEXT",
+            "account": "TEXT",
+            "fx_rate": "REAL",
+            "amount_twd": "REAL",
         },
     }
     for table, fields in wanted.items():
@@ -304,6 +336,12 @@ def _migrate(c: sqlite3.Connection) -> None:
                     c.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
                 except sqlite3.Error:
                     pass
+    # 舊訂單沒有 provider 欄位 → 從 note（provider=xxx）補回來（對帳要用）
+    try:
+        c.execute("UPDATE orders SET provider = substr(note, 10, instr(note||',', ',') - 10)"
+                  " WHERE (provider IS NULL OR provider='') AND note LIKE 'provider=%'")
+    except sqlite3.Error:
+        pass
     # 已經有 email 的會員，把 email 設唯一（重複不影響）
     try:
         c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_members_email ON members(email)")

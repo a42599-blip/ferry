@@ -264,11 +264,57 @@
       <!-- 收益 -->
       <section class="pg" id="pg-revenue">
         <div class="kpis" id="rev-kpis"></div>
-        <div class="rows">
-          <div class="pnl"><div class="lbl">方案分佈</div><div id="rev-plans"></div></div>
-          <div class="pnl grow2"><div class="lbl">訂單列表</div><div class="scroll" id="rev-orders"></div>
-            <p class="note">金流為 P6 階段：程式與訂單流程已完成，設定金鑰後即可收款。</p></div>
+
+        <!-- ── 對帳總表（分平台＋合計）小羅 2026-09-30 ── -->
+        <div class="pnl">
+          <div class="lbl">對帳總表（各平台分開列 ＋ 最後合計）</div>
+          <p class="note">「本期」＝最近 <span id="rev-days">N</span> 天；「累計」＝開站至今。
+            <b>待撥款</b>＝平台帳上還沒撥給我的錢（淨收入 − 已撥款）。</p>
+          <div class="scroll" id="rev-platforms"></div>
         </div>
+
+        <!-- ── 退款（已退／未退／處理中）── -->
+        <div class="rows">
+          <div class="pnl"><div class="lbl">退款統計</div><div id="rev-refund-kpi"></div></div>
+          <div class="pnl grow2"><div class="lbl">退款紀錄（依狀態處理）</div>
+            <div class="scroll" id="rev-refunds"></div>
+            <div class="inrow" style="margin-top:10px">
+              <input id="rf-order" placeholder="訂單編號（或 Email）">
+              <input id="rf-amount" type="number" step="1" min="0" placeholder="退款金額">
+              <input id="rf-reason" placeholder="退款原因">
+              <button class="big sm" id="rf-go">登記退款申請</button>
+            </div>
+            <p class="note">狀態：<b>申請中</b>（收到）→ <b>處理中</b>（已向金流商提出）→
+              <b>已退款</b>（會自動把會員降回免費）／<b>已拒絕</b>。<br>
+              實際刷退在<b>金流商後台</b>（藍新）操作，信用卡刷退約 7～14 個工作日入帳。</p>
+          </div>
+        </div>
+
+        <!-- ── 撥款（登記已到帳；真實撥款在金流商後台按）── -->
+        <div class="rows">
+          <div class="pnl"><div class="lbl">撥款餘額</div><div id="rev-balance"></div>
+            <p class="note">⚠️ 真實撥款請到<b>金流商後台</b>按（藍新 → 申請撥款 → 匯到台新）；
+              匯到之後回來這裡<b>登記一筆</b>，統計才會準。</p>
+          </div>
+          <div class="pnl grow2"><div class="lbl">撥款紀錄（已到帳）</div><div class="scroll" id="rev-payouts"></div>
+            <div class="inrow" style="margin-top:10px">
+              <input id="po-amount" type="number" step="1" min="0" placeholder="撥款金額（台幣）">
+              <select id="po-provider"></select>
+              <select id="po-method"></select>
+              <input id="po-account" placeholder="匯入帳戶（台新）">
+              <input id="po-note" placeholder="備註（選填）">
+              <button class="big sm" id="po-go">登記撥款</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="rows">
+          <div class="pnl"><div class="lbl">方案分佈（本期）</div><div id="rev-plans"></div></div>
+          <div class="pnl grow2"><div class="lbl">訂單列表</div><div class="scroll" id="rev-orders"></div>
+            <p class="note">每筆訂單都會記錄<b>是哪個平台收的</b>（藍新／ezPay／Payoneer…），
+              所以以後多接幾家也能分開對帳。</p></div>
+        </div>
+
         <!-- ── 收款設定（第三方支付接入點位）── -->
         <div class="pnl">
           <div class="lbl">收款設定（怎麼接第三方支付）</div>
@@ -277,22 +323,6 @@
             <b>回呼網址</b>（給金流商後台填）：<code id="rev-webhook">–</code>　
             付款完成導回：<code id="rev-return">–</code></p>
           <div class="scroll" id="rev-providers"></div>
-        </div>
-        <!-- ── 提現 ── -->
-        <div class="rows">
-          <div class="pnl"><div class="lbl">可提餘額</div><div id="rev-balance"></div>
-            <p class="note">提現這裡只做<b>紀錄與提醒</b>；實際撥款請到該金流商的後台操作，
-              完成後回來把狀態改成「已撥款」。<br>
-              <span class="dim">（不自動撥款是因為金流商撥款要驗證與 2FA，人工確認比較安全）</span></p>
-          </div>
-          <div class="pnl grow2"><div class="lbl">提現紀錄</div><div class="scroll" id="rev-payouts"></div>
-            <div class="inrow" style="margin-top:10px">
-              <input id="po-amount" type="number" step="0.01" min="0" placeholder="金額（US$）">
-              <select id="po-method"></select>
-              <input id="po-note" placeholder="備註（選填）">
-              <button class="big sm" id="po-go">申請提現</button>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -453,6 +483,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=43"></script>
+<script src="/admin/app.js?v=44"></script>
 </body>
 </html>

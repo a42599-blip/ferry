@@ -985,23 +985,93 @@ async function pgAds() {
   ], d.recent, '還沒有廣告紀錄');
 }
 
+// ── 金流商顯示名稱（對帳表用）────────────────────
+const PLAT_LABEL = (p) => ({
+  newebpay: '藍新 NewebPay', ecpay: '綠界 ECPay', stripe: 'Stripe',
+  payoneer: 'Payoneer', ezpay: 'ezPay 簡單付',
+}[p] || p || '（未標示）');
+
 async function pgRevenue() {
   const d = await api('/revenue?days=' + days());
+  const o = d.overview || {};
   const s = d.summary;
+  const t = o.totals || {};
+  const RS = o.refund_status || {};
+  const rk = o.refunds || {};
+  const rcnt = (k) => (rk[k] || {}).count || 0;
+  const ramt = (k) => (rk[k] || {}).amount || 0;
+
+  // ── KPI（對帳用：總收入／退款／撥款／待撥款／人數）──
   $('#rev-kpis').innerHTML = [
-    kpi('本期收益', 'NT$ ' + fmtN(s.month), `最近 ${days()} 天`),
-    kpi('累計收益', 'NT$ ' + fmtN(s.total), `手續費 NT$ ${fmtN(s.fees)}`),
-    kpi('已付款訂單', fmtN(s.orders), ''),
-    kpi('付費方案數', fmtN((s.by_plan || []).length), ''),
+    kpi('累計總收入', 'NT$ ' + fmtN(t.gross_all),
+        `本期 NT$ ${fmtN(t.gross)}（近 ${days()} 天）`),
+    kpi('已退款（累計）', 'NT$ ' + fmtN(t.refunded),
+        `申請中 ${fmtN(rcnt('applied'))} 筆、處理中 ${fmtN(rcnt('processing'))} 筆`),
+    kpi('已撥款（累計）', 'NT$ ' + fmtN(t.paid_out), '金流商 → 我的帳戶'),
+    kpi('待撥款（平台帳上）', 'NT$ ' + fmtN(t.balance), '＝淨收入 − 已撥款'),
+    kpi('付款人數', fmtN(t.payers), `訂單 ${fmtN(t.orders)} 筆`),
   ].join('');
+
+  // ── 對帳總表：每個平台一列 ＋ 合計一列 ──
+  const trows = (o.rows || []).concat([Object.assign({ total: true }, t)]);
+  $('#rev-platforms').innerHTML = table([
+    { t: '平台', v: (r) => r.total ? '<b>合計</b>' : '<b>' + esc(PLAT_LABEL(r.provider)) + '</b>', html: true },
+    { t: '訂單', v: (r) => fmtN(r.orders), num: true },
+    { t: '付款人數', v: (r) => fmtN(r.payers), num: true },
+    { t: '本期收款', v: (r) => fmtN(r.gross), num: true },
+    { t: '手續費', v: (r) => fmtN(r.fees), num: true },
+    { t: '本期退款', v: (r) => fmtN(r.refunded), num: true },
+    { t: '本期淨額', v: (r) => '<b>' + fmtN(r.net) + '</b>', html: true, num: true },
+    { t: '累計收入', v: (r) => fmtN(r.gross_all), num: true },
+    { t: '已撥款', v: (r) => fmtN(r.paid_out), num: true },
+    { t: '待撥款', v: (r) => fmtN(r.balance), num: true },
+  ], trows, '還沒有收款紀錄');
+  $('#rev-refund-kpi').innerHTML = Object.entries(RS).map(([k, label]) =>
+    `<div class="metric"><span>${esc(label)}</span>
+      <span><b>${fmtN(rcnt(k))}</b> 筆　NT$ ${fmtN(ramt(k))}</span></div>`).join('')
+    + '<p class="note">「已退款」會自動把該會員降回免費方案，並寫入方案變更歷史。</p>';
+
+  // ── 退款紀錄（可改狀態：處理中／已退款／拒絕）──
+  $('#rev-refunds').innerHTML = table([
+    { t: '時間', v: (r) => fmtTime(r.apply_at) },
+    { t: '訂單', v: (r) => esc(r.order_id || '–') },
+    { t: '帳號／Email', v: (r) => esc(r.email || '–') },
+    { t: '金額', v: (r) => 'NT$ ' + fmtN(r.amount), num: true },
+    { t: '平台', v: (r) => esc(PLAT_LABEL(r.provider)) },
+    { t: '原因', v: (r) => esc(r.reason || '–') },
+    { t: '狀態', v: (r) => `<span class="badge ${r.status === 'done' ? 'ok' : ''}">${esc(RS[r.status] || r.status)}</span>`, html: true },
+    { t: '處理', v: (r) => (r.status === 'done' || r.status === 'rejected') ? '–'
+        : `<button class="gh" data-rf-proc="${r.id}">處理中</button>
+           <button class="gh" data-rf-done="${r.id}">已退款</button>
+           <button class="gh" data-rf-rej="${r.id}">拒絕</button>`, html: true },
+  ], o.refund_list || [], '還沒有退款紀錄');
+  $$('#rev-refunds [data-rf-proc]').forEach((el) => el.addEventListener('click', async () => {
+    await api('/refund/' + el.dataset.rfProc + '/status', { method: 'POST', body: JSON.stringify({ status: 'processing' }) });
+    queue('退款 #' + el.dataset.rfProc + ' → 處理中'); pgRevenue();
+  }));
+  $$('#rev-refunds [data-rf-done]').forEach((el) => el.addEventListener('click', async () => {
+    if (!confirm('確定這筆已退款？\n（會把該會員降回免費方案，並累計到已退款）')) return;
+    await api('/refund/' + el.dataset.rfDone + '/status', { method: 'POST', body: JSON.stringify({ status: 'done' }) });
+    queue('退款 #' + el.dataset.rfDone + ' → 已退款（會員已降回免費）'); pgRevenue();
+  }));
+  $$('#rev-refunds [data-rf-rej]').forEach((el) => el.addEventListener('click', async () => {
+    const why = prompt('拒絕原因（會記錄在備註）') || '';
+    await api('/refund/' + el.dataset.rfRej + '/status', { method: 'POST', body: JSON.stringify({ status: 'rejected', note: why }) });
+    queue('退款 #' + el.dataset.rfRej + ' → 已拒絕'); pgRevenue();
+  }));
+
+  // ── 方案分佈／訂單列表 ──
   $('#rev-plans').innerHTML = table([
     { t: '方案', v: 'plan' }, { t: '筆數', v: 'c', num: true }, { t: '金額', v: 'amt', num: true },
-  ], s.by_plan, '還沒有付費紀錄（金流為 P6 階段）');
+  ], s.by_plan, '還沒有付費紀錄');
   $('#rev-orders').innerHTML = table([
     { t: '訂單', v: 'id' }, { t: '方案', v: 'plan' }, { t: '金額', v: 'amount', num: true },
-    { t: '狀態', v: 'status' }, { t: '時間', v: (r) => fmtTime(r.created_at) },
+    { t: '平台', v: (r) => esc(PLAT_LABEL(r.provider)) },
+    { t: '狀態', v: (r) => esc(r.status === 'paid' ? '已付款' : r.status) },
+    { t: '時間', v: (r) => fmtTime(r.created_at) },
   ], d.orders, '還沒有訂單');
-  // ── 收款設定（各金流商要設哪些環境變數）──
+
+  // ── 收款設定（各金流商）──
   const po = await api('/payout');
   $('#rev-webhook').textContent = location.origin + po.callbacks.webhook;
   $('#rev-return').textContent = location.origin + po.callbacks.return;
@@ -1011,43 +1081,60 @@ async function pgRevenue() {
         : '還缺：' + p.env.filter((e) => !e.set).map((e) => e.key).join('、')}</span></div>`).join('')
     + `<p class="note">設定位置：Railway → ferry → Variables。設好後前台「方案」頁的付款按鈕就會出現。</p>`;
 
-  // ── 提現 ──
+  // ── 撥款餘額（真實撥款在金流商後台按；這裡登記已到帳）──
   const b = po.summary;
   $('#rev-balance').innerHTML = [
-    ['累計收入', 'NT$ ' + fmtN(b.gross)],
-    ['已提現', 'NT$ ' + fmtN(b.paid_out)],
+    ['累計總收入', 'NT$ ' + fmtN(b.gross)],
+    ['已撥款', 'NT$ ' + fmtN(b.paid_out)],
     ['處理中', 'NT$ ' + fmtN(b.pending)],
-    ['可提餘額', '<b>NT$ ' + fmtN(b.available) + '</b>'],
+    ['待撥款（平台帳上）', '<b>NT$ ' + fmtN(b.available) + '</b>'],
   ].map(([k, v]) => `<div class="metric"><span>${k}</span><span>${v}</span></div>`).join('');
+  $('#po-provider').innerHTML = '<option value="">（平台）</option>' + po.providers
+    .map((p) => `<option value="${p.id}">${esc(p.label)}</option>`).join('');
   $('#po-method').innerHTML = Object.entries(po.methods)
     .map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
-  $('#rev-payouts').innerHTML = po.payouts.length ? table([
+  $('#rev-payouts').innerHTML = table([
     { t: '時間', v: (r) => fmtTime(r.ts) },
-    { t: '金額', v: (r) => 'NT$ ' + fmtN(r.amount), num: true },
+    { t: '平台', v: (r) => esc(PLAT_LABEL(r.provider)) },
+    { t: '金額', v: (r) => 'NT$ ' + fmtN(r.amount_twd || r.amount), num: true },
+    { t: '帳戶', v: (r) => esc(r.account || '–') },
     { t: '方式', v: (r) => esc((po.methods || {})[r.method] || r.method || '–') },
     { t: '備註', v: (r) => esc(r.note || '–') },
-    { t: '狀態', v: (r) => r.status === 'done' ? '<span class="badge ok">已撥款</span>'
+    { t: '狀態', v: (r) => r.status === 'done' ? '<span class="badge ok">已到帳</span>'
         : r.status === 'cancelled' ? '<span class="badge">已取消</span>'
-        : `<button class="gh" data-po-done="${r.id}">標記已撥款</button>`, html: true },
-  ], po.payouts, '還沒有提現紀錄') : '';
+        : `<button class="gh" data-po-done="${r.id}">標記已到帳</button>`, html: true },
+  ], po.payouts, '還沒有撥款紀錄');
   $$('#rev-payouts [data-po-done]').forEach((el) => el.addEventListener('click', async () => {
     await api('/payout/' + el.dataset.poDone + '/status', { method: 'POST', body: JSON.stringify({ status: 'done' }) });
-    queue('已標記提現 #' + el.dataset.poDone + ' 為已撥款');
-    pgRevenue();
+    queue('撥款 #' + el.dataset.poDone + ' 已標記到帳'); pgRevenue();
   }));
   $('#po-go').onclick = async () => {
     const amt = Number($('#po-amount').value || 0);
-    if (!amt) return alert('請填提現金額');
-    if (!confirm(`確定申請提現 NT$ ${amt}？`)) return;
+    if (!amt) return alert('請填撥款金額');
+    if (!confirm(`確定登記一筆撥款 NT$ ${amt}？（＝金流商已匯到你的帳戶）`)) return;
     try {
-      await api('/payout/request', { method: 'POST', body: JSON.stringify({
-        amount: amt, method: $('#po-method').value, note: $('#po-note').value }) });
+      await api('/payout/add', { method: 'POST', body: JSON.stringify({
+        amount: amt, provider: $('#po-provider').value, method: $('#po-method').value,
+        account: $('#po-account').value, note: $('#po-note').value }) });
       $('#po-amount').value = ''; $('#po-note').value = '';
-      queue(`已建立提現申請 NT$ ${amt}（到金流商後台撥款後回來標記完成）`);
+      queue(`已登記撥款 NT$ ${amt}`);
       pgRevenue();
     } catch (e) { alert(e.message); }
   };
-  queue(`本期 NT$ ${fmtN(s.month)}　累計 NT$ ${fmtN(s.total)}　訂單 ${fmtN(s.orders)} 筆　可提 NT$ ${fmtN(po.summary.available)}`);
+  $('#rf-go').onclick = async () => {
+    const oid = $('#rf-order').value.trim();
+    const amt = Number($('#rf-amount').value || 0);
+    if (!oid) return alert('請填訂單編號（或改填 Email 的欄位）');
+    try {
+      await api('/refund/apply', { method: 'POST', body: JSON.stringify({
+        order_id: oid.indexOf('@') > 0 ? '' : oid,
+        email: oid.indexOf('@') > 0 ? oid : '',
+        amount: amt, reason: $('#rf-reason').value }) });
+      $('#rf-order').value = ''; $('#rf-amount').value = ''; $('#rf-reason').value = '';
+      queue('已登記退款申請'); pgRevenue();
+    } catch (e) { alert(e.message); }
+  };
+  queue(`累計 NT$ ${fmtN(t.gross_all)}　本期 NT$ ${fmtN(t.gross)}　已退 NT$ ${fmtN(t.refunded)}　待撥 NT$ ${fmtN(t.balance)}`);
 }
 
 // ── 錯誤與告警 ───────────────────────────────────
