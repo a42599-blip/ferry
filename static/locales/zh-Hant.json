@@ -5,6 +5,7 @@
   "tab_transfer": "無損傳輸",
   "tab_teach": "教學",
   "tab_plans": "方案",
+  "tab_about": "關於我們",
   "tab_member": "會員",
   "nav_member": "會員",
   "dl_title": "貼上連結，原檔到手。",
@@ -421,7 +422,6 @@
     ]
   ],
   "plans_legal_title": "條款與客服",
-  "plans_contact_note": "客服信箱 a42599@gmail.com｜客服電話 0980-222196｜每日 09:00–21:00",
   "doc_updated": "最後更新：2026-09-30",
   "doc_back": "← 回到轉運站",
   "doc_terms_title": "服務條款",
@@ -462,5 +462,12 @@
   "pay_confirm_to": "請確認這是要開通到哪個帳號：",
   "pay_activated_to": "付款完成，已開通到你的帳號",
   "pay_login_to_check": "付款完成，但現在沒有登入 —— 請登入後到「會員」頁確認開通狀況。",
-  "copyright_warn": "⚠️ 僅供個人備份使用，請勿散布或商用；著作權屬原平台與原作者所有。"
+  "copyright_warn": "⚠️ 僅供個人備份使用，請勿散布或商用；著作權屬原平台與原作者所有。",
+  "about_title": "關於我們",
+  "about_lede": "轉運站是台灣做的小工具站：把公開平台的影片帶回你自己的裝置（不重新壓縮、不轉檔），也能在同一個 WiFi 下把檔案直傳到另一台裝置。我們不儲存你的連結與檔案。",
+  "about_contact_title": "聯絡方式",
+  "about_email": "客服信箱",
+  "about_phone": "客服電話",
+  "about_hours": "服務時間",
+  "about_hours_val": "每日 09:00–21:00（台灣時間）"
 }

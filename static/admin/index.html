@@ -59,6 +59,7 @@
       <button data-p="ads">📺 廣告</button>
       <button data-p="reports">客戶回報<span class="sidebadge" id="side-reports" hidden></span></button>
       <button data-p="quotas">次數管理</button>
+      <button data-p="about">關於我們</button>
       <button data-p="errors">錯誤與告警</button>
       <button data-p="system">系統</button>
     </nav>
@@ -441,6 +442,38 @@
         <div class="pnl"><div class="lbl">最近通知紀錄</div><div class="scroll" id="n-recent"></div></div>
       </section>
 
+      <!-- 關於我們（小羅 2026-09-30：前台「關於我們」頁的聯絡資料，換手機／換 Email 自己改）-->
+      <section class="pg" id="pg-about">
+        <div class="pghint">
+          <b>這一頁是什麼？</b>
+          前台「<b>關於我們</b>」頁（在「方案」和「會員」中間）顯示的聯絡資料。
+          換手機、換 Email 時<b>改這裡就好</b>，前台會立即跟著換（方案頁下面那一行也是同一份資料）。<br>
+          <b>留空</b>＝用系統內建的顯示（信箱／電話回預設值；服務時間會自動用訪客的語言顯示）。
+        </div>
+        <div class="pnl">
+          <div class="lbl">聯絡資料</div>
+          <div class="inrow">
+            <label class="tinylabel">客服信箱</label>
+            <input type="text" id="ab-email" placeholder="a42599@gmail.com">
+          </div>
+          <div class="inrow">
+            <label class="tinylabel">客服電話</label>
+            <input type="text" id="ab-phone" placeholder="0980-222196">
+          </div>
+          <div class="inrow">
+            <label class="tinylabel">服務時間</label>
+            <input type="text" id="ab-hours" placeholder="留空＝依訪客語言顯示（繁：每日 09:00–21:00）">
+            <button class="big sm" id="ab-save">儲存</button>
+          </div>
+          <div class="dim" id="ab-msg" style="font-size:11.5px"></div>
+        </div>
+        <div class="pnl">
+          <div class="lbl">前台會顯示成這樣</div>
+          <div id="ab-preview"></div>
+          <p class="note">前台位置：<b>scefo.com → 上方選單「關於我們」</b>（在「方案」和「會員」中間）</p>
+        </div>
+      </section>
+
       <!-- 系統 -->
       <section class="pg" id="pg-system">
         <div class="rows">
@@ -493,6 +526,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=45"></script>
+<script src="/admin/app.js?v=46"></script>
 </body>
 </html>

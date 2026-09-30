@@ -5,6 +5,7 @@
   "tab_transfer": "Transfer",
   "tab_teach": "How to",
   "tab_plans": "Pricing",
+  "tab_about": "About",
   "tab_member": "Account",
   "nav_member": "Account",
   "dl_title": "Paste a link. Get the original file.",
@@ -421,7 +422,6 @@
     ]
   ],
   "plans_legal_title": "Terms & support",
-  "plans_contact_note": "Support: a42599@gmail.com | Phone: 0980-222196 | Daily 09:00–21:00 (GMT+8)",
   "doc_updated": "Last updated: 2026-09-30",
   "doc_back": "← Back to Ferry",
   "doc_terms_title": "Terms of Service",
@@ -462,5 +462,12 @@
   "pay_confirm_to": "Please confirm which account this will be activated on:",
   "pay_activated_to": "Payment complete - activated on your account",
   "pay_login_to_check": "Payment complete, but you are not signed in. Sign in and check the Member page.",
-  "copyright_warn": "⚠️ For personal backup only — please do not redistribute or use commercially. All rights belong to the original platform and creators."
+  "copyright_warn": "⚠️ For personal backup only — please do not redistribute or use commercially. All rights belong to the original platform and creators.",
+  "about_title": "About us",
+  "about_lede": "Ferry is a small tool built in Taiwan. It brings videos from public platforms back to your own device — no re-encoding, no conversion — and can send files directly to another device on the same Wi-Fi. We never store your links or files.",
+  "about_contact_title": "Contact",
+  "about_email": "Support email",
+  "about_phone": "Support phone",
+  "about_hours": "Hours",
+  "about_hours_val": "Daily 09:00–21:00 (GMT+8)"
 }

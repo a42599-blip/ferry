@@ -234,6 +234,7 @@ async function render() {
     else if (curPage === 'ads') await pgAds();
     else if (curPage === 'reports') await pgReports();
     else if (curPage === 'quotas') await pgQuotas();
+    else if (curPage === 'about') await pgAbout();
     else if (curPage === 'errors') await pgErrors();
     else if (curPage === 'system') await pgSystem();
   } catch (e) {
@@ -1268,6 +1269,42 @@ async function pgErrors() {
 }
 
 // ── 系統 ─────────────────────────────────────────
+// ══ 🌐 關於我們（前台「關於我們」頁的聯絡資料；小羅 2026-09-30）════════════
+//    小羅：「我換手機、換 Email 時要能在後台自己改。」
+//    留空＝前台用系統內建值（服務時間還會依訪客的語言自動切換）。
+async function pgAbout() {
+  const d = await api('/about');
+  fillAbout(d);
+  $('#ab-msg').textContent = '';
+  queue('關於我們：客服信箱 ' + (d.email || '（預設）'));
+}
+
+function fillAbout(d) {
+  $('#ab-email').value = d.email || '';
+  $('#ab-phone').value = d.phone || '';
+  $('#ab-hours').value = d.hours || '';
+  const hours = (d.hours || '').trim() || '每日 09:00–21:00（台灣時間）· 依訪客語言自動切換';
+  $('#ab-preview').innerHTML = [
+    ['客服信箱', d.email || 'a42599@gmail.com'],
+    ['客服電話', d.phone || '0980-222196'],
+    ['服務時間', hours],
+  ].map(([k, v]) => `<div class="metric"><span>${k}</span><span>${esc(v)}</span></div>`).join('');
+}
+
+$('#ab-save')?.addEventListener('click', async () => {
+  try {
+    const d = await api('/about', { method: 'POST', body: JSON.stringify({
+      email: $('#ab-email').value.trim(),
+      phone: $('#ab-phone').value.trim(),
+      hours: $('#ab-hours').value.trim(),
+    }) });
+    fillAbout(d);
+    $('#ab-msg').textContent = '✅ 已儲存，前台立即生效';
+  } catch (e) {
+    $('#ab-msg').textContent = '❌ ' + e.message;
+  }
+});
+
 async function pgSystem() {
   const d = await api('/system');
   $('#sys-info').innerHTML = [

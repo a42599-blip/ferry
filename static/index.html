@@ -42,6 +42,7 @@
     <button data-tab="transfer" data-i18n="tab_transfer">無損傳輸</button>
     <button data-tab="teach" data-i18n="tab_teach">教學</button>
     <button data-tab="plans" data-i18n="tab_plans">方案</button>
+    <button data-tab="about" data-i18n="tab_about">關於我們</button>
     <button data-tab="member" data-i18n="nav_member">會員</button>
   </nav>
   <span class="ctx" id="ctx"></span>
@@ -336,7 +337,24 @@
         <a href="/refund.html" data-i18n="doc_refund_title">退費政策</a>
         <a href="/contact.html" data-i18n="doc_contact_title">聯絡我們</a>
       </div>
-      <p class="note" data-i18n="plans_contact_note">客服信箱 a42599@gmail.com｜客服電話 0980-222196｜每日 09:00–21:00</p>
+      <p class="note" id="plans-contact"></p>
+    </div>
+  </section>
+
+  <!-- ══ 關於我們（小羅 2026-09-30：放在「方案」與「會員」中間；聯絡資料後台可改）══ -->
+  <section class="panel one" id="p-about">
+    <div class="col">
+      <h1 style="margin-top:0" data-i18n="about_title">關於我們</h1>
+      <p class="lede" data-i18n="about_lede">轉運站是台灣做的小工具站：把公開平台的影片帶回你自己的裝置（不重新壓縮、不轉檔），也能在同一個 WiFi 下把檔案直傳到另一台裝置。我們不儲存你的連結與檔案。</p>
+      <h2 class="sec" data-i18n="about_contact_title">聯絡方式</h2>
+      <div class="kv" id="about-contact"></div>
+      <h2 class="sec" data-i18n="plans_legal_title">條款與客服</h2>
+      <div class="legal-links">
+        <a href="/terms.html" data-i18n="doc_terms_title">服務條款</a>
+        <a href="/privacy.html" data-i18n="doc_privacy_title">隱私權政策</a>
+        <a href="/refund.html" data-i18n="doc_refund_title">退費政策</a>
+        <a href="/contact.html" data-i18n="doc_contact_title">聯絡我們</a>
+      </div>
     </div>
   </section>
 
@@ -457,7 +475,7 @@
 
 <script src="/sha256.js?v=27"></script>
 <script src="/save.js?v=28"></script>
-<script src="/app.js?v=46"></script>
+<script src="/app.js?v=47"></script>
 <script src="/transfer.js?v=33"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）

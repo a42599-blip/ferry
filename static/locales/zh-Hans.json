@@ -5,6 +5,7 @@
   "tab_transfer": "无损传输",
   "tab_teach": "教程",
   "tab_plans": "方案",
+  "tab_about": "关于我们",
   "tab_member": "会员",
   "nav_member": "会员",
   "dl_title": "贴上链接，原文件到手。",
@@ -421,7 +422,6 @@
     ]
   ],
   "plans_legal_title": "条款与客服",
-  "plans_contact_note": "客服信箱 a42599@gmail.com｜客服电话 0980-222196｜每日 09:00–21:00",
   "doc_updated": "最后更新：2026-09-30",
   "doc_back": "← 回到转运站",
   "doc_terms_title": "服务条款",
@@ -462,5 +462,12 @@
   "pay_confirm_to": "请确认这是要开通到哪个账号：",
   "pay_activated_to": "付款完成，已开通到你的账号",
   "pay_login_to_check": "付款完成，但現在沒有登入 —— 请登录后到「会员」页确认开通状况。",
-  "copyright_warn": "⚠️ 仅供个人备份使用，请勿散布或商用；著作权属原平台与原作者所有。"
+  "copyright_warn": "⚠️ 仅供个人备份使用，请勿散布或商用；著作权属原平台与原作者所有。",
+  "about_title": "关于我们",
+  "about_lede": "转运站是台湾做的小工具站：把公开平台的视频带回你自己的设备（不重新压缩、不转档），也能在同一个 WiFi 下把文件直传到另一台设备。我们不保存你的链接与文件。",
+  "about_contact_title": "联络方式",
+  "about_email": "客服邮箱",
+  "about_phone": "客服电话",
+  "about_hours": "服务时间",
+  "about_hours_val": "每日 09:00–21:00（台湾时间）"
 }

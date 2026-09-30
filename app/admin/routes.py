@@ -200,6 +200,21 @@ async def ads_export(days: int = Query(180, ge=1, le=365),
         headers={"Content-Disposition": 'attachment; filename="ad_views.csv"'})
 
 
+# ── 關於我們（小羅 2026-09-30：前台「關於我們」頁的聯絡資料，後台可改）──
+@router.get("/about")
+async def get_about(_: dict = Depends(require_admin)) -> dict:
+    from ..services import about as about_service
+
+    return {"ok": True, **about_service.get()}
+
+
+@router.post("/about")
+async def save_about(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
+    from ..services import about as about_service
+
+    return {"ok": True, **about_service.save(body or {})}
+
+
 @router.get("/devices")
 async def devices(days: int = Query(30, ge=1, le=365), _: dict = Depends(require_admin)) -> dict:
     return {"ok": True, "devices": events.list_devices(days=days)}

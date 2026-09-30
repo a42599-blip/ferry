@@ -54,6 +54,7 @@ function applyLang() {
   document.title = t('brand', '轉運站') + ' · ' + t('dl_title');
   buildTeach();
   buildPlans();
+  renderAbout();
   renderPlatforms(state.config?.platforms, state.config?.enabled_platform_count);
   renderQuota(state.quota);
   renderHistory();
@@ -154,6 +155,31 @@ function buildPlans() {
   if ($('#plans-fx-list')) $('#plans-fx-list').innerHTML = kv(t('plans_fx_list', []));
 }
 
+// ── 關於我們（小羅 2026-09-30）───────────────────────
+//   前台「關於我們」頁（在「方案」與「會員」中間）的聯絡資料。
+//   資料來源＝後台「關於我們」（settings 表）→ /api/config 帶下來；改後台、前台即時生效。
+//   `hours` 若後台沒填 → 用「該語言」的內建值，繁／簡／英才都顯示得對。
+function renderAbout() {
+  const a = state.config?.about || {};
+  const email = a.email || 'a42599@gmail.com';
+  const phone = a.phone || '0980-222196';
+  const hours = a.hours || t('about_hours_val');
+  const rows = [
+    [t('about_email'), `<a href="mailto:${esc(email)}">${esc(email)}</a>`],
+    [t('about_phone'), esc(phone)],
+    [t('about_hours'), esc(hours)],
+  ];
+  if ($('#about-contact')) {
+    $('#about-contact').innerHTML = rows.map(
+      ([k, v]) => `<div class="r"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  }
+  // 方案頁那一行也吃同一份資料（小羅換 Email 時，兩邊會一起換，不會漏）
+  if ($('#plans-contact')) {
+    $('#plans-contact').textContent = t('about_email') + ' ' + email + '｜'
+      + t('about_phone') + ' ' + phone + '｜' + hours;
+  }
+}
+
 // ── 開關連動：關掉的功能，前台整個消失 ─────────────────
 const FEATURE_TAB = {
   download: 'feature.download',   // ← 關掉＝整個下載模組消失
@@ -162,7 +188,7 @@ const FEATURE_TAB = {
   plans: 'feature.plans',
   member: 'feature.member',
 };
-const AVAILABLE_TABS = ['download', 'transfer', 'teach', 'plans', 'member'];
+const AVAILABLE_TABS = ['download', 'transfer', 'teach', 'plans', 'about', 'member'];
 
 // 付費訂閱是否開啟（feature.billing 沒設 → 當成開啟，維持原本行為）
 const billingOn = (f) => (f || {})['feature.billing'] !== false;
@@ -228,6 +254,7 @@ function go(tab) {
   updateCtx();
   if (tab === 'member') { refreshMember(); renderHistory(); }
   if (tab === 'plans') loadPlans();
+  if (tab === 'about') renderAbout();
   applyAdsNotes();                       // 動態產生的說明也要跟著廣告開關（小羅 2026-09-29）
 }
 function updateCtx() {
@@ -386,6 +413,7 @@ async function loadConfig() {
   state.config = cfg;
   applyFlags(cfg);
   buildPlans();
+  renderAbout();
 }
 function renderQuota(q) {
   if (!q) return;
