@@ -227,7 +227,7 @@ function applyFlags(cfg) {
   //   兩顆都關掉 → 再出現。不只首頁：所有帶 .ads-off-note 的說明都會跟著（用 class 統一控制）。
   //   ⚠️ 將來正式上線（付費網站）時，這段公測說明要改成「付費會員福利」的說法（等小羅決定）。
   _adsOn = !!(f['feature.ads_guest'] || f['feature.ads_member']);
-  applyAdCode(cfg.ads_network || 'adsterra');   // 只載入「目前上線中」那一家
+  applyAdCode(cfg.ads_network || 'adsterra', cfg.ad_code);   // 優先用後台貼的碼
   applyAdsNotes();
 
   if (f['feature.maintenance']) {
@@ -363,45 +363,53 @@ let _adNet = '';
 //   ⚠️ 一次只會把「目前上線中」那一家放進彈窗（不會同時載入兩家 → 曝光不混、也不會 ad stacking）。
 //   ⚠️ 要新增一家：①後台廣告頁切換成那家 ②把它的廣告碼貼到下面對應的 key。
 const AD_CODES = {
-  // ⚠️ 寫法：`before` 先執行（廣告商的設定值）→ 再載 `src`（廣告主程式）。
-  //    一定用 `document.createElement('script')` 插進去，**不能用 insertAdjacentHTML**——
-  //    那樣插進來的 <script> 根本不會執行（小羅 2026-09-30 回報「開了開關但框是空的」就是這個原因）。
+  // ⚠️ 這只是「後台沒貼碼」時的內建備援；優先用後台「廣告」頁貼的碼（小羅 2026-09-30）。
+  //    小羅原話：「我要換廣告、或第一次貼碼時，能不能我自己在後台貼上去就聯動過去？」
   //
   // Adsterra：Banner 300x250（scefo.com｜Ad Unit 31469246｜曝光計費 CPM）
   //   2026-09-29 因「假防毒詐騙廣告」先拉掉；2026-09-30 Adsterra 回覆已移除該類廣告，
   //   小羅決定「先貼回來、觀察幾天」→ 恢復。（若再出現同類廣告 → 截圖回報 Adsterra）
-  adsterra: {
-    before: "atOptions = { 'key': '80edcd5c36fc9b7c0c9700549d9d8e4e', 'format': 'iframe',"
-      + " 'height': 250, 'width': 300, 'params': {} };",
-    src: 'https://www.highrevenueformat.com/80edcd5c36fc9b7c0c9700549d9d8e4e/invoke.js',
-  },
-  // 要再接別家，就在下面加一組（key＝後台廣告商代號）；沒貼的廠商＝廣告格自動收起。
-  //   hilltopads: { before: "…", src: '…HilltopAds 的 invoke 網址…' },
-  //   adsense:    { before: "…", src: '…AdSense 的網址…' },
+  adsterra: `
+    <script>
+      atOptions = {
+        'key' : '80edcd5c36fc9b7c0c9700549d9d8e4e',
+        'format' : 'iframe',
+        'height' : 250,
+        'width' : 300,
+        'params' : {}
+      };
+    <\/script>
+    <script src="https://www.highrevenueformat.com/80edcd5c36fc9b7c0c9700549d9d8e4e/invoke.js"><\/script>`,
 };
 
-function applyAdCode(net) {
+/** 把廣告碼（一段 HTML）拆成「依序執行」的步驟：inline 設定 → 外部廣告主程式。
+ *  ⚠️ 為何不直接 insertAdjacentHTML？——那樣插進來的 <script> **不會執行**
+ *     （小羅 2026-09-30 回報「開了開關但框是空的」就是這個原因）。 */
+function adSteps(html) {
+  const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+  return [...doc.querySelectorAll('script')].map((s) => (
+    s.getAttribute('src') ? { src: s.getAttribute('src') } : { text: s.textContent || '' }
+  )).filter((s) => s.src || s.text.trim());
+}
+
+function applyAdCode(net, raw) {
   const slot = $('#ad-slot');
   if (!slot) return;
-  const ad = AD_CODES[net];
-  if (!ad || !ad.src) {
-    // 沒貼碼（或這家還沒貼）→ 廣告格整格收起來，彈窗只留說明＋倒數＋繼續（小羅 2026-09-29）
+  const steps = adSteps(String(raw || '').trim() || AD_CODES[net] || '');
+  if (!steps.length) {
+    // 沒貼碼（或已經把碼拉掉）→ 廣告格整格收起來，彈窗只留說明＋倒數＋繼續（小羅 2026-09-29）
     slot.hidden = true;
     return;
   }
-  if (_adNet === net && slot.querySelector('script, iframe, ins')) return;  // 同一家不重複插
+  if (_adNet === net && slot.querySelector('script')) return;  // 同一家不重複插
   _adNet = net;
   slot.hidden = false;
   // ⚠️ 必須是「真的 script 元素」才會執行；插完後廣告商自己會把 iframe／ins 放進來
-  if (ad.before) {
-    const cfg = document.createElement('script');
-    cfg.textContent = ad.before;
-    slot.appendChild(cfg);
-  }
-  const tag = document.createElement('script');
-  tag.src = ad.src;
-  tag.async = true;
-  slot.appendChild(tag);
+  steps.forEach((s) => {
+    const el = document.createElement('script');
+    if (s.src) { el.src = s.src; el.async = true; } else { el.textContent = s.text; }
+    slot.appendChild(el);
+  });
   watchAdLoaded();
 }
 

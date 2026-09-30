@@ -194,6 +194,7 @@ async def get_config():
 
     _net = _ads.network_of()
     return {"ok": True, "ads_network": _net, "ads_network_label": _ads.network_label(_net),
+            "ad_code": _ads.code_of(_net),          # 後台「廣告」頁貼的碼（空＝前台用內建預設）
             "about": _about.get(),
             **flags.snapshot()}
 

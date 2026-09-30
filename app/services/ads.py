@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import json
 
+from ..core import db
+
 from . import flags
 
 #: 訪客每幾次看一次廣告
@@ -126,7 +128,6 @@ NETWORKS: tuple[tuple[str, str], ...] = (
 
 def network_of(name: str = "") -> str:
     """取得（或設定）目前上線的廣告商代號。"""
-    from ..core import db
 
     if name:
         db.execute(
@@ -145,6 +146,45 @@ def network_of(name: str = "") -> str:
 
 def network_label(code: str) -> str:
     return next((label for c, label in NETWORKS if c == code), code or "–")
+
+
+# ── 廣告碼（小羅 2026-09-30：後台自己貼，不用再把碼給工程師）──────────
+#   小羅原話：「我要換廣告、或第一次貼碼的時候，能不能我自己在後台貼上去就聯動過去？」
+#   存法：settings 表的 `ads.codes`（JSON：{廠商代號: 廣告碼字串}）→ **每家各自保留**，
+#         切換廠商不會把別家的碼蓋掉。留空＝清掉該家（前台改用內建預設）。
+_CODES_KEY = "ads.codes"
+_CODE_MAX = 20000          # 單一廠商代碼最長字元數（一段廣告碼正常 1~2 KB）
+
+
+def all_codes() -> dict:
+    """所有廠商「後台貼的」廣告碼（沒貼的不會出現在裡面）。"""
+    try:
+        d = db.get_setting(_CODES_KEY) or {}
+        if not isinstance(d, dict):
+            return {}
+        return {str(k): str(v) for k, v in d.items() if str(v or "").strip()}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def code_of(net: str = "") -> str:
+    """這一家在後台貼的廣告碼（沒貼 → 空字串，前台改用內建預設）。"""
+    return all_codes().get(net or network_of(), "")
+
+
+def set_code(net: str, code: str) -> dict:
+    """儲存（或清掉）某一家在後台貼的廣告碼。"""
+    if net not in [c for c, _ in NETWORKS]:
+        raise ValueError("不認識的廣告商代號")
+    codes = all_codes()
+    code = str(code or "").strip()[:_CODE_MAX]
+    if code:
+        codes[net] = code
+    else:
+        codes.pop(net, None)
+    db.set_setting(_CODES_KEY, codes)
+    return {"network": net, "code": codes.get(net, ""),
+            "has_code": bool(codes.get(net, "")), "stored": sorted(codes)}
 
 
 def platform_of(ua: str) -> str:
@@ -171,7 +211,6 @@ def record_view(*, subject: str, tier: str, member_id: str = "", member_email: s
     """記一筆「看廣告」（後台統計＋對帳用；永不拋錯）。"""
     import time as _t
 
-    from ..core import db
 
     now = _t.time()
     try:
@@ -195,7 +234,6 @@ def record_view(*, subject: str, tier: str, member_id: str = "", member_email: s
 
 def _reported_load() -> dict:
     """廣告商後台的回報數（手動輸入）。"""
-    from ..core import db
 
     try:
         rows = db.query("SELECT value FROM settings WHERE key=?", (_REPORTED_KEY,))
@@ -215,7 +253,6 @@ def set_reported(date: str, count: int, network: str = "") -> dict:
     """設定某一天「某一家廣告商」回報的曝光數（對帳用；不同家分開記）。"""
     import time as _t
 
-    from ..core import db
 
     data = _reported_load()
     key = str(date or "").strip()
@@ -237,7 +274,6 @@ def set_reported(date: str, count: int, network: str = "") -> dict:
 
 def export_rows(days: int = 180) -> list[dict]:
     """匯出明細（對帳用 CSV）。"""
-    from ..core import db
 
     since = _since(days)
     rows = db.query(
@@ -289,7 +325,6 @@ def stats(days: int = 30, network: str = "") -> dict:
 
     `network`：只算某一家廣告商（小羅要求「不同家不要混在一起」）；留空＝全部。
     """
-    from ..core import db
 
     since = _since(days)
     where = "ts>=?"

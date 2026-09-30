@@ -352,6 +352,27 @@
           </div>
           <div class="scroll" id="ad-bynet" style="margin-top:10px"></div>
         </div>
+        <!-- 廣告代碼（小羅 2026-09-30：後台自己貼就聯動，不用再把碼給工程師）-->
+        <div class="pnl">
+          <div class="lbl">廣告代碼（貼上就生效｜每家各自保留）</div>
+          <p class="note">把廣告商後台複製的<b>整段代碼</b>貼進框裡 → 按「儲存這段代碼」，
+            前台「<b>目前上線中</b>」那一家就會用這段碼（重新整理就看到）。
+            <br>每家廠商的代碼<b>各存各的</b>，換來換去、切換廠商都不會互相蓋掉；
+            <b>留空或按「清空」</b>＝改用系統內建預設。</p>
+          <div class="inrow">
+            <select id="ad-code-net"></select>
+            <button class="big sm gh" id="ad-code-load">載入這家的代碼</button>
+            <span class="dim" id="ad-code-state" style="font-size:11.5px"></span>
+          </div>
+          <textarea id="ad-code-box" spellcheck="false"
+            style="width:100%;min-height:150px;margin-top:10px;font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.6;background:#0f1113;color:inherit;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:10px"
+            placeholder="&lt;script&gt;atOptions = { ... };&lt;/script&gt;&#10;&lt;script src=&quot;...&quot;&gt;&lt;/script&gt;"></textarea>
+          <div class="inrow" style="margin-top:8px">
+            <button class="big sm" id="ad-code-save">儲存這段代碼</button>
+            <button class="gh sm" id="ad-code-clear">清空（改用內建預設）</button>
+          </div>
+          <div class="dim" id="ad-code-msg" style="font-size:11.5px"></div>
+        </div>
         <div class="rows">
           <div class="pnl grow2"><div class="lbl">每日趨勢（次數）</div><div class="chart" id="ad-chart"></div></div>
           <div class="pnl"><div class="lbl">依身分（誰在看）</div><div id="ad-tier"></div></div>
@@ -526,6 +547,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=46"></script>
+<script src="/admin/app.js?v=47"></script>
 </body>
 </html>
