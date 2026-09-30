@@ -799,6 +799,14 @@ async def payout_status(pid: int, body: dict = Body(...),
     return {"ok": True, "summary": billing.payout_summary(), "payouts": billing.payouts()}
 
 
+@router.get("/order/lookup")
+async def order_lookup(id: str = Query(...), _: dict = Depends(require_admin)) -> dict:
+    """訂單核實：訂單 ↔ 會員 ↔ 金額（退款前交叉比對，避免退錯人）。"""
+    from ..services import billing
+
+    return {"ok": True, "order": billing.order_detail(id)}
+
+
 @router.post("/refund/apply")
 async def refund_apply(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
     """登記一筆退款申請（客戶來信 / 後台代登）。"""

@@ -433,10 +433,7 @@
   "doc_contact_title": "聯絡我們",
   "doc_contact_body": "<div class=\"kv\">\n<div class=\"r\"><div class=\"k\">客服信箱</div><div class=\"v\">a42599@gmail.com</div></div>\n<div class=\"r\"><div class=\"k\">客服電話</div><div class=\"v\">0980-222196</div></div>\n<div class=\"r\"><div class=\"k\">服務時間</div><div class=\"v\">每日 09:00–21:00（台灣時間）</div></div>\n<div class=\"r\"><div class=\"k\">營業地址</div><div class=\"v\">新北市三峽區溪東路371巷4弄10號</div></div>\n<div class=\"r\"><div class=\"k\">回覆時間</div><div class=\"v\">1～2 個工作日內</div></div>\n</div>\n<h2>付費與退款問題</h2>\n<p>付款完成後系統會自動開通。若付款後未開通、重複扣款或有退款需求，請來信並附上帳號 Email、訂單編號與付款時間，我們會盡快處理。</p>\n<h2>關於下載與傳輸</h2>\n<p>請先參考「教學」頁的說明；若遇到無法解析的平台，歡迎來信附上連結，我們會盡快確認。</p>",
   "plans_fx_title": "匯率與手續費（國外用戶）",
-  "plans_fx_note": "想先知道大概多少？可到下列官方匯率換算器查（以刷卡當下匯率為準）：",
-  "fx_link_mc": "Mastercard 官方匯率換算（刷卡實際走這個）",
-  "fx_link_visa": "Visa 官方匯率計算器（刷卡實際走這個）",
-  "fx_link_xe": "XE 匯率換算（多國語言）",
+  "plans_fx_note": "想先知道大概多少？點下面的按鈕就能換算（刷卡實際匯率仍以你的發卡銀行／卡組織為準）：",
   "plans_fx_list": [
     [
       "計價幣別",
@@ -458,5 +455,6 @@
       "為什麼不顯示固定匯率",
       "匯率每天都在變，且各家銀行、卡組織的換算時間點不同，所以本站不寫死數字，僅提供官方換算器連結供你參考。"
     ]
-  ]
+  ],
+  "fx_link_one": "查匯率換算（XE・多國語言）"
 }

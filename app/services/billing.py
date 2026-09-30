@@ -113,7 +113,11 @@ def is_unlimited(subject: str) -> bool:
 
 # ── 結帳 ─────────────────────────────────────────────
 def _order_id() -> str:
-    return "o_" + time.strftime("%Y%m%d") + "_" + secrets.token_hex(4)
+    """訂單編號（小羅 2026-09-30：要能念給客服／跟金流商對帳）
+
+    格式：FY + 年月日 + 4 碼英數，例如 FY260930A1B2
+    """
+    return "FY%s%s" % (time.strftime("%y%m%d"), secrets.token_hex(2).upper())
 
 
 def create_checkout(subject: str, plan: str, provider: str,
@@ -179,8 +183,12 @@ def _verify_signature(provider: str, raw: bytes, headers: dict) -> bool:
     return False
 
 
-def activate(order_id: str, *, raw_amount: float | None = None) -> dict:
-    """把訂單標成已付款，並開通會員方案。"""
+def activate(order_id: str, *, raw_amount: float | None = None, txn: str = "") -> dict:
+    """把訂單標成已付款，並開通會員方案。
+
+    ⚠️ 金額一律以「訂單上的金額」為準（防止通知帶來的金額被改），
+       若金流商回報的金額跟訂單不同 → 記在備註並通知（核實用）。
+    """
     from . import events, members, notify
 
     row = db.one("SELECT * FROM orders WHERE id=?", (order_id,))
@@ -190,13 +198,30 @@ def activate(order_id: str, *, raw_amount: float | None = None) -> dict:
         return {"ok": True, "already": True}
 
     plan = row["plan"]
-    price = float(raw_amount if raw_amount is not None else row["amount"])
+    expected = float(row["amount"])
+    paid = float(raw_amount) if raw_amount is not None else expected
+    mismatch = raw_amount is not None and abs(paid - expected) > 0.5
+    price = expected                        # ← 以訂單金額為準
     fee = round(price * 0.05, 2)            # 概估手續費（實際以金流商帳單為準）
+    note = (row["note"] or "")
+    if mismatch:
+        note = (note + " | 金額不符：通知 %s / 訂單 %s" % (paid, expected)).strip(" |")
 
     events.add_order(order_id, member_id=row["member_id"], plan=plan, amount=price,
                      currency=row["currency"] or "TWD", fee=fee, status="paid",
-                     note=row["note"])
+                     note=note, provider=(row["provider"] or ""))
     events.mark_paid(order_id)
+    events.set_order_txn(order_id, txn)
+    if mismatch:
+        try:
+            import asyncio
+
+            asyncio.get_event_loop().create_task(notify.notify(
+                "pay_amount_mismatch", "付款金額與訂單不符（請核實）",
+                "訂單 %s：訂單金額 %s，金流商通知 %s（已按訂單金額開通）"
+                % (order_id, expected, paid), force=True))
+        except Exception:  # noqa: BLE001
+            pass
 
     # ── 到期日計算（小羅 2026-09-27 定案的規則）────────────────
     #  ① 月會員一次算 31 天
@@ -255,10 +280,22 @@ def handle_webhook(provider: str, raw: bytes, headers: dict) -> dict:
     except Exception as exc:  # noqa: BLE001
         raise BadRequest("無法解析通知內容") from exc
 
-    oid = data.get("order_id") or data.get("OrderNo") or data.get("MerchantOrderNo")
+    oid = (data.get("order_id") or data.get("MerchantOrderNo") or data.get("OrderNo")
+           or data.get("MerchantTradeNo"))
     if not oid:
         raise BadRequest("通知缺少訂單編號")
-    return activate(str(oid))
+    # 金流商交易序號（對帳要跟金流商互相核對用）＋回報金額（核實用）
+    txn = (data.get("TradeNo") or data.get("trade_no") or data.get("TransactionId")
+           or data.get("交易序號") or "")
+    amt = None
+    for k in ("amount", "Amt", "TradeAmt", "Amount", "TotalAmount", "TradeAmount"):
+        if data.get(k) not in (None, ""):
+            try:
+                amt = float(data[k])
+                break
+            except (TypeError, ValueError):
+                continue
+    return activate(str(oid), raw_amount=amt, txn=str(txn))
 
 
 
@@ -356,6 +393,10 @@ def refund_apply(*, order_id: str = "", email: str = "", amount: float | None = 
     o = db.one("SELECT * FROM orders WHERE id=?", (order_id,)) if order_id else None
     member_id = (o["member_id"] if o else "") or ""
     provider = (o["provider"] if o else "") or ""
+    if not email and member_id.startswith("user:"):
+        from . import members
+
+        email = (members.get(member_id[5:]) or {}).get("email") or ""
     if amount is None:
         amount = float(o["amount"]) if o else 0
     amount = round(float(amount or 0), 2)
@@ -391,15 +432,42 @@ def refund_set_status(rid: int, status: str, note: str = "") -> bool:
         if oid:
             db.execute("UPDATE orders SET refund_amount=COALESCE(refund_amount,0)+?"
                        " WHERE id=?", (float(row["amount"] or 0), oid))
-        mid = row["member_id"]
-        if mid:
+        mid = row["member_id"] or ""
+        if mid.startswith("user:"):
             from . import members
 
+            mid = mid[5:]
             m = members.get(mid)
             if m and (m.get("plan") or "free") != "free":
                 members.set_plan(mid, "free", None, amount=-float(row["amount"] or 0),
                                  reason="refund", note="退款 #%s" % rid)
     return True
+
+
+def order_detail(order_id: str) -> dict:
+    """訂單核實（小羅 2026-09-30）：訂單 ↔ 會員 ↔ 金額 ↔ 退款紀錄。
+
+    退款前先用這個交叉比對，才不會「退到別人身上」。
+    """
+    from . import members
+
+    o = db.one("SELECT * FROM orders WHERE id=?", (order_id,))
+    if not o:
+        raise BadRequest("找不到這筆訂單")
+    d = dict(o)
+    mid = d.get("member_id") or ""
+    m = members.get(mid[5:]) if mid.startswith("user:") else None
+    m = m or {}
+    d["member"] = {
+        "id": mid,
+        "email": m.get("email") or "",
+        "nickname": m.get("nickname") or "",
+        "plan": m.get("plan") or "free",
+        "expires_at": m.get("expires_at"),
+    }
+    d["refunds"] = [dict(r) for r in db.query(
+        "SELECT * FROM refunds WHERE order_id=? ORDER BY apply_at DESC", (order_id,))]
+    return d
 
 
 # ══════════════════════════════════════════════════════════════════

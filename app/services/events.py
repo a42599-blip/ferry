@@ -444,8 +444,18 @@ def export_rows(limit: int = 100000) -> list[dict]:
 
 # ── 訂單（後台收益頁用；P6 之前為空）────────────────────
 def orders(limit: int = 200) -> list[dict]:
-    rows = db.query("SELECT * FROM orders ORDER BY created_at DESC LIMIT ?", (limit,))
+    """訂單列表（小羅 2026-09-30：要能交叉比對「哪個會員下的單」）。"""
+    rows = db.query(
+        "SELECT o.*, m.email AS member_email, m.nickname AS member_nick"
+        " FROM orders o LEFT JOIN members m ON m.id = substr(o.member_id, 6)"
+        " ORDER BY o.created_at DESC LIMIT ?", (limit,))
     return [dict(r) for r in rows]
+
+
+def set_order_txn(order_id: str, txn: str) -> None:
+    """記錄金流商的交易序號（以後跟金流商對帳、查這筆付款用）。"""
+    if txn:
+        db.execute("UPDATE orders SET provider_txn=? WHERE id=?", (str(txn)[:100], order_id))
 
 
 def add_order(order_id: str, *, member_id: Optional[str], plan: str, amount: float,

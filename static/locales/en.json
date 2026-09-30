@@ -433,10 +433,7 @@
   "doc_contact_title": "Contact Us",
   "doc_contact_body": "<div class=\"kv\">\n<div class=\"r\"><div class=\"k\">Support email</div><div class=\"v\">a42599@gmail.com</div></div>\n<div class=\"r\"><div class=\"k\">Support phone</div><div class=\"v\">0980-222196</div></div>\n<div class=\"r\"><div class=\"k\">Hours</div><div class=\"v\">Daily 09:00-21:00 (GMT+8)</div></div>\n<div class=\"r\"><div class=\"k\">Business address</div><div class=\"v\">No. 10, Aly. 4, Ln. 371, Xidong Rd., Sanxia Dist., New Taipei City 237, Taiwan</div></div>\n<div class=\"r\"><div class=\"k\">Response time</div><div class=\"v\">Within 1-2 business days</div></div>\n</div>\n<h2>Payments and refunds</h2>\n<p>Membership activates automatically after payment. If activation fails, you were charged twice, or you need a refund, email us with your account email, order number and payment time.</p>\n<h2>Downloads and transfers</h2>\n<p>Please check the Tutorial page first. If a platform cannot be resolved, email us the link and we will look into it.</p>",
   "plans_fx_title": "Exchange rates & fees (international users)",
-  "plans_fx_note": "Want a rough idea first? Check the official converters below (the rate at the moment of payment applies):",
-  "fx_link_mc": "Mastercard official currency converter (what cards actually use)",
-  "fx_link_visa": "Visa official exchange rate calculator (what cards actually use)",
-  "fx_link_xe": "XE currency converter (multilingual)",
+  "plans_fx_note": "Want a rough idea first? Tap the button below to convert (your bank / card network sets the actual rate):",
   "plans_fx_list": [
     [
       "Billing currency",
@@ -458,5 +455,6 @@
       "Why we do not show a fixed rate",
       "Exchange rates change every day and each bank or card network converts at a different moment, so we do not hard-code a number - we only link to the official converters for reference."
     ]
-  ]
+  ],
+  "fx_link_one": "Check exchange rate (XE, multilingual)"
 }

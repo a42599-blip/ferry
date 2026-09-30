@@ -986,6 +986,8 @@ async function pgAds() {
 }
 
 // ── 金流商顯示名稱（對帳表用）────────────────────
+const PLAN_TW = { free: '免費', monthly: '月會員', lifetime: '終身會員' };
+
 const PLAT_LABEL = (p) => ({
   newebpay: '藍新 NewebPay', ecpay: '綠界 ECPay', stripe: 'Stripe',
   payoneer: 'Payoneer', ezpay: 'ezPay 簡單付',
@@ -1035,7 +1037,7 @@ async function pgRevenue() {
   $('#rev-refunds').innerHTML = table([
     { t: '時間', v: (r) => fmtTime(r.apply_at) },
     { t: '訂單', v: (r) => esc(r.order_id || '–') },
-    { t: '帳號／Email', v: (r) => esc(r.email || '–') },
+    { t: '會員（Email／ID）', v: (r) => esc(r.email || r.member_id || '–') },
     { t: '金額', v: (r) => 'NT$ ' + fmtN(r.amount), num: true },
     { t: '平台', v: (r) => esc(PLAT_LABEL(r.provider)) },
     { t: '原因', v: (r) => esc(r.reason || '–') },
@@ -1065,8 +1067,12 @@ async function pgRevenue() {
     { t: '方案', v: 'plan' }, { t: '筆數', v: 'c', num: true }, { t: '金額', v: 'amt', num: true },
   ], s.by_plan, '還沒有付費紀錄');
   $('#rev-orders').innerHTML = table([
-    { t: '訂單', v: 'id' }, { t: '方案', v: 'plan' }, { t: '金額', v: 'amount', num: true },
+    { t: '訂單編號', v: (r) => '<code>' + esc(r.id) + '</code>', html: true },
+    { t: '會員（交叉比對用）', v: (r) => esc(r.member_email || r.member_nick || r.member_id || '–') },
+    { t: '方案', v: (r) => esc(PLAN_TW[r.plan] || r.plan) },
+    { t: '金額', v: (r) => 'NT$ ' + fmtN(r.amount), num: true },
     { t: '平台', v: (r) => esc(PLAT_LABEL(r.provider)) },
+    { t: '金流商交易序號', v: (r) => esc(r.provider_txn || '–') },
     { t: '狀態', v: (r) => esc(r.status === 'paid' ? '已付款' : r.status) },
     { t: '時間', v: (r) => fmtTime(r.created_at) },
   ], d.orders, '還沒有訂單');
@@ -1124,7 +1130,26 @@ async function pgRevenue() {
   $('#rf-go').onclick = async () => {
     const oid = $('#rf-order').value.trim();
     const amt = Number($('#rf-amount').value || 0);
-    if (!oid) return alert('請填訂單編號（或改填 Email 的欄位）');
+    if (!oid) return alert('請填訂單編號（或改填 Email）');
+    // ⚠️ 先「核實」：把這筆訂單的會員、金額、已退款金額顯示出來，確認是本人再登記
+    if (oid.indexOf('@') < 0) {
+      let o;
+      try {
+        const l = await api('/order/lookup?id=' + encodeURIComponent(oid));
+        o = l.order;
+      } catch (e) { return alert('找不到這筆訂單：' + e.message); }
+      const m = o.member || {};
+      const info = [
+        '訂單編號：' + o.id,
+        '會員：' + (m.email || m.id || '–') + '（暱稱 ' + (m.nickname || '–') + '）',
+        '方案：' + (PLAN_TW[o.plan] || o.plan) + '　金額 NT$ ' + fmtN(o.amount),
+        '狀態：' + (o.status === 'paid' ? '已付款' : o.status)
+          + '　已退款 NT$ ' + fmtN(o.refund_amount || 0),
+        '平台：' + PLAT_LABEL(o.provider)
+          + (o.provider_txn ? '　交易序號 ' + o.provider_txn : ''),
+      ].join('\n');
+      if (!confirm('請先核實「這筆是不是這個人的」：\n\n' + info + '\n\n要登記退款申請嗎？')) return;
+    }
     try {
       await api('/refund/apply', { method: 'POST', body: JSON.stringify({
         order_id: oid.indexOf('@') > 0 ? '' : oid,

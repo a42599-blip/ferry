@@ -318,6 +318,8 @@ def _migrate(c: sqlite3.Connection) -> None:
             # 小羅 2026-09-30：對帳要用（哪個平台收的、退了多少）
             "provider": "TEXT",
             "refund_amount": "REAL DEFAULT 0",
+            # 金流商的交易序號（藍新的 TradeNo／商店訂單編號）→ 互相核對用
+            "provider_txn": "TEXT",
         },
         "payouts": {
             "provider": "TEXT",
