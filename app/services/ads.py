@@ -155,6 +155,33 @@ def network_label(code: str) -> str:
 _CODES_KEY = "ads.codes"
 _CODE_MAX = 20000          # 單一廠商代碼最長字元數（一段廣告碼正常 1~2 KB）
 
+#: 第一次啟動時自動放進後台的預設廣告碼（只做一次）。
+#  小羅 2026-09-30：「你現在就要把碼貼進後台讓我看到；我自己改就是改那個框；
+#  空著就表示那個廣告框沒有廣告。」→ **前台不再有內建 fallback**，一切以後台這個框為準。
+DEFAULT_CODES: dict[str, str] = {
+    "adsterra": """<script>
+  atOptions = {
+    'key' : '80edcd5c36fc9b7c0c9700549d9d8e4e',
+    'format' : 'iframe',
+    'height' : 250,
+    'width' : 300,
+    'params' : {}
+  };
+</script>
+<script src="https://www.highrevenueformat.com/80edcd5c36fc9b7c0c9700549d9d8e4e/invoke.js"></script>""",
+}
+
+
+def ensure_seeded() -> None:
+    """第一次啟動把預設廣告碼寫進後台。
+
+    ⚠️ 只用「`ads.codes` 這個 key 不存在」當作「還沒初始化過」的判斷——
+       小羅之後不管是改掉或清空，都不會再被播種回來（清空就是清空）。
+    """
+    if db.get_setting(_CODES_KEY, None) is not None:
+        return
+    db.set_setting(_CODES_KEY, dict(DEFAULT_CODES))
+
 
 def all_codes() -> dict:
     """所有廠商「後台貼的」廣告碼（沒貼的不會出現在裡面）。"""

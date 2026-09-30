@@ -41,6 +41,14 @@ app.add_middleware(
 @app.on_event("startup")
 async def _startup() -> None:
     db.connect()                  # 建表（第一次啟動）
+    # 第一次啟動把預設廣告碼「播種」進後台（小羅 2026-09-30：後台那個框要真的看得到碼；
+    # 之後完全以後台為準 —— 他把框清空就是「沒有廣告」）。
+    try:
+        from .services import ads as _ads
+
+        _ads.ensure_seeded()
+    except Exception:  # noqa: BLE001
+        pass
     # 背景監控（健康檢查、每日摘要）
     try:
         asyncio.create_task(monitor.loop())

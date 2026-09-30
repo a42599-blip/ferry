@@ -83,11 +83,21 @@ async def audit_page(page, lang: str, tab: str) -> list[dict]:
     issues: list[dict] = []
     lang_name, bad_chars = LANG_RULES[lang]
 
-    try:
-        await page.locator(f'#lang button[data-lang="{lang}"]:visible').first.click(timeout=2500)
+    # ⚠️ 語言鈕要「真的切過去」才算數：
+    #   服務工作者接手（sw 換版本）時頁面會自動重整一次 → 點擊會被吃掉、還停在舊語言，
+    #   造成假警報（小羅 2026-09-30 遇到 12 項假的翻譯問題）。→ 點完驗證，沒過就再點一次。
+    for _ in range(3):
+        try:
+            await page.locator(f'#lang button[data-lang="{lang}"]:visible').first.click(timeout=2500)
+            await page.wait_for_timeout(700)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            if await page.evaluate("() => document.documentElement.lang") == lang:
+                break
+        except Exception:  # noqa: BLE001
+            pass
         await page.wait_for_timeout(600)
-    except Exception:  # noqa: BLE001
-        pass
     try:
         await page.locator(f'[data-tab="{tab}"]:visible').first.click(timeout=2500)
         await page.wait_for_timeout(600)

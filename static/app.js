@@ -357,30 +357,11 @@ let _adsOn = false;
 //: 目前已經插進彈窗的廣告商（同一家不重複插；後台切換廠商時才會換掉）
 let _adNet = '';
 
-// ── 廣告碼對照表（key＝後台「廣告商」代號）──────────────────────
-//   小羅 2026-09-29：「多接幾家，將來切換才知道統計跟哪邊對接；
-//   換一家廠商時，不同家的數量不會加在一起。」
-//   ⚠️ 一次只會把「目前上線中」那一家放進彈窗（不會同時載入兩家 → 曝光不混、也不會 ad stacking）。
-//   ⚠️ 要新增一家：①後台廣告頁切換成那家 ②把它的廣告碼貼到下面對應的 key。
-const AD_CODES = {
-  // ⚠️ 這只是「後台沒貼碼」時的內建備援；優先用後台「廣告」頁貼的碼（小羅 2026-09-30）。
-  //    小羅原話：「我要換廣告、或第一次貼碼時，能不能我自己在後台貼上去就聯動過去？」
-  //
-  // Adsterra：Banner 300x250（scefo.com｜Ad Unit 31469246｜曝光計費 CPM）
-  //   2026-09-29 因「假防毒詐騙廣告」先拉掉；2026-09-30 Adsterra 回覆已移除該類廣告，
-  //   小羅決定「先貼回來、觀察幾天」→ 恢復。（若再出現同類廣告 → 截圖回報 Adsterra）
-  adsterra: `
-    <script>
-      atOptions = {
-        'key' : '80edcd5c36fc9b7c0c9700549d9d8e4e',
-        'format' : 'iframe',
-        'height' : 250,
-        'width' : 300,
-        'params' : {}
-      };
-    <\/script>
-    <script src="https://www.highrevenueformat.com/80edcd5c36fc9b7c0c9700549d9d8e4e/invoke.js"><\/script>`,
-};
+// ── 廣告碼（完全以「後台 → 📺 廣告 → 廣告代碼」那個框為準）─────────
+//   小羅 2026-09-30：「那個框要真的看得到碼；我自己改就是改那個框；
+//   **框澄空就是沒有廣告**。」→ 所以前台**不再有內建備援碼**。
+//   ⚠️ 要換一家廠商：後台選那家 → 貼上它自己的碼 → 儲存（**各家的碼各自保留**，不會互蓋）。
+//   ⚠️ 一次只會把「目前上線中」那一家放進彈窗（不 ad stacking）。
 
 /** 把廣告碼（一段 HTML）拆成「依序執行」的步驟：inline 設定 → 外部廣告主程式。
  *  ⚠️ 為何不直接 insertAdjacentHTML？——那樣插進來的 <script> **不會執行**
@@ -395,9 +376,9 @@ function adSteps(html) {
 function applyAdCode(net, raw) {
   const slot = $('#ad-slot');
   if (!slot) return;
-  const steps = adSteps(String(raw || '').trim() || AD_CODES[net] || '');
+  const steps = adSteps(raw);
   if (!steps.length) {
-    // 沒貼碼（或已經把碼拉掉）→ 廣告格整格收起來，彈窗只留說明＋倒數＋繼續（小羅 2026-09-29）
+    // 後台那個框是空的 → 廣告格整格收起來（彈窗只留說明＋倒數＋繼續＝沒有廣告）
     slot.hidden = true;
     return;
   }
