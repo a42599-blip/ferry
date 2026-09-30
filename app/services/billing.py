@@ -24,7 +24,7 @@ import time
 from typing import Any
 
 from ..core import db
-from ..core.errors import AppError, BadRequest
+from ..core.errors import AppError, BadRequest, LoginRequired
 from . import flags
 
 PLAN_FREE = "free"
@@ -122,7 +122,14 @@ def _order_id() -> str:
 
 def create_checkout(subject: str, plan: str, provider: str,
                     *, base_url: str = "") -> dict:
-    """建立付款。尚未設定金流商 → 明確回報缺什麼（不假裝成功）。"""
+    """建立付款。尚未設定金流商 → 明確回報缺什麼（不假裝成功）。
+
+    ⚠️ 小羅 2026-09-30：**必須是已登入會員**才能下單。
+       未登入＝裝置身分（dev:xxx），之後換人／換帳號就可能「A 買卻開給 B」，
+       所以這裡直接擋掉，要求先登入再付款。
+    """
+    if not str(subject or "").startswith("user:"):
+        raise LoginRequired("請先登入會員再付款（付款後會開通到你的帳號）")
     if plan not in PLANS or plan == PLAN_FREE:
         raise BadRequest("方案不正確")
     if provider not in PROVIDERS:
@@ -134,6 +141,11 @@ def create_checkout(subject: str, plan: str, provider: str,
             f"{PROVIDERS[provider]['label']} 尚未設定完成，缺少：{', '.join(missing)}",
             detail="請把金流商金鑰設成 Railway 環境變數後即可收款（程式與訂單流程都已就緒）",
         )
+
+    # 訂單成立時就把「購買人」記下來（之後開通只看這筆訂單，不信任通知帶來的帳號）
+    buyer = db.one("SELECT id, email, status FROM members WHERE id=?", (subject[5:],))
+    if not buyer or (buyer["status"] or "active") == "deleted":
+        raise LoginRequired("找不到這個會員帳號，請重新登入後再付款")
 
     oid = _order_id()
     price = float(plans()[plan]["price"])
@@ -196,6 +208,29 @@ def activate(order_id: str, *, raw_amount: float | None = None, txn: str = "") -
         raise BadRequest("找不到這筆訂單")
     if row["status"] == "paid":
         return {"ok": True, "already": True}
+
+    # ⚠️ 小羅 2026-09-30：開通前再核實一次「這筆訂單要開給誰」
+    #    只認訂單上記錄的 member_id（不信任金流商通知帶來的任何帳號），
+    #    而且該帳號必須存在、不是已註銷 → 才開通（避免開錯帳號／開到空帳號）。
+    buyer = (row["member_id"] or "")
+    if not buyer.startswith("user:"):
+        raise BadRequest("這筆訂單沒有綁定會員帳號，為避免開錯人，請人工確認")
+    bm = db.one("SELECT id, email, status FROM members WHERE id=?", (buyer[5:],))
+    if not bm:
+        from . import notify as _n
+
+        try:
+            import asyncio
+
+            asyncio.get_event_loop().create_task(_n.notify(
+                "pay_no_member", "付款成功但找不到會員帳號（未開通）",
+                "訂單 %s：會員 %s 不存在，已付款但未自動開通，請人工處理"
+                % (order_id, buyer), force=True))
+        except Exception:  # noqa: BLE001
+            pass
+        raise BadRequest("找不到訂單上的會員帳號（未開通，已通知管理員）")
+    if (bm["status"] or "active") == "deleted":
+        raise BadRequest("這筆訂單的帳號已註銷（未開通，已通知管理員）")
 
     plan = row["plan"]
     expected = float(row["amount"])

@@ -45,6 +45,17 @@ class PlatformDisabled(AppError):
     http_status = 403
 
 
+class LoginRequired(AppError):
+    """付款前必須先登入會員（小羅 2026-09-30）。
+
+    為什麼：訂單一定要綁在「明確的會員帳號」上，
+    否則未登入就下單會綁到裝置 → 之後可能把 A 買的開通給 B。
+    """
+
+    code = "LOGIN_REQUIRED"
+    http_status = 401
+
+
 class QuotaExceeded(AppError):
     """免費次數用完。"""
 

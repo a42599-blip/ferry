@@ -7,6 +7,7 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 
 const state = {
   config: null, info: null, selected: null,
+  loggedIn: false, email: '',            // 目前登入的會員（付款核實用）
   tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
   lang: 'zh-Hant', L: {},
 };
@@ -1016,6 +1017,8 @@ async function refreshMember() {
     if (me.logged_in) {
       $('#m-guest').hidden = true; $('#m-info').hidden = false;
       const m = me.member || {};
+      // 記住「現在是誰登入」→ 付款前後都要核實開通對象（小羅 2026-09-30）
+      state.loggedIn = true; state.email = m.email || '';
       const tierName = t('tier_' + (me.tier || 'free'), '');
       $('#m-detail').innerHTML = `
         <div class="r"><div class="k">${t('m_nickname')}</div><div class="v">${esc(me.nickname || t('nickname_unset'))}<button class="linkbtn" id="m-nick-go">${t('nickname_change')}</button></div></div>
@@ -1028,6 +1031,7 @@ async function refreshMember() {
     }
   } catch { /* 未登入 */ }
   renderWho(null);
+  state.loggedIn = false; state.email = '';
   $('#m-guest').hidden = false; $('#m-info').hidden = true;
 }
 
@@ -1252,6 +1256,15 @@ function currentProvider() {
 }
 
 $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
+  // ⚠️ 小羅 2026-09-30：付款前先核實「會開通到哪個帳號」，避免買了卻開給別人
+  if (!state.loggedIn) {
+    msg('#pay-status', t('pay_need_login'), 'err');
+    go('member');
+    return;
+  }
+  const planName = b.dataset.buy === 'lifetime' ? t('plan_lifetime') : t('plan_monthly');
+  if (!confirm(t('pay_confirm_to') + '\n\n' + t('m_email') + '：' + state.email
+               + '\n' + t('plans_title') + '：' + planName)) return;
   try {
     const j = await api('/api/pay/checkout', { method: 'POST', body: JSON.stringify({
       plan: b.dataset.buy, provider: currentProvider() }) });
@@ -1279,7 +1292,17 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   // ⚠️ 一定要在啟動時讀登入狀態（小羅 2026-09-29）
   //    「讓客戶在首頁感覺到他登入了」——之前只有點進「會員」分頁才會更新，
   //    所以重整頁面後身分會變回訪客，看起來像沒登入。
-  refreshMember();
+  await refreshMember();
+  // 付款完成導回（?paid=1）→ 明確告訴他「開通到哪個帳號」（小羅 2026-09-30）
+  if (new URLSearchParams(location.search).get('paid') === '1') {
+    if (state.loggedIn) {
+      msg('#pay-status', t('pay_activated_to') + '：' + state.email, 'ok');
+      msg('#m-msg', t('pay_activated_to') + '：' + state.email, 'ok');
+    } else {
+      msg('#pay-status', t('pay_login_to_check'), 'err');
+    }
+    history.replaceState(null, '', location.pathname);
+  }
   loadAnnouncements();
   loadMyReplies();
   setInterval(pollMyReplies, REPLY_POLL_EVERY);      // 即時輪詢（不用刷新）

@@ -456,5 +456,10 @@
       "Exchange rates change every day and each bank or card network converts at a different moment, so we do not hard-code a number - we only link to the official converters for reference."
     ]
   ],
-  "fx_link_one": "Check exchange rate (XE, multilingual)"
+  "fx_link_one": "Check exchange rate (XE, multilingual)",
+  "err_LOGIN_REQUIRED": "Please sign in first - your purchase is activated on your own account.",
+  "pay_need_login": "Please sign in before paying, so the membership is activated on your own account.",
+  "pay_confirm_to": "Please confirm which account this will be activated on:",
+  "pay_activated_to": "Payment complete - activated on your account",
+  "pay_login_to_check": "Payment complete, but you are not signed in. Sign in and check the Member page."
 }
