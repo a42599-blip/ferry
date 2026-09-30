@@ -334,12 +334,21 @@ let _adsOn = false;
 //   ⚠️ 一次只會把「目前上線中」那一家放進彈窗（不會同時載入兩家 → 曝光不混、也不會 ad stacking）。
 //   ⚠️ 要新增一家：①後台廣告頁切換成那家 ②把它的廣告碼貼到下面對應的 key。
 const AD_CODES = {
-  // ⚠️ 2026-09-29 小羅指示：「這種廣告不能用（假防毒詐騙）→ 先把廣告代碼拉掉，
-  //    但彈窗格式留著：客戶看 15 秒 → 按繼續 → 照樣可以使用，只是框裡沒有廣告。」
-  //    等找到「乾淨的」廣告商（AdSense／Ezoic 之類）再把碼貼回來。
-  //
-  // 要接哪一家，就在下面加一行（key＝後台廣告商代號）：
-  //   adsterra: `…Adsterra 的碼…`,
+  // Adsterra：Banner 300x250（scefo.com｜Ad Unit 31469246｜曝光計費 CPM）
+  //   2026-09-29 因「假防毒詐騙廣告」先拉掉；2026-09-30 Adsterra 回覆已移除該類廣告，
+  //   小羅決定「先貼回來、觀察幾天」→ 恢復。（若再出現同類廣告 → 截圖回報 Adsterra）
+  adsterra: `
+    <script>
+      atOptions = {
+        'key' : '80edcd5c36fc9b7c0c9700549d9d8e4e',
+        'format' : 'iframe',
+        'height' : 250,
+        'width' : 300,
+        'params' : {}
+      };
+    <\/script>
+    <script src="https://www.highrevenueformat.com/80edcd5c36fc9b7c0c9700549d9d8e4e/invoke.js"><\/script>`,
+  // 要再接別家，就在下面加一行（key＝後台廣告商代號）；沒貼碼的廠商＝廣告格自動收起。
   //   hilltopads: `…HilltopAds 的碼…`,
   //   adsense: `…AdSense 的碼…`,
 };
