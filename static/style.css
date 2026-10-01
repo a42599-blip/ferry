@@ -474,12 +474,16 @@ input:focus{outline:none;border-color:var(--acc)}
    · 用 `position:fixed` → 怎麼滑都在同一個位置；
    · app.js 會把「廣告條高度」補成 body 的下內距 → 不會蓋到上方功能頁，也不會擋到紅字。
    ⚠️ 這裡放「Banner／Native Banner」（會顯示在容器裡）；Social Bar 會自己飄到角落，不適合。 */
+/* ⚠️ 比照 v8i8 的做法：把框「鎖死」（max-height ＋ overflow:hidden）——
+   廣告再高也只顯示框內那一塊，**永遠不會蓋到畫面**（2026-10-01 小羅指定）。 */
 .adbottom{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;
-  flex-direction:column;align-items:center;justify-content:center;
-  background:rgba(12,14,17,.94);border-top:1px solid var(--line-soft);
-  padding:3px 0;backdrop-filter:blur(6px)}
+  align-items:center;justify-content:center;gap:6px;
+  background:rgba(12,14,17,.96);border-top:1px solid var(--line-soft);
+  padding:4px 8px;backdrop-filter:blur(8px);
+  min-height:56px;max-height:100px;overflow:hidden !important}
 .adbottom[hidden]{display:none}
 .adbottom iframe,.adbottom img,.adbottom ins,.adbottom video{max-width:100%;display:block}
+@media(min-width:768px){.adbottom{max-height:112px}}
 
 /* ── 版權警語（小羅 2026-09-30：首頁角落一行小紅字，提醒「僅供個人使用」）── */
 .copyright-warn{max-width:1080px;margin:22px auto 10px;padding:0 16px;
