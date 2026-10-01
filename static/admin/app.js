@@ -20,6 +20,7 @@ const FEATURE_LABELS = {
   // 廣告（小羅 2026-09-29：兩個分開的開關，中文名稱一定要有，否則後台會顯示英文代號）
   'feature.ads_guest': '廣告 ── 訪客（每 3 次看一次）',
   'feature.ads_member': '廣告 ── 免費會員（每 5 次看一次）',
+  'feature.ads_bottom': '廣告 ── 底部固定（開＝顯示／關＝隱藏）',
   'feature.free_limit_download': '免費次數限制 ── 無水印下載',
   'feature.free_limit_transfer': '免費次數限制 ── 無損傳輸',
   'feature.maintenance': '全站維護模式',
@@ -993,6 +994,14 @@ async function pgAds() {
     loadAdSlot('popup', '#ad-popup-box', '#ad-popup-state', '#ad-popup-msg');
     loadAdSlot('bottom', '#ad-bottom-box', '#ad-bottom-state', '#ad-bottom-msg');
   }
+
+  // ── 底部固定廣告：獨立開關（小羅 2026-10-02：只負責顯示／不顯示，與彈窗那兩顆分開）──
+  const fl = await api('/flags');
+  const bOn = !!fl.features['feature.ads_bottom'];
+  const bTb = $('#ad-bottom-on');
+  if (bTb) { bTb.classList.toggle('on', bOn); bTb.setAttribute('aria-pressed', bOn); }
+  const bTx = $('#ad-bottom-ontxt');
+  if (bTx) bTx.textContent = bOn ? '目前：顯示（開）' : '目前：不顯示（關）';
 }
 
 // ── 廣告碼編輯（兩個位置各自貼；貼上就聯動前台）──────────────────────
@@ -1030,6 +1039,18 @@ AD_SLOTS.forEach(([slot, name, boxSel, stateSel, msgSel]) => {
     $(boxSel).value = '';
     await saveAdSlot(slot, '', stateSel, msgSel, `已清空${name}`);
   });
+});
+
+// 底部固定廣告的獨立開關（小羅 2026-10-02：只負責「顯示／不顯示」；與彈窗的兩顆開關分開）
+$('#ad-bottom-on')?.addEventListener('click', async () => {
+  const el = $('#ad-bottom-on');
+  const on = !el.classList.contains('on');
+  el.classList.toggle('on', on);
+  el.setAttribute('aria-pressed', on);
+  const tx = $('#ad-bottom-ontxt');
+  if (tx) tx.textContent = on ? '目前：顯示（開）' : '目前：不顯示（關）';
+  await api('/flags', { method: 'PUT', body: JSON.stringify({ features: { 'feature.ads_bottom': on } }) });
+  queue(on ? '已開啟底部固定廣告 —— 前台立即顯示' : '已關閉底部固定廣告 —— 前台立即隱藏');
 });
 
 // ── 金流商顯示名稱（對帳表用）────────────────────

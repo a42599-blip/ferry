@@ -226,9 +226,10 @@ function applyFlags(cfg) {
   //   廣告開關一打開（任一等級要開始看廣告）→ 全站「完全不會有廣告／尚未啟用」那些字**自動消失**；
   //   兩顆都關掉 → 再出現。不只首頁：所有帶 .ads-off-note 的說明都會跟著（用 class 統一控制）。
   //   ⚠️ 將來正式上線（付費網站）時，這段公測說明要改成「付費會員福利」的說法（等小羅決定）。
-  _adsOn = !!(f['feature.ads_guest'] || f['feature.ads_member']);
-  applyAdCode('popup', cfg.ad_codes?.popup);          // 彈窗廣告（後台「彈窗廣告」那格）
-  if (_adsOn) applyBottomAd(cfg.ad_codes?.bottom);    // 底部固定廣告（兩顆開關都關＝不顯示）
+  // 「全站有沒有廣告」的說明文字用（任一廣告開關開著 → 公測「沒有廣告」的說明就收起來）
+  _adsOn = !!(f['feature.ads_guest'] || f['feature.ads_member'] || f['feature.ads_bottom']);
+  applyAdCode('popup', cfg.ad_codes?.popup);          // 彈窗廣告（後台「彈窗廣告」那格；何時彈由 ads_guest／ads_member 決定）
+  if (f['feature.ads_bottom']) applyBottomAd(cfg.ad_codes?.bottom);  // 底部固定廣告（獨立開關，只負責顯示／不顯示；小羅 2026-10-02）
   applyAdsNotes();
 
   if (f['feature.maintenance']) {

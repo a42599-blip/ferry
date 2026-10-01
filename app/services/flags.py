@@ -34,6 +34,7 @@ _DEFAULT_FEATURES: dict[str, bool] = {
     #   月會員／永久會員不需要開關（永遠不看廣告）
     "feature.ads_guest": False,    # 訪客看廣告（每 3 次一次）
     "feature.ads_member": False,   # 免費會員看廣告（每 5 次一次）
+    "feature.ads_bottom": False,   # 底部固定廣告（獨立開關：只負責顯示／不顯示；小羅 2026-10-02）
     # ── 以下為「預留」模組：接口先留好 ──
     "feature.auth": False,         # 會員登入（開發期關閉，畫面預留）
     "feature.billing": False,      # 付費／訂閱（P6 才做，接口先留）

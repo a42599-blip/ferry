@@ -371,6 +371,12 @@
           <p class="note">固定在網站<b>最底部的一條</b>（手機／電腦都會置中），怎麼滑都在同一個位置；會自動留出空間、不擋上方功能頁與下方紅字。
             <br>建議貼 <b>Banner</b> 或 <b>Native Banner</b>（會顯示在這條容器裡）。<b>⚠️ 不要貼 Social Bar</b>——它會自己飄到角落、擋住畫面。
             <br><b>留空或按「清空」＝沒有底部廣告</b>。</p>
+          <div class="inrow" style="margin-top:8px">
+            <span class="lbl" style="margin:0">顯示底部固定廣告</span>
+            <button type="button" class="toggle" id="ad-bottom-on" aria-pressed="false"><span></span></button>
+            <span class="dim" id="ad-bottom-ontxt" style="font-size:11.5px"></span>
+          </div>
+          <p class="note">這個開關<b>只負責顯示／不顯示</b>底部廣告（與上面「彈窗廣告」的兩顆次數開關<b>分開</b>）。發現底部廣告有問題 → 先把這個開關關掉，不用急著刪代碼。</p>
           <textarea id="ad-bottom-box" spellcheck="false"
             style="width:100%;min-height:90px;margin-top:10px;font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.6;background:#0f1113;color:inherit;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:10px"
             placeholder="&lt;script src=&quot;...&quot;&gt;&lt;/script&gt;"></textarea>
@@ -555,6 +561,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=48"></script>
+<script src="/admin/app.js?v=49"></script>
 </body>
 </html>

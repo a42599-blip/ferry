@@ -11,6 +11,9 @@
      · 廣告 ── 訪客（每 3 次看一次）      feature.ads_guest
      · 廣告 ── 免費會員（每 5 次看一次）  feature.ads_member
    月會員／永久會員**沒有開關**（永遠不看廣告）。
+
+⚠️ 另外，**底部固定廣告有「獨立開關」**（小羅 2026-10-02：只負責顯示／不顯示，與上面兩顆分開）：
+     · 廣告 ── 底部固定（開＝顯示／關＝隱藏）  feature.ads_bottom
 """
 from __future__ import annotations
 
