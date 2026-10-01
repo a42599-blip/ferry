@@ -398,12 +398,27 @@ function applyAdCode(slotName, raw) {
   watchAdLoaded();
 }
 
-/** 底部固定廣告（後台「底部固定廣告」那格；空＝不顯示）。 */
+/** 底部固定廣告（後台「底部固定廣告」那格；空＝不顯示）。
+ *  小羅 2026-10-01：要「固定在頁面最底部、不亂飄、不擋畫面」→ 放進 `#ad-bottom` 固定條，
+ *  並把廣告條高度補成 body 的下內距（上面的功能頁與下面的紅字都不會被蓋到）。
+ *  ⚠️ 這裡請貼「Banner／Native Banner」（會顯示在容器裡）；
+ *     Social Bar 會自己飄到角落（擋畫面），不適合放這裡。 */
 function applyBottomAd(raw) {
-  if (_adApplied.has('bottom')) return;
+  const bar = $('#ad-bottom');
+  if (!bar || _adApplied.has('bottom')) return;
   if (!adNodes(raw).length) return;
   _adApplied.add('bottom');
-  injectAdCode(document.body, raw);
+  bar.hidden = false;
+  injectAdCode(bar, raw);
+  // 廣告高度不一定（Banner 50/90、Native 更高）→ 量多少就留多少下內距，絕不擋到內容
+  const fit = () => {
+    const h = Math.ceil(bar.getBoundingClientRect().height);
+    document.body.style.paddingBottom = h ? h + 'px' : '';
+  };
+  fit();
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(bar);
+  setTimeout(fit, 1200);
+  setTimeout(fit, 3000);
 }
 
 /** 廣告有沒有真的進來？進來才把「廣告載入中…」收起來（每 1 秒看一次，最多 10 秒）。 */

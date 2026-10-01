@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v31';  // v31：2026-10-01 廣告分兩個位置（彈窗／底部固定），後台各自貼碼
+const CACHE = 'ferry-img-v32';  // v32：2026-10-01 廣告分兩個位置（彈窗／底部固定），後台各自貼碼
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',
