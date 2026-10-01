@@ -913,8 +913,8 @@ async function loadTrace(dev) {
 // ── 收益 ─────────────────────────────────────────
 // ── 📺 廣告統計（小羅 2026-09-29 指定：後台一定要看到 5 件事＋反向對帳）──
 let d_activeNetwork = '';
-//: 廣告代碼編輯器是否已經初始化過（避免每次 pgAds 都覆蓋使用者正在編輯的內容）
-let _adCodeInit = false;
+//: 廣告碼編輯器是否已經初始化過（避免每次 pgAds 都覆蓋使用者正在編輯的內容）
+let _adSlotInit = false;
 async function pgAds() {
   const sel = $('#ad-net');
   const picked = (sel && sel.value) || '';
@@ -987,51 +987,49 @@ async function pgAds() {
     { t: '看前/後已用', v: (r) => `${r.used_before} → ${r.used_after}` },
   ], d.recent, '還沒有廣告紀錄');
 
-  // ── 廣告代碼（後台自己貼；小羅 2026-09-30）──
-  const csel = $('#ad-code-net');
-  if (csel) {
-    const cur = csel.value || active;
-    csel.innerHTML = (d.networks || []).map(
-      (n) => `<option value="${esc(n.code)}">${esc(n.label)}</option>`).join('');
-    csel.value = _adCodeInit ? cur : active;
-    if (!_adCodeInit) { _adCodeInit = true; loadAdCode(); }
+  // ── 廣告碼：兩個位置各自貼（彈窗 / 底部固定；小羅 2026-10-01）──
+  if (!_adSlotInit) {
+    _adSlotInit = true;
+    loadAdSlot('popup', '#ad-popup-box', '#ad-popup-state', '#ad-popup-msg');
+    loadAdSlot('bottom', '#ad-bottom-box', '#ad-bottom-state', '#ad-bottom-msg');
   }
 }
 
-// ── 廣告代碼編輯（貼上就聯動前台）──────────────────────
-async function loadAdCode() {
-  const sel = $('#ad-code-net');
-  if (!sel || !sel.value) return;
-  const d = await api('/ads/code?network=' + encodeURIComponent(sel.value));
-  $('#ad-code-box').value = d.code || '';
-  $('#ad-code-msg').textContent = '';
-  $('#ad-code-state').textContent = (d.has_code
-    ? '✅ 這一家已貼過（前台目前用這一段）'
-    : '（還沒貼 → 前台用系統內建預設）')
-    + ((d.stored || []).length ? '　已貼過：' + d.stored.join('、') : '');
+// ── 廣告碼編輯（兩個位置各自貼；貼上就聯動前台）──────────────────────
+async function loadAdSlot(slot, boxSel, stateSel, msgSel) {
+  const d = await api('/ads/code?slot=' + encodeURIComponent(slot));
+  $(boxSel).value = d.code || '';
+  $(msgSel).textContent = '';
+  $(stateSel).textContent = d.has_code
+    ? '✅ 這個位置已有碼（前台目前用這一段）'
+    : '（目前沒有碼 → 前台不顯示這個位置的廣告）';
 }
 
-async function saveAdCode(net, code, okMsg) {
-  await api('/ads/code', { method: 'POST', body: JSON.stringify({ network: net, code }) });
-  $('#ad-code-state').textContent = code
-    ? '✅ 這一家已貼過（前台目前用這一段）' : '（還沒貼 → 前台用系統內建預設）';
-  $('#ad-code-msg').textContent = okMsg;
+async function saveAdSlot(slot, code, stateSel, msgSel, okMsg) {
+  await api('/ads/code', { method: 'POST', body: JSON.stringify({ slot, code }) });
+  $(stateSel).textContent = code
+    ? '✅ 這個位置已有碼（前台目前用這一段）'
+    : '（目前沒有碼 → 前台不顯示這個位置的廣告）';
+  $(msgSel).textContent = okMsg;
   queue(okMsg);
 }
 
-$('#ad-code-load')?.addEventListener('click', loadAdCode);
-$('#ad-code-net')?.addEventListener('change', loadAdCode);
-$('#ad-code-save')?.addEventListener('click', async () => {
-  const net = $('#ad-code-net').value;
-  const code = $('#ad-code-box').value.trim();
-  if (!code) { $('#ad-code-msg').textContent = '❌ 代碼是空的（要清掉請按「清空」）'; return; }
-  await saveAdCode(net, code, `已儲存「${net}」的廣告代碼 —— 前台立即生效`);
-});
-$('#ad-code-clear')?.addEventListener('click', async () => {
-  const net = $('#ad-code-net').value;
-  if (!confirm(`清空「${net}」的代碼？\n（前台會改用系統內建預設）`)) return;
-  $('#ad-code-box').value = '';
-  await saveAdCode(net, '', `已清空「${net}」的廣告代碼`);
+// 兩個位置（代號, 中文名, 編輯框, 狀態, 訊息）
+const AD_SLOTS = [
+  ['popup', '彈窗廣告碼', '#ad-popup-box', '#ad-popup-state', '#ad-popup-msg'],
+  ['bottom', '底部廣告碼', '#ad-bottom-box', '#ad-bottom-state', '#ad-bottom-msg'],
+];
+AD_SLOTS.forEach(([slot, name, boxSel, stateSel, msgSel]) => {
+  $(`#ad-${slot}-save`)?.addEventListener('click', async () => {
+    const code = $(boxSel).value.trim();
+    if (!code) { $(msgSel).textContent = '❌ 代碼是空的（要清掉請按「清空」）'; return; }
+    await saveAdSlot(slot, code, stateSel, msgSel, `已儲存${name} —— 前台立即生效`);
+  });
+  $(`#ad-${slot}-clear`)?.addEventListener('click', async () => {
+    if (!confirm(`清空${name}？\n（前台這個位置就沒有廣告）`)) return;
+    $(boxSel).value = '';
+    await saveAdSlot(slot, '', stateSel, msgSel, `已清空${name}`);
+  });
 });
 
 // ── 金流商顯示名稱（對帳表用）────────────────────

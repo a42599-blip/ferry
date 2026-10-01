@@ -183,24 +183,24 @@ async def ads_set_reported(body: dict = Body(...),
 
 
 @router.get("/ads/code")
-async def ads_get_code(network: str = Query(""), _: dict = Depends(require_admin)) -> dict:
-    """某一家「後台貼的」廣告碼（沒帶 network → 目前上線那家）。"""
+async def ads_get_code(slot: str = Query("popup"), _: dict = Depends(require_admin)) -> dict:
+    """某個位置的「後台貼的」廣告碼（popup＝彈窗／bottom＝底部固定）。"""
     from ..services import ads as ads_service
 
-    net = network or ads_service.network_of()
-    codes = ads_service.all_codes()
-    return {"ok": True, "network": net, "code": codes.get(net, ""),
-            "has_code": bool(codes.get(net, "")), "stored": sorted(codes)}
+    slots = ads_service.all_slots()
+    return {"ok": True, "slot": slot, "code": slots.get(slot, ""),
+            "has_code": bool(slots.get(slot, "")),
+            "slots": [{"code": c, "label": lbl} for c, lbl in ads_service.SLOTS]}
 
 
 @router.post("/ads/code")
 async def ads_set_code(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
-    """貼／清掉某一家在後台的廣告碼（小羅 2026-09-30：他自己貼就生效，不用把碼給工程師）。"""
+    """貼／清掉某個位置的廣告碼（小羅 2026-10-01：他自己貼就生效，不用把碼給工程師）。"""
     from ..services import ads as ads_service
 
     try:
-        return {"ok": True, **ads_service.set_code(
-            str((body or {}).get("network") or ""), (body or {}).get("code") or "")}
+        return {"ok": True, **ads_service.set_slot_code(
+            str((body or {}).get("slot") or ""), (body or {}).get("code") or "")}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

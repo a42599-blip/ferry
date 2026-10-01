@@ -117,7 +117,7 @@ _NETWORK_KEY = "ads.network"     # 目前「哪一家上線中」
 #: 目前系統知道、可以切換的廣告商（第一欄＝代號、第二欄＝顯示名）
 #: ⚠️ 小羅 2026-09-29：「多接幾家，將來切換才知道統計跟哪邊對接，不然不同家會混在一起。」
 NETWORKS: tuple[tuple[str, str], ...] = (
-    ("adsterra", "Adsterra（Banner 300x250，曝光計費）"),
+    ("adsterra", "Adsterra（Native Banner／Social Bar）"),
     ("hilltopads", "HilltopAds（Video VAST／Banner）"),
     ("adsense", "Google AdSense（Rewarded／Display）"),
     ("applixir", "AppLixir（網站版獎勵式影片）"),
@@ -148,45 +148,46 @@ def network_label(code: str) -> str:
     return next((label for c, label in NETWORKS if c == code), code or "–")
 
 
-# ── 廣告碼（小羅 2026-09-30：後台自己貼，不用再把碼給工程師）──────────
-#   小羅原話：「我要換廣告、或第一次貼碼的時候，能不能我自己在後台貼上去就聯動過去？」
-#   存法：settings 表的 `ads.codes`（JSON：{廠商代號: 廣告碼字串}）→ **每家各自保留**，
-#         切換廠商不會把別家的碼蓋掉。留空＝清掉該家（前台改用內建預設）。
-_CODES_KEY = "ads.codes"
-_CODE_MAX = 20000          # 單一廠商代碼最長字元數（一段廣告碼正常 1~2 KB）
+# ── 廣告碼（小羅 2026-10-01：分成「兩個位置」，各自在後台貼碼、貼上就生效）──
+#   小羅原話：「彈窗廣告換碼時要跟後台那個模組聯動；底部固定的也要一個模組；
+#             後台要標明『這是底部固定式廣告』『這是 15 秒彈窗（次數補回）廣告』。」
+#   存法：settings 表的 `ads.slots`（JSON：{位置: 廣告碼字串}）→ 兩個位置各存各的。
+_SLOTS_KEY = "ads.slots"
+_CODE_MAX = 20000          # 單一位置代碼最長字元數（一段廣告碼正常 1~2 KB）
+
+#: 系統提供的兩個廣告位置（代號, 後台／前台顯示名）
+SLOTS: tuple[tuple[str, str], ...] = (
+    ("popup", "彈窗廣告（15 秒 / 次數補回）"),
+    ("bottom", "底部固定廣告"),
+)
 
 #: 第一次啟動時自動放進後台的預設廣告碼（只做一次）。
-#  小羅 2026-09-30：「你現在就要把碼貼進後台讓我看到；我自己改就是改那個框；
-#  空著就表示那個廣告框沒有廣告。」→ **前台不再有內建 fallback**，一切以後台這個框為準。
-DEFAULT_CODES: dict[str, str] = {
-    "adsterra": """<script>
-  atOptions = {
-    'key' : '80edcd5c36fc9b7c0c9700549d9d8e4e',
-    'format' : 'iframe',
-    'height' : 250,
-    'width' : 300,
-    'params' : {}
-  };
-</script>
-<script src="https://www.highrevenueformat.com/80edcd5c36fc9b7c0c9700549d9d8e4e/invoke.js"></script>""",
+#  小羅 2026-10-01：Adsterra 新拿到的兩顆碼 —— 彈窗用 Native Banner（45% CPM）、
+#  底部固定用 Social Bar（20% CPM）。
+#  ⚠️ 只用「`ads.slots` 這個 key 不存在」判斷有沒有初始化過 → 之後改掉或清空都不再播種回來。
+DEFAULT_SLOTS: dict[str, str] = {
+    "popup": """<script async="async" data-cfasync="false" src="https://pl31605029.profitableratecpmnetwork.com/a23b19caa0d6c87118a296ca31f3d8dd/invoke.js"></script>
+<div id="container-a23b19caa0d6c87118a296ca31f3d8dd"></div>""",
+    "bottom": """<script src="https://pl31605030.profitableratecpmnetwork.com/b0/93/99/b09399b71fffc11f7730430b070cb93f.js"></script>""",
 }
 
 
 def ensure_seeded() -> None:
-    """第一次啟動把預設廣告碼寫進後台。
+    """第一次啟動把預設廣告碼寫進後台（之後改掉／清空都不會再播種回來）。
 
-    ⚠️ 只用「`ads.codes` 這個 key 不存在」當作「還沒初始化過」的判斷——
-       小羅之後不管是改掉或清空，都不會再被播種回來（清空就是清空）。
+    小羅 2026-10-01：直接播種 Adsterra 新拿到的兩顆碼（彈窗 Native Banner／底部 Social Bar）。
+    舊的 `ads.codes`（每家一個碼、只給彈窗的舊結構）已由 `ads.slots` 取代 → 順手清掉，不留殘骸。
     """
-    if db.get_setting(_CODES_KEY, None) is not None:
-        return
-    db.set_setting(_CODES_KEY, dict(DEFAULT_CODES))
+    if db.get_setting(_SLOTS_KEY, None) is None:
+        db.set_setting(_SLOTS_KEY, dict(DEFAULT_SLOTS))
+    if db.get_setting("ads.codes", None) is not None:
+        db.execute("DELETE FROM settings WHERE key=?", ("ads.codes",))
 
 
-def all_codes() -> dict:
-    """所有廠商「後台貼的」廣告碼（沒貼的不會出現在裡面）。"""
+def all_slots() -> dict:
+    """兩個位置「後台貼的」廣告碼（沒貼的不會出現在裡面）。"""
     try:
-        d = db.get_setting(_CODES_KEY) or {}
+        d = db.get_setting(_SLOTS_KEY) or {}
         if not isinstance(d, dict):
             return {}
         return {str(k): str(v) for k, v in d.items() if str(v or "").strip()}
@@ -194,24 +195,19 @@ def all_codes() -> dict:
         return {}
 
 
-def code_of(net: str = "") -> str:
-    """這一家在後台貼的廣告碼（沒貼 → 空字串，前台改用內建預設）。"""
-    return all_codes().get(net or network_of(), "")
-
-
-def set_code(net: str, code: str) -> dict:
-    """儲存（或清掉）某一家在後台貼的廣告碼。"""
-    if net not in [c for c, _ in NETWORKS]:
-        raise ValueError("不認識的廣告商代號")
-    codes = all_codes()
+def set_slot_code(slot: str, code: str) -> dict:
+    """儲存（或清掉）某個位置的廣告碼。"""
+    if slot not in [c for c, _ in SLOTS]:
+        raise ValueError("不認識的廣告位置")
+    slots = all_slots()
     code = str(code or "").strip()[:_CODE_MAX]
     if code:
-        codes[net] = code
+        slots[slot] = code
     else:
-        codes.pop(net, None)
-    db.set_setting(_CODES_KEY, codes)
-    return {"network": net, "code": codes.get(net, ""),
-            "has_code": bool(codes.get(net, "")), "stored": sorted(codes)}
+        slots.pop(slot, None)
+    db.set_setting(_SLOTS_KEY, slots)
+    return {"slot": slot, "code": slots.get(slot, ""),
+            "has_code": bool(slots.get(slot, "")), "stored": sorted(slots)}
 
 
 def platform_of(ua: str) -> str:

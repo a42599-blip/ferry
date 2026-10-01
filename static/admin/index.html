@@ -343,35 +343,42 @@
         <!-- 廣告商切換（小羅 2026-09-29：多接幾家，切換時統計才不會混在一起） -->
         <div class="pnl">
           <div class="lbl">廣告商（目前上線中／切換）</div>
-          <p class="note">只有「上線中」那一家會出現在彈窗；<b>統計與對帳都按家分開</b>，
-            所以換廠商時不會把兩家的數字加在一起。
-            <br>要換一家：①在這裡切換 ②把那一家的廣告碼貼進 <code>static/app.js</code> 的 <code>AD_CODES</code>（貼一次就好）。</p>
+          <p class="note">這是<b>統計與對帳</b>用：各家的數字分開算，切換時不會把兩家的量加在一起。
+            <br>廣告碼請貼在下面對應的<b>位置</b>（彈窗／底部固定）。</p>
           <div class="inrow">
             <select id="ad-net"></select>
             <button class="big sm" id="ad-net-go">切換成這一家</button>
           </div>
           <div class="scroll" id="ad-bynet" style="margin-top:10px"></div>
         </div>
-        <!-- 廣告代碼（小羅 2026-09-30：後台自己貼就聯動，不用再把碼給工程師）-->
+        <!-- 廣告碼：分「兩個位置」各自貼（小羅 2026-10-01：彈窗 Native Banner／底部 Social Bar）-->
         <div class="pnl">
-          <div class="lbl">廣告代碼（貼上就生效｜每家各自保留）</div>
-          <p class="note">把廣告商後台複製的<b>整段代碼</b>貼進框裡 → 按「儲存這段代碼」，
-            前台「<b>目前上線中</b>」那一家就會用這段碼（重新整理就看到）。
-            <br>每家廠商的代碼<b>各存各的</b>，換來換去、切換廠商都不會互相蓋掉；
-            <b>留空或按「清空」</b>＝改用系統內建預設。</p>
-          <div class="inrow">
-            <select id="ad-code-net"></select>
-            <button class="big sm gh" id="ad-code-load">載入這家的代碼</button>
-            <span class="dim" id="ad-code-state" style="font-size:11.5px"></span>
-          </div>
-          <textarea id="ad-code-box" spellcheck="false"
-            style="width:100%;min-height:150px;margin-top:10px;font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.6;background:#0f1113;color:inherit;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:10px"
-            placeholder="&lt;script&gt;atOptions = { ... };&lt;/script&gt;&#10;&lt;script src=&quot;...&quot;&gt;&lt;/script&gt;"></textarea>
+          <div class="lbl">🎬 彈窗廣告（15 秒 / 次數補回）</div>
+          <p class="note">客人免費用完次數 → 彈窗看 15 秒廣告換次數時，彈窗裡顯示的就是這段碼（建議用 <b>Native Banner</b>）。
+            <br><b>留空或按「清空」＝這個位置沒有廣告</b>（彈窗只留倒數＋繼續，仍可繼續使用）。</p>
+          <textarea id="ad-popup-box" spellcheck="false"
+            style="width:100%;min-height:120px;margin-top:10px;font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.6;background:#0f1113;color:inherit;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:10px"
+            placeholder="&lt;script src=&quot;...&quot;&gt;&lt;/script&gt;&#10;&lt;div id=&quot;container-...&quot;&gt;&lt;/div&gt;"></textarea>
           <div class="inrow" style="margin-top:8px">
-            <button class="big sm" id="ad-code-save">儲存這段代碼</button>
-            <button class="gh sm" id="ad-code-clear">清空（改用內建預設）</button>
+            <button class="big sm" id="ad-popup-save">儲存彈窗廣告碼</button>
+            <button class="gh sm" id="ad-popup-clear">清空（此位置沒有廣告）</button>
+            <span class="dim" id="ad-popup-state" style="font-size:11.5px"></span>
           </div>
-          <div class="dim" id="ad-code-msg" style="font-size:11.5px"></div>
+          <div class="dim" id="ad-popup-msg" style="font-size:11.5px"></div>
+        </div>
+        <div class="pnl">
+          <div class="lbl">📌 底部固定廣告</div>
+          <p class="note">顯示在網站頁面（角落／底部）的固定廣告，<b>客人在頁面上就會看到、不必點擊也有曝光收益</b>（建議用 <b>Social Bar</b>）。
+            <br><b>留空或按「清空」＝沒有底部廣告</b>。</p>
+          <textarea id="ad-bottom-box" spellcheck="false"
+            style="width:100%;min-height:90px;margin-top:10px;font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.6;background:#0f1113;color:inherit;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:10px"
+            placeholder="&lt;script src=&quot;...&quot;&gt;&lt;/script&gt;"></textarea>
+          <div class="inrow" style="margin-top:8px">
+            <button class="big sm" id="ad-bottom-save">儲存底部廣告碼</button>
+            <button class="gh sm" id="ad-bottom-clear">清空（沒有底部廣告）</button>
+            <span class="dim" id="ad-bottom-state" style="font-size:11.5px"></span>
+          </div>
+          <div class="dim" id="ad-bottom-msg" style="font-size:11.5px"></div>
         </div>
         <div class="rows">
           <div class="pnl grow2"><div class="lbl">每日趨勢（次數）</div><div class="chart" id="ad-chart"></div></div>
@@ -547,6 +554,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=47"></script>
+<script src="/admin/app.js?v=48"></script>
 </body>
 </html>

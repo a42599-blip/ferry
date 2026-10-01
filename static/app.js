@@ -227,7 +227,8 @@ function applyFlags(cfg) {
   //   兩顆都關掉 → 再出現。不只首頁：所有帶 .ads-off-note 的說明都會跟著（用 class 統一控制）。
   //   ⚠️ 將來正式上線（付費網站）時，這段公測說明要改成「付費會員福利」的說法（等小羅決定）。
   _adsOn = !!(f['feature.ads_guest'] || f['feature.ads_member']);
-  applyAdCode(cfg.ads_network || 'adsterra', cfg.ad_code);   // 優先用後台貼的碼
+  applyAdCode('popup', cfg.ad_codes?.popup);          // 彈窗廣告（後台「彈窗廣告」那格）
+  if (_adsOn) applyBottomAd(cfg.ad_codes?.bottom);    // 底部固定廣告（兩顆開關都關＝不顯示）
   applyAdsNotes();
 
   if (f['feature.maintenance']) {
@@ -354,44 +355,55 @@ function apiError(j, status) {
 //   ⚠️ 因為有些說明是「後來才動態產生」（例如方案頁）→ 一定要在每次換頁／渲染後**重套一次**。
 //   ⚠️ 將來正式上線（付費網站）時，這段公測說明要改成「付費會員福利」的說法（等小羅決定）。
 let _adsOn = false;
-//: 目前已經插進彈窗的廣告商（同一家不重複插；後台切換廠商時才會換掉）
-let _adNet = '';
+//: 已經套用過的廣告位置（同一個位置不重複插）
+const _adApplied = new Set();
 
-// ── 廣告碼（完全以「後台 → 📺 廣告 → 廣告代碼」那個框為準）─────────
-//   小羅 2026-09-30：「那個框要真的看得到碼；我自己改就是改那個框；
-//   **框澄空就是沒有廣告**。」→ 所以前台**不再有內建備援碼**。
-//   ⚠️ 要換一家廠商：後台選那家 → 貼上它自己的碼 → 儲存（**各家的碼各自保留**，不會互蓋）。
-//   ⚠️ 一次只會把「目前上線中」那一家放進彈窗（不 ad stacking）。
+// ── 廣告碼（完全以「後台 → 📺 廣告」的那兩個框為準）─────────
+//   小羅 2026-10-01：分兩個位置 —— `popup`（15 秒彈窗／次數補回）、`bottom`（頁面底部固定）。
+//   ⚠️ 框空著＝那個位置沒有廣告。
+//   ⚠️ 一次只放「後台貼的那一段」（不做 ad stacking，避免封號）。
 
-/** 把廣告碼（一段 HTML）拆成「依序執行」的步驟：inline 設定 → 外部廣告主程式。
- *  ⚠️ 為何不直接 insertAdjacentHTML？——那樣插進來的 <script> **不會執行**
- *     （小羅 2026-09-30 回報「開了開關但框是空的」就是這個原因）。 */
-function adSteps(html) {
+/** 把一段廣告碼解析成節點序列（script 與 div／img 都要，缺一顆都會壞）。
+ *  ⚠️ DOMParser 會把單獨的 <script> 放進 <head>（不是 <body>）→ 兩邊都要收，
+ *     否則只有 script 的碼（如 Social Bar）會被當成空的（2026-10-01 實測踩到）。 */
+function adNodes(html) {
   const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
-  return [...doc.querySelectorAll('script')].map((s) => (
-    s.getAttribute('src') ? { src: s.getAttribute('src') } : { text: s.textContent || '' }
-  )).filter((s) => s.src || s.text.trim());
+  return [...doc.querySelectorAll('head > *, body > *')];
 }
 
-function applyAdCode(net, raw) {
-  const slot = $('#ad-slot');
-  if (!slot) return;
-  const steps = adSteps(raw);
-  if (!steps.length) {
-    // 後台那個框是空的 → 廣告格整格收起來（彈窗只留說明＋倒數＋繼續＝沒有廣告）
-    slot.hidden = true;
-    return;
-  }
-  if (_adNet === net && slot.querySelector('script')) return;  // 同一家不重複插
-  _adNet = net;
-  slot.hidden = false;
-  // ⚠️ 必須是「真的 script 元素」才會執行；插完後廣告商自己會把 iframe／ins 放進來
-  steps.forEach((s) => {
-    const el = document.createElement('script');
-    if (s.src) { el.src = s.src; el.async = true; } else { el.textContent = s.text; }
-    slot.appendChild(el);
+/** 把廣告碼放進某個容器（script 依序執行；div 等原樣插入）。
+ *  ⚠️ 不能只用 insertAdjacentHTML —— 插進來的 <script> 不會執行（小羅 2026-09-30 的空框真因）。
+ *  ⚠️ Native Banner 需要它自己的 <div id="container-…"> 容器，所以非 script 的節點也要一起放。 */
+function injectAdCode(container, html) {
+  adNodes(html).forEach((n) => {
+    let el;
+    if (n.tagName === 'SCRIPT') {
+      el = document.createElement('script');
+      if (n.getAttribute('src')) { el.src = n.getAttribute('src'); el.async = true; }
+      else { el.textContent = n.textContent || ''; }
+    } else {
+      el = n.cloneNode(true);
+    }
+    container.appendChild(el);
   });
+}
+
+function applyAdCode(slotName, raw) {
+  const slot = $('#ad-slot');
+  if (!slot || _adApplied.has(slotName)) return;
+  if (!adNodes(raw).length) { slot.hidden = true; return; }  // 後台那個框空著 → 收起來
+  _adApplied.add(slotName);
+  slot.hidden = false;
+  injectAdCode(slot, raw);
   watchAdLoaded();
+}
+
+/** 底部固定廣告（後台「底部固定廣告」那格；空＝不顯示）。 */
+function applyBottomAd(raw) {
+  if (_adApplied.has('bottom')) return;
+  if (!adNodes(raw).length) return;
+  _adApplied.add('bottom');
+  injectAdCode(document.body, raw);
 }
 
 /** 廣告有沒有真的進來？進來才把「廣告載入中…」收起來（每 1 秒看一次，最多 10 秒）。 */

@@ -73,9 +73,8 @@
          倒數與按鈕都在它「下面」（獨立一列）→ 永遠不會蓋到廣告。 -->
     <div class="adslot" id="ad-slot">
       <div class="adph" id="ad-ph" data-i18n="ads_loading">廣告載入中…</div>
-      <!-- ── 廣告碼由 app.js 依「後台目前上線的廣告商」動態放進來（app.js 的 AD_CODES）
-           ⚠️ 這樣切換廣告商時，只會載入那一家 → 不同家的曝光不會混在一起（小羅 2026-09-29 要求）
-           ⚠️ 一個彈窗只放一個廣告單元（不做 ad stacking，避免封號）。 -->
+      <!-- ── 廣告碼由 app.js 從後台「📺 廣告 → 彈窗廣告」那一格動態放進來（app.js 的 applyAdCode）
+           ⚠️ 一次只放一段廣告碼（不做 ad stacking，避免封號）。 -->
     </div>
     <div class="ad-left" id="ad-left"></div>
     <button class="big sm" id="ads-continue" data-i18n="ads_continue">繼續使用</button>
@@ -475,7 +474,7 @@
 
 <script src="/sha256.js?v=27"></script>
 <script src="/save.js?v=28"></script>
-<script src="/app.js?v=50"></script>
+<script src="/app.js?v=51"></script>
 <script src="/transfer.js?v=33"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）
