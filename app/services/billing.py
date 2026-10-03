@@ -100,9 +100,15 @@ def _paypal_token() -> str:
     return r.json()["access_token"]
 
 
-def paypal_create_order(order_id: str, amount: float) -> dict:
-    """建立 PayPal 訂單（回傳 PayPal 的 order id，前端 SDK 用它開彈窗）。"""
+def paypal_create_order(order_id: str, amount: float, *, return_url: str = "",
+                        cancel_url: str = "") -> dict:
+    """建立 PayPal 訂單（回傳 PayPal order 物件；前端用 links 的 approve 開付款頁）。"""
     token = _paypal_token()
+    app_ctx: dict[str, str] = {"user_action": "PAY_NOW", "shipping_preference": "NO_SHIPPING"}
+    if return_url:
+        app_ctx["return_url"] = return_url
+    if cancel_url:
+        app_ctx["cancel_url"] = cancel_url
     r = httpx.post(
         _paypal_base() + "/v2/checkout/orders",
         headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
@@ -112,10 +118,18 @@ def paypal_create_order(order_id: str, amount: float) -> dict:
                 "reference_id": order_id,
                 "amount": {"currency_code": "TWD", "value": f"{float(amount):.2f}"},
             }],
+            "application_context": app_ctx,
         }, timeout=25)
     if r.status_code >= 400:
         raise BadRequest("PayPal 建立訂單失敗：" + r.text[:200])
     return r.json()
+
+
+def _paypal_approve_url(po: dict) -> str:
+    for lk in (po.get("links") or []):
+        if lk.get("rel") in ("approve", "payer-action"):
+            return lk.get("href", "")
+    return ""
 
 
 def paypal_capture(paypal_order_id: str) -> dict:
@@ -131,24 +145,29 @@ def paypal_capture(paypal_order_id: str) -> dict:
 
 
 def capture_paypal(order_id: str, paypal_order_id: str) -> dict:
-    """前端彈窗付款完成後呼叫：**向 PayPal 確認真的收到錢，才開通**。
+    """付款完成後呼叫：**向 PayPal 確認真的收到錢，才開通**。
 
     ⚠️ 小羅 2026-10-03：付款失敗／未完成 → 不開通。
+    order_id 可留空（由 PayPal 回傳的 reference_id 反查我們的訂單）。
     """
-    if not order_id or not paypal_order_id:
-        raise BadRequest("缺少訂單資訊")
+    if not paypal_order_id:
+        raise BadRequest("缺少 PayPal 訂單資訊")
+    cap = paypal_capture(paypal_order_id)
+    if (cap.get("status") or "").upper() != "COMPLETED":
+        raise BadRequest("PayPal 付款未完成（狀態：%s）" % (cap.get("status") or "unknown"))
+    pu = (cap.get("purchase_units") or [{}])[0]
+    if not order_id:
+        order_id = pu.get("reference_id") or ""
+    if not order_id:
+        raise BadRequest("PayPal 回傳資料缺少訂單編號")
     row = db.one("SELECT * FROM orders WHERE id=?", (order_id,))
     if row is None:
         raise BadRequest("找不到這筆訂單")
     if row["status"] == "paid":
-        return {"ok": True, "already": True}
-    cap = paypal_capture(paypal_order_id)
-    if (cap.get("status") or "").upper() != "COMPLETED":
-        raise BadRequest("PayPal 付款未完成（狀態：%s）" % (cap.get("status") or "unknown"))
+        return {"ok": True, "already": True, "order_id": order_id}
     amt: float | None = None
     txn = ""
     try:
-        pu = (cap.get("purchase_units") or [{}])[0]
         c0 = ((pu.get("payments") or {}).get("captures") or [{}])[0]
         amt = float(((c0.get("amount") or {}).get("value")) or 0) or None
         txn = c0.get("id", "") or ""
@@ -269,11 +288,14 @@ def create_checkout(subject: str, plan: str, provider: str,
                      currency="TWD", status="pending", note=f"provider={provider}",
                      provider=provider)
     if provider == "paypal":
-        po = paypal_create_order(oid, price)
+        po = paypal_create_order(oid, price,
+                                 return_url=f"{base_url}/api/pay/paypal/return",
+                                 cancel_url=f"{base_url}/?pay=cancel")
         return {"ok": True, "order_id": oid, "provider": "paypal",
                 "paypal_order_id": po.get("id", ""),
+                "approve_url": _paypal_approve_url(po),
                 "checkout_url": f"{base_url}/api/pay/checkout/{oid}",
-                "note": "PayPal：由前端 JS SDK 開彈窗付款（付款成功才開通）"}
+                "note": "PayPal：開啟付款頁；付款成功才開通"}
     if provider == "stripe":
         return {"ok": True, "order_id": oid, "provider": provider,
                 "checkout_url": f"{base_url}/api/pay/checkout/{oid}",

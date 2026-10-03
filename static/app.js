@@ -1333,57 +1333,32 @@ function currentProvider() {
   return on ? on.dataset.pay : ($('#pay-ways')?.querySelector('[data-pay]')?.dataset.pay || 'ecpay');
 }
 
-// ── PayPal：站內彈窗付款（不跳外網；付款成功才開通）─────────
-//   小羅 2026-10-03：① 彈窗必做 ② 付款失敗不開通 ③ 全掛在 feature.billing 開關下
-let __ppOrderId = '';
-function loadPayPalSdk(clientId) {
-  return new Promise((resolve, reject) => {
-    if (window.paypal) { resolve(window.paypal); return; }
-    const s = document.createElement('script');
-    s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(clientId)
-          + '&currency=TWD&intent=capture&components=buttons';
-    s.onload = () => resolve(window.paypal);
-    s.onerror = () => reject(new Error('PayPal SDK load failed'));
-    document.head.appendChild(s);
-  });
-}
-
+// ── PayPal：點「訂閱」→ 開 PayPal 付款頁（彈窗，不離開本站）───────
+//   小羅 2026-10-03：① 直接進付款頁（可選信用卡）② 付款成功才開通
+//   ③ 金額由後端訂單決定（月 88／終身 988）
 async function openPayPal(plan) {
-  const box = $('#paypal-buttons');
-  if (!box) return;
-  let cfg;
-  try { cfg = await api('/api/pay/providers'); } catch { return; }
-  const cid = cfg.paypal_client_id || '';
-  if (!cid) { msg('#pay-status', t('pay_not_ready'), 'err'); return; }
-  msg('#pay-status', t('pay_loading'), 'ok');
   try {
-    const pp = await loadPayPalSdk(cid);
-    box.hidden = false;
-    box.innerHTML = '';
-    pp.Buttons({
-      style: { layout: 'vertical', shape: 'rect', label: 'paypal', height: 44 },
-      createOrder: async () => {
-        const j = await api('/api/pay/checkout', { method: 'POST', body: JSON.stringify({
-          plan, provider: 'paypal' }) });
-        __ppOrderId = j.order_id;
-        return j.paypal_order_id;
-      },
-      onApprove: async (data) => {
-        try {
-          const j = await api('/api/pay/paypal/capture', { method: 'POST', body: JSON.stringify({
-            order_id: __ppOrderId, paypal_order_id: data.orderID }) });
-          if (j && j.ok) {
-            msg('#pay-status', t('pay_activated_to'), 'ok');
-            box.hidden = true;
-            loadMe();
-          } else {
-            msg('#pay-status', t('pay_failed'), 'err');
-          }
-        } catch (e) { msg('#pay-status', e.message, 'err'); }
-      },
-      onError: () => { msg('#pay-status', t('pay_failed'), 'err'); },
-      onCancel: () => { msg('#pay-status', t('pay_cancel'), 'err'); }
-    }).render('#paypal-buttons');
+    const j = await api('/api/pay/checkout', { method: 'POST', body: JSON.stringify({
+      plan, provider: 'paypal' }) });
+    const url = j.approve_url || j.checkout_url || '';
+    if (!url) { msg('#pay-status', t('pay_not_ready'), 'err'); return; }
+    msg('#pay-status', t('pay_loading'), 'ok');
+    const w = window.open(url, 'paypal_checkout', 'width=540,height=760');
+    if (!w) { window.location.href = url; return; }
+    // 付款完成後 PayPal 會導回本站（後端確認收款才開通）→ 這裡輪詢確認
+    const t0 = Date.now();
+    const timer = setInterval(async () => {
+      if (Date.now() - t0 > 10 * 60 * 1000) { clearInterval(timer); return; }
+      try {
+        const me = await api('/api/member/me');
+        if (me && me.member && me.member.plan && me.member.plan !== 'free') {
+          clearInterval(timer);
+          msg('#pay-status', t('pay_activated_to'), 'ok');
+          try { w.close(); } catch (e) { /* 忽略 */ }
+          loadMe();
+        }
+      } catch (e) { /* 繼續等 */ }
+    }, 3000);
   } catch (e) {
     msg('#pay-status', e.message, 'err');
   }

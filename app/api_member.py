@@ -8,6 +8,7 @@ from __future__ import annotations
 import time
 
 from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi.responses import RedirectResponse
 
 from .core.errors import BadRequest
 from .services import auth, billing, members, notify
@@ -302,6 +303,16 @@ async def checkout(request: Request, body: dict = Body(...)) -> dict:
     provider = body.get("provider", "ecpay")
     base = str(request.base_url).rstrip("/")
     return {"ok": True, **billing.create_checkout(subject, plan, provider, base_url=base)}
+
+
+@router.get("/api/pay/paypal/return")
+async def paypal_return(token: str = "", order_id: str = "") -> RedirectResponse:
+    """PayPal 付款完成後導回本站；後端在此向 PayPal 確認收款，確認才開通。"""
+    try:
+        billing.capture_paypal(order_id, token)
+        return RedirectResponse(url="/?pay=ok", status_code=302)
+    except Exception:  # noqa: BLE001
+        return RedirectResponse(url="/?pay=fail", status_code=302)
 
 
 @router.post("/api/pay/paypal/capture")

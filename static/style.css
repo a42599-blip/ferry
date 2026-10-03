@@ -289,6 +289,18 @@ input:focus{outline:none;border-color:var(--acc)}
 .paybox{margin-top:18px;border-top:1px solid var(--line-soft);padding-top:14px}
 .paybox .lbl2{font-size:12.5px;color:var(--dim);margin-bottom:9px}
 .payways{display:flex;gap:8px;flex-wrap:wrap}
+/* 付款方式圖標（純顯示、不需連結）：同一排、統一高度 30px */
+.payicons{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.payic{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 11px;
+  flex:0 0 auto;white-space:nowrap;
+  border-radius:6px;font-size:12.5px;font-weight:700;letter-spacing:.3px;line-height:1;
+  background:#fff;color:#1b2430;border:1px solid var(--line-soft)}
+.payic.pp{background:#003087;color:#fff;border-color:#003087}
+.payic.visa{background:#1a1f71;color:#fff;border-color:#1a1f71;font-style:italic}
+.payic.mc{background:#111;color:#fff;border-color:#111}
+.payic.jcb{background:#0e4c96;color:#fff;border-color:#0e4c96}
+.payic.up{background:#e21836;color:#fff;border-color:#e21836}
+.payic.cvs,.payic.atm{background:transparent;color:var(--dim)}
 .payway{padding:9px 14px;border:1px solid var(--line-soft);border-radius:9px;background:transparent;
   color:var(--text);font-size:13px;cursor:pointer;transition:.2s}
 .payway:hover{border-color:var(--acc)}
