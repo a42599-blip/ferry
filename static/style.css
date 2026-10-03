@@ -519,8 +519,14 @@ input:focus{outline:none;border-color:var(--acc)}
 .paypick{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:18px;z-index:1100}
 .paypick-card{background:#171b22;border:1px solid #2a313d;border-radius:16px;padding:20px;max-width:360px;width:100%}
 .paypick-card h3{margin:0 0 14px;font-size:17px;text-align:center}
-.paypickbtn{width:100%;padding:14px;margin-bottom:10px;border:1px solid #2a313d;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;background:#1e242e;color:#eef2f7}
-.paypickbtn:hover{background:#252c38}
+.paypickbtn{width:100%;padding:12px;margin-bottom:10px;border:1px solid #d7dde6;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;background:#fff;color:#111;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 8px;min-height:58px}
+.paypickbtn:hover{background:#f2f5f9}
+.paypickbtn[disabled]{opacity:.45;cursor:not-allowed}
+.paypick-logo{display:flex;align-items:center;justify-content:center;gap:6px}
+.paypick-logo svg{height:32px;width:auto;display:block}
+.paypick-logo .pico{height:32px;width:auto}
+.paypick-tag{font-size:12px;font-weight:400;color:#6b7280;white-space:nowrap}
+.paypickbtn .dim{font-size:12px;white-space:nowrap}
 .paypickcancel{width:100%;padding:12px;border:0;border-radius:10px;font-size:15px;cursor:pointer;background:transparent;color:#8b95a3}
 
 /* 其他渠道徽章（品牌色；讓它們看起來像圖標而不是純文字）*/

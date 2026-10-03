@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v33';  // v33：2026-10-02 底部固定廣告獨立開關（feature.ads_bottom）
+const CACHE = 'ferry-img-v34';  // v34：2026-10-03 付款彈窗圖案按鈕＋匯率小彈窗
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

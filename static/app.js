@@ -1333,6 +1333,20 @@ async function loadPayWays() {
   if (ways) ways.innerHTML = '';
 }
 
+// 平台圖案（小羅 2026-10-03：按鈕要有平台圖案，不要只有文字）
+//   直接重用「付款圖標列」(#pay-icons) 的官方 SVG，避免重複定義（零廢碼）
+function providerLogo(pid) {
+  const box = $('#pay-icons');
+  const svg = (ch) => {
+    const el = box && box.querySelector('.payic[data-ch="' + ch + '"] svg');
+    return el ? el.outerHTML : '';
+  };
+  if (pid === 'paypal') return svg('paypal');
+  if (pid === 'stripe') return svg('visa') + svg('mastercard') + svg('jcb') + svg('amex');
+  if (pid === 'newebpay') return svg('visa') + svg('mastercard') + svg('jcb') + svg('unionpay');
+  return '';
+}
+
 // 第一層彈窗：選擇付款平台（小羅 2026-10-03 指定）
 async function chooseProvider() {
   const list = Object.entries(payProviders);
@@ -1343,8 +1357,9 @@ async function chooseProvider() {
     el.className = 'paypick';
     el.innerHTML = '<div class="paypick-card"><h3>' + esc(t('pay_choose')) + '</h3>'
       + list.map(([pid, v]) => '<button type="button" class="paypickbtn" data-p="' + esc(pid) + '"'
-          + (v.ready ? '' : ' disabled') + '>' + esc(v.label)
-          + (v.ready ? '' : ' <span class="dim">' + esc(t('pay_preparing_short')) + '</span>') + '</button>').join('')
+          + (v.ready ? '' : ' disabled') + '><span class="paypick-logo">' + providerLogo(pid) + '</span>'
+          + '<span class="paypick-tag">' + esc(t('pay_prov_' + pid)) + '</span>'
+          + (v.ready ? '' : '<span class="dim">' + esc(t('pay_preparing_short')) + '</span>') + '</button>').join('')
       + '<button type="button" class="paypickcancel">' + esc(t('pay_cancel_btn')) + '</button></div>';
     document.body.appendChild(el);
     el.addEventListener('click', (e) => {
@@ -1404,6 +1419,15 @@ async function openPayPal(plan) {
     msg('#pay-status', e.message, 'err');
   }
 }
+
+// ── 匯率換算：改開「小彈窗」（小羅 2026-10-03）──
+//   xe.com 不允許被嵌入（X-Frame-Options: DENY）→ 用 480x700 小視窗，不整頁跳走
+const fxLink = $('#fx-open');
+if (fxLink) fxLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  const w = window.open(fxLink.href, 'fx_rate', 'width=480,height=700,noopener');
+  if (!w) window.location.href = fxLink.href;   // 被瀏覽器擋 → 才整頁開
+});
 
 $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   // ⚠️ 小羅 2026-09-30：付款前先核實「會開通到哪個帳號」，避免買了卻開給別人

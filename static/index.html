@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=55">
+<link rel="stylesheet" href="/style.css?v=57">
 <style>
 /* ⚠️ 手機導覽的「關鍵樣式」內嵌在這裡（小羅 2026-09-27）。
    原因：他的手機卡在舊的 style.css 快取（舊版 .tabs 是 display:none），
@@ -355,7 +355,7 @@
       <div class="kv" id="plans-fx-list"></div>
       <p class="note" data-i18n="plans_fx_note">想先知道大概多少？可到下列官方匯率換算器查（以刷卡當下匯率為準）：</p>
       <div class="fx-links">
-        <a href="https://www.xe.com/currencyconverter/convert/?Amount=100&From=TWD&To=USD" target="_blank" rel="noopener" data-i18n="fx_link_one">查匯率（開新視窗）</a>
+        <a href="https://www.xe.com/currencyconverter/convert/?Amount=100&From=TWD&To=USD" id="fx-open" rel="noopener" data-i18n="fx_link_one">查匯率換算（XE・多國語言）</a>
       </div>
       <h2 class="sec" data-i18n="plans_refund_title">怎麼退款</h2>
       <div class="kv" id="plans-refund-list"></div>
@@ -513,7 +513,7 @@
 
 <script src="/sha256.js?v=27"></script>
 <script src="/save.js?v=28"></script>
-<script src="/app.js?v=59"></script>
+<script src="/app.js?v=60"></script>
 <script src="/transfer.js?v=33"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）
