@@ -194,7 +194,8 @@ async def forgot_password(request: Request, body: dict = Body(...)) -> dict:
                 "我們已經寄出重設信，請去收信（也看一下垃圾信匣）。重設連結 30 分鐘內有效。")
     if not r:
         return {"ok": True, "message": same_msg}
-    base = str(request.base_url).rstrip("/")
+    # 小羅 2026-10-04：Railway 在 Cloudflare 後面會偵測成 http → 一律用 https
+    base = str(request.base_url).rstrip("/").replace("http://", "https://")
     link = f"{base}/?reset={r['token']}"
     text = ("你好，\n\n"
             "我們收到你在「轉運站」的重設密碼申請。\n"
@@ -323,7 +324,8 @@ async def checkout(request: Request, body: dict = Body(...)) -> dict:
     subject = auth.current_subject(request)
     plan = body.get("plan", "")
     provider = body.get("provider", "ecpay")
-    base = str(request.base_url).rstrip("/")
+    # 小羅 2026-10-04：Railway 在 Cloudflare 後面會偵測成 http → 一律用 https
+    base = str(request.base_url).rstrip("/").replace("http://", "https://")
     return {"ok": True, **billing.create_checkout(subject, plan, provider, base_url=base)}
 
 
