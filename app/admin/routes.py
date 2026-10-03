@@ -702,6 +702,25 @@ async def test_mail(body: dict = Body(default={}), _: dict = Depends(require_adm
     return {"ok": r.get("ok"), "info": r.get("note"), "to": r.get("to")}
 
 
+@router.get("/diag/find")
+async def diag_find(nickname: str = Query(""), email: str = Query(""),
+                    _: dict = Depends(require_admin)) -> dict:
+    """臨時診斷：忘記帳號／忘記密碼為何查不到（小羅 2026-10-04，查完會移除）。"""
+    from ..services import members
+
+    out: dict[str, Any] = {
+        "total": db.scalar("SELECT COUNT(*) FROM members"),
+        "cols": [r["name"] for r in db.query("PRAGMA table_info(members)")],
+    }
+    if nickname:
+        out["find"] = members.find_account(nickname)
+    if email:
+        out["reset"] = bool(members.create_reset(email))
+        row = db.one("SELECT id, email, COALESCE(status,'') AS st FROM members WHERE email=?", (email,))
+        out["row"] = dict(row) if row else None
+    return out
+
+
 @router.post("/system/totp")
 async def totp(action: str = Query(..., pattern="^(enable|disable|info)$"),
                 _: dict = Depends(require_admin)) -> dict:

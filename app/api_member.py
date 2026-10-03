@@ -230,7 +230,7 @@ async def find_account(body: dict = Body(...)) -> dict:
 
     nk = str(body.get("nickname") or "").strip()
     if len(nk) < 1:
-        raise BadRequest("請至少輸入 2 個字的暱稱")
+        raise BadRequest("請輸入你的暱稱")
 
     same = ("如果這個暱稱有對應的帳號，我們已經把「你的登入帳號」"
             "寄到那個 Email 了，請去收信（也看一下垃圾信匣）。")
