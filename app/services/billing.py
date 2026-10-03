@@ -80,6 +80,27 @@ PROVIDERS = {
     "paypal": {"label": "PayPal", "env": ["PAYPAL_CLIENT_ID", "PAYPAL_SECRET"]},
 }
 
+#: 各付款平台對應的「開關」（小羅 2026-10-03：可只開某一家）
+PROVIDER_FLAGS = {
+    "paypal": "feature.pay_paypal",
+    "stripe": "feature.pay_stripe",
+    "newebpay": "feature.pay_newebpay",
+    "ecpay": "feature.pay_newebpay",
+}
+
+#: 各平台「支援的付款渠道」（前台圖標聯動用；多平台取聯集並去重）
+#   2026-10-03 查證：
+#   · PayPal：PayPal 餘額、信用卡（Visa/MC/JCB，部分地區含銀聯）
+#   · Stripe（台灣）：Visa / Mastercard / JCB / AmEx / 中國銀聯
+#   · 藍新：信用卡（Visa/MC/JCB）・銀聯卡・ATM・超商代碼/條碼・Apple Pay / Google Pay / Samsung Pay / 台灣Pay
+PROVIDER_CHANNELS = {
+    "paypal": ["paypal"],
+    "stripe": ["visa", "mastercard", "jcb", "amex", "unionpay"],
+    "newebpay": ["visa", "mastercard", "jcb", "unionpay", "cvs", "atm",
+                 "applepay", "googlepay", "taiwanpay"],
+    "ecpay": ["visa", "mastercard", "jcb", "cvs", "atm", "applepay"],
+}
+
 #: PayPal REST 端點（沙箱測試可設 PAYPAL_API_BASE=https://api-m.sandbox.paypal.com）
 def _paypal_base() -> str:
     return os.getenv("PAYPAL_API_BASE", "https://api-m.paypal.com").rstrip("/")
@@ -213,11 +234,18 @@ def set_price(plan: str, price: float) -> None:
 
 
 def available_providers() -> dict[str, dict]:
+    """可用金流商（含「開關」與「支援的付款渠道」給前台用）。
+
+    小羅 2026-10-03：三個平台可**分開開關**；關掉就不出現在前台、圖標也跟著消失。
+    """
     out = {}
     for pid, meta in PROVIDERS.items():
+        flag = PROVIDER_FLAGS.get(pid)
+        on = flags.feature_enabled(flag) if flag else True
         have = all(os.getenv(k) for k in meta["env"])
-        out[pid] = {"label": meta["label"], "ready": have,
-                    "missing": [k for k in meta["env"] if not os.getenv(k)]}
+        out[pid] = {"label": meta["label"], "ready": bool(have and on),
+                    "enabled": on, "missing": [k for k in meta["env"] if not os.getenv(k)],
+                    "channels": PROVIDER_CHANNELS.get(pid, [])}
     return out
 
 

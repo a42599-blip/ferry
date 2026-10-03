@@ -38,6 +38,10 @@ _DEFAULT_FEATURES: dict[str, bool] = {
     # ── 以下為「預留」模組：接口先留好 ──
     "feature.auth": False,         # 會員登入（開發期關閉，畫面預留）
     "feature.billing": False,      # 付費／訂閱（P6 才做，接口先留）
+    # 付款平台開關（小羅 2026-10-03：**分開三個**，可只開某一家）
+    "feature.pay_paypal": True,      # PayPal
+    "feature.pay_stripe": False,     # 站內刷卡（Stripe，等申請）
+    "feature.pay_newebpay": False,   # 藍新（等核准）
 }
 
 #: 平台預設關閉（全部預設開啟）

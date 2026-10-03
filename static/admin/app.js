@@ -26,6 +26,9 @@ const FEATURE_LABELS = {
   'feature.maintenance': '全站維護模式',
   'feature.auth': '會員登入（預留）',
   'feature.billing': '付費／訂閱',
+  'feature.pay_paypal': '付款 ── PayPal',
+  'feature.pay_stripe': '付款 ── 站內刷卡（Stripe）',
+  'feature.pay_newebpay': '付款 ── 藍新 NewebPay',
 };
 const SEV = { critical: '嚴重', warn: '警告', info: '一般' };
 const KIND = { page_view: '進站', resolve: '解析', download: '下載',

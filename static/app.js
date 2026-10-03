@@ -1303,35 +1303,57 @@ async function loadPlans() {
   renderPayStatus();
   } catch { /* 忽略 */ }
 }
-// ── 付款方式（預留模塊；金流商設好金鑰就會自動出現）──────
-//   支援兩種呈現：
-//     ① 線上刷卡／導頁付款（checkout_url）
-//     ② QR code（有些金流商回傳 qr_code / qr_url，當場掃碼付款）
-const PAY_ICON = { ecpay: '🟢', newebpay: '🔵', stripe: '💳', paypal: '🅿️' };
+// ── 付款資訊（小羅 2026-10-03：這區只是「說明支援哪些渠道」，不可點、無連結）──
+//   圖標依「開啟的平台」聯動：
+//     PayPal 開 → 顯示 PayPal；Stripe 開 → 顯示 VISA/MC/JCB；
+//     藍新開 → 顯示 VISA/MC/JCB/銀聯/超商/ATM/Apple Pay
+let payProviders = {};   // 目前開啟且可用的平台
 
 async function loadPayWays() {
-  const box = $('#pay-ways');
-  if (!box) return;
+  const box = $('#pay-icons');
   let cfg;
   try { cfg = await api('/api/pay/providers'); } catch { return; }
-  const ready = Object.entries(cfg.providers || {}).filter(([, v]) => v.ready);
-  if (!ready.length) {
-    box.innerHTML = `<div class="note" style="margin:0"><b>${t('pay_beta')}<span class="ads-off-note" data-i18n="pay_beta_ads">、也完全不會有廣告</span></b><br>`
-      + `${t('pay_not_ready')}</div>`;
-    applyAdsNotes();                     // 這段是動態產生的 → 產生完馬上套（不然開關打開時它不會消失）
-    return;
+  const prov = cfg.providers || {};
+  payProviders = {};
+  const seen = [];
+  Object.entries(prov).forEach(([pid, v]) => {
+    if (!v.ready) return;
+    payProviders[pid] = v;
+    (v.channels || []).forEach((c) => { if (!seen.includes(c)) seen.push(c); });
+  });
+  // 沒開任何平台 → 不顯示圖標（只顯示公測說明）
+  if (box) {
+    $$('#pay-icons .payic').forEach((el) => {
+      el.hidden = !seen.includes(el.dataset.ch);
+    });
+    box.hidden = seen.length === 0;
   }
-  box.innerHTML = ready.map(([id, v]) =>
-    `<button class="payway" data-pay="${id}">${PAY_ICON[id] || '💳'} ${esc(v.label)}</button>`).join('');
-  box.querySelectorAll('[data-pay]').forEach((b) => b.addEventListener('click', () => {
-    box.querySelectorAll('[data-pay]').forEach((x) => x.classList.toggle('on', x === b));
-  }));
+  // 付款方式按鈕區（pay-ways）改為純文字提示，不再直接給連結
+  const ways = $('#pay-ways');
+  if (ways) ways.innerHTML = '';
 }
 
-function currentProvider() {
-  const on = $('#pay-ways')?.querySelector('[data-pay].on');
-  return on ? on.dataset.pay : ($('#pay-ways')?.querySelector('[data-pay]')?.dataset.pay || 'ecpay');
+// 第一層彈窗：選擇付款平台（小羅 2026-10-03 指定）
+async function chooseProvider() {
+  const list = Object.entries(payProviders);
+  if (!list.length) return '';
+  if (list.length === 1) return list[0][0];   // 只有一家 → 不用選
+  return new Promise((resolve) => {
+    const el = document.createElement('div');
+    el.className = 'paypick';
+    el.innerHTML = '<div class="paypick-card"><h3>' + esc(t('pay_choose')) + '</h3>'
+      + list.map(([pid, v]) => '<button type="button" class="paypickbtn" data-p="' + esc(pid) + '">'
+          + esc(v.label) + '</button>').join('')
+      + '<button type="button" class="paypickcancel">' + esc(t('pay_cancel_btn')) + '</button></div>';
+    document.body.appendChild(el);
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-p]');
+      if (b) { el.remove(); resolve(b.dataset.p); return; }
+      if (e.target.classList.contains('paypickcancel') || e.target === el) { el.remove(); resolve(''); }
+    });
+  });
 }
+
 
 // ── 付款成功提示（可關閉；手機／電腦都對應）───────────────
 function showPaySuccess() {
@@ -1393,8 +1415,9 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   if (!confirm(t('pay_confirm_to') + '\n\n' + t('m_email') + '：' + state.email
                + '\n' + t('plans_title') + '：' + planName)) return;
   try {
-    const provider = currentProvider();
-    // ⓪ PayPal → 站內彈窗（不跳外網）
+    const provider = await chooseProvider();
+    if (!provider) return;                                  // 使用者取消
+    // ⓪ PayPal → 付款頁（電腦彈窗；手機另開網頁）
     if (provider === 'paypal') { await openPayPal(b.dataset.buy); return; }
     const j = await api('/api/pay/checkout', { method: 'POST', body: JSON.stringify({
       plan: b.dataset.buy, provider }) });

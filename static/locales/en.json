@@ -286,6 +286,8 @@
   "pay_ok_title": "You are now a member!",
   "pay_ok_desc": "Payment complete — your membership is active.",
   "pay_ok_btn": "Got it",
+  "pay_choose": "Choose a payment method",
+  "pay_cancel_btn": "Cancel",
   "pay_method": "Payment method",
   "pay_beta": "Free during public beta",
   "pay_not_ready": "Payments are being set up. Card / QR code options will appear here.",
