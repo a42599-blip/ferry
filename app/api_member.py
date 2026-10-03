@@ -330,8 +330,10 @@ button{{width:100%;padding:13px;border:0;border-radius:10px;font-size:16px;font-
  background:linear-gradient(90deg,#7b5cff,#2f80ff);color:#fff}}
 </style></head><body><div class="card">
 <div style="font-size:44px">{emoji}</div><h1>{title}</h1><p>{desc_html}</p>
-<button onclick="try{{window.close()}}catch(e){{}}">關閉視窗</button>
+<button onclick="goHome()">回到轉運站主頁</button>
+<div style="margin-top:10px;font-size:12.5px;color:#8b95a3">回到主頁後會自動更新為會員狀態</div>
 </div><script>
+function goHome(){{try{{if(window.opener&&!window.opener.closed){{window.opener.location.href="/?pay=ok";window.opener.location.reload();}}}}catch(e){{}}try{{window.close()}}catch(e){{location.href="/";}}}}
 setTimeout(function(){{try{{window.close()}}catch(e){{}}}}, {3000 if ok else 10000});
 </script></body></html>"""
     return HTMLResponse(content=html)
