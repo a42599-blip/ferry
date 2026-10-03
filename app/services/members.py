@@ -422,7 +422,7 @@ def expiring_soon(days: int = 7) -> list[dict]:
     now = time.time()
     rows = db.query(
         "SELECT * FROM members WHERE plan<>'free' AND expires_at IS NOT NULL"
-        " AND expires_at>? AND expires_at<=? AND COALESCE(status,'active')='active'"
+        " AND expires_at>? AND expires_at<=? AND COALESCE(status,'') <> 'deleted'"
         " ORDER BY expires_at", (now, now + days * 86400))
     out = []
     for r in rows:
@@ -436,7 +436,7 @@ def already_expired() -> list[dict]:
     """已過期但方案還是付費的會員（要降回免費）。"""
     return [dict(r) for r in db.query(
         "SELECT * FROM members WHERE plan<>'free' AND expires_at IS NOT NULL"
-        " AND expires_at<=? AND COALESCE(status,'active')='active'", (time.time(),))]
+        " AND expires_at<=? AND COALESCE(status,'') <> 'deleted'", (time.time(),))]
 
 
 def emails(only: str = "all") -> list[str]:
@@ -805,6 +805,13 @@ def set_nickname(member_id: str, nickname: str) -> dict | None:
     """
     name = re.sub(r"[\x00-\x1f<>]", "", (nickname or "")).strip()
     name = re.sub(r"\s+", " ", name)[:NICKNAME_MAX]
+    if name:
+        cur = db.one("SELECT nickname FROM members WHERE id=?", (member_id,))
+        if not cur or (cur["nickname"] or "") != name:
+            dup = db.one("SELECT id FROM members WHERE nickname=? AND id<>?"
+                         " AND COALESCE(status,'') <> 'deleted'", (name, member_id))
+            if dup:
+                raise ValueError("這個昵稱已經有人用了，請換一個")
     db.execute("UPDATE members SET nickname=? WHERE id=?", (name or None, member_id))
     return get(member_id)
 
@@ -852,7 +859,7 @@ def create_reset(email: str) -> dict | None:
     if "@" not in email:
         return None
     row = db.one("SELECT id, email FROM members WHERE email=?"
-                 " AND COALESCE(status,'active')='active'", (email,))
+                 " AND COALESCE(status,'') <> 'deleted'", (email,))
     if not row:
         return None
     token = secrets.token_urlsafe(24)

@@ -151,7 +151,10 @@ async def set_nickname(request: Request, body: dict = Body(...)) -> dict:
         raise BadRequest("請先登入會員")
     from .services import members
 
-    m = members.set_nickname(mid, str(body.get("nickname") or ""))
+    try:
+        m = members.set_nickname(mid, str(body.get("nickname") or ""))
+    except ValueError as exc:
+        raise BadRequest(str(exc))
     return {"ok": True, "nickname": (m or {}).get("nickname") or "", "member": m}
 
 

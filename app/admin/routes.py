@@ -569,7 +569,10 @@ async def set_member_nickname(member_id: str, body: dict = Body(...),
     """後台幫會員改／清暱稱（小羅 2026-09-29：會員資料要有暱稱）。"""
     from ..services import members
 
-    m = members.set_nickname(member_id, str(body.get("nickname") or ""))
+    try:
+        m = members.set_nickname(member_id, str(body.get("nickname") or ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     if not m:
         raise HTTPException(status_code=404, detail="找不到這個會員")
     return {"ok": True, "member": m}
