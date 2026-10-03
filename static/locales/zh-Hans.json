@@ -118,8 +118,6 @@
   "btn_subscribe": "订阅",
   "plan_per_month": "/月",
   "plan_early": "早鸟・原价 NT$1,980・限 200 名",
-  "pay_preparing": "收费功能准备中：程序与订单流程都已完成，等支付渠道密钥配置后即可收款。",
-  "pay_ready": "支付已配置完成，可以开始收款。",
   "member_title": "会员",
   "member_lede": "登录后免费次数绑定账号（换设备也保留）；免费会员每 5 次看一次广告，月／永久会员不看广告。",
   "member_email": "Email",

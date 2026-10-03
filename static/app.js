@@ -58,8 +58,6 @@ function applyLang() {
   renderPlatforms(state.config?.platforms, state.config?.enabled_platform_count);
   renderQuota(state.quota);
   renderHistory();
-  // ⚠️ 動態訊息不會被 data-i18n 涵蓋 → 語言切換時必須重新產生
-  renderPayStatus();
   $('.msg:not([hidden])') && clearTransient();
   if (state.info) renderResult(state.info);
   renderWho(state.me);          // 身分顯示（訪客／暱稱）也要跟著換語言
@@ -1155,7 +1153,7 @@ $('#m-pw-save').addEventListener('click', async () => {
 //          這個忘記密碼也要真實有效…忘記密碼跟忘記帳號都要。」
 const showForgot = (on) => {
   $('#m-forgot').hidden = !on;
-  if (on) { $('#m-findacc').hidden = true; $('#m-forgot-email').focus(); }
+  if (on) { $('#m-findacc').hidden = true; $('#m-forgot-email').focus(); setupPasswordEyes(); }
 };
 const showFindAcc = (on) => {
   $('#m-findacc').hidden = !on;
@@ -1283,11 +1281,6 @@ $('#rp-send').addEventListener('click', async () => {
 });
 
 // ── 方案 ─────────────────────────────────────────
-let payReady = null;      // null=尚未載入；語言切換時要靠它重繪
-function renderPayStatus() {
-  if (payReady === null) return;
-  msg('#pay-status', payReady ? t('pay_ready') : t('pay_preparing'));
-}
 function clearTransient() {
   // 一次性的提示訊息（解析中、登入成功…）在換語言時直接清掉，避免殘留舊語言
   ['#status', '#m-msg', '#rp-status'].forEach((sel) => msg(sel, ''));
@@ -1299,8 +1292,6 @@ async function loadPlans() {
       const el = document.querySelector(`[data-price="${id}"]`);
       if (el) el.textContent = p.price;
     });
-    payReady = Object.values(j.providers || {}).filter((p) => p.ready).length > 0;
-  renderPayStatus();
   } catch { /* 忽略 */ }
 }
 // ── 付款資訊（小羅 2026-10-03：這區只是「說明支援哪些渠道」，不可點、無連結）──
@@ -1419,6 +1410,26 @@ async function openPayPal(plan) {
     msg('#pay-status', e.message, 'err');
   }
 }
+
+// ── 密碼欄小眼睛（小羅 2026-10-03：要看得出自己打了什麼）──
+function setupPasswordEyes() {
+  $$('input[type="password"]').forEach((inp) => {
+    if (inp.dataset.eye) return;
+    inp.dataset.eye = '1';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pweye';
+    btn.setAttribute('aria-label', '顯示密碼');
+    btn.textContent = '👁';
+    inp.parentNode.appendChild(btn);
+    btn.addEventListener('click', () => {
+      const show = inp.type === 'password';
+      inp.type = show ? 'text' : 'password';
+      btn.textContent = show ? '🙈' : '👁';
+    });
+  });
+}
+setupPasswordEyes();
 
 // ── 匯率換算：改開「小彈窗」（小羅 2026-10-03）──
 //   xe.com 不允許被嵌入（X-Frame-Options: DENY）→ 用 480x700 小視窗，不整頁跳走

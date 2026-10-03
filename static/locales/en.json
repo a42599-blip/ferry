@@ -118,8 +118,6 @@
   "btn_subscribe": "Subscribe",
   "plan_per_month": "/mo",
   "plan_early": "Early bird · was NT$1,980 · limited to 200",
-  "pay_preparing": "Payments aren't live yet — the checkout flow is ready and goes live once the payment gateway is connected.",
-  "pay_ready": "Payment gateway connected. You can start charging.",
   "member_title": "Account",
   "member_lede": "Sign in to keep your free quota on your account; free members see an ad every 5 uses, monthly/lifetime never see ads.",
   "member_email": "Email",

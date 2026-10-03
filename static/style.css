@@ -64,6 +64,12 @@ h1{font-size:22px;font-weight:500;line-height:1.5;margin-top:16px}
 .inbar{margin-top:14px;display:flex;border:1px solid var(--inp);background:transparent}
 .inbar input{flex:1;min-width:0;padding:13px;font-size:13.5px;background:none;border:0;outline:0}
 .inbar input::placeholder{color:var(--lab)}
+/* 密碼小眼睛（小羅 2026-10-03）*/
+.pweye{background:transparent;border:0;color:#8b95a3;font-size:16px;cursor:pointer;padding:0 12px;line-height:1;min-height:44px}
+.pweye:hover{color:#eef2f7}
+/* 付款方式下方的匯率快查（小羅 2026-10-03）*/
+.payfx{margin-top:12px;text-align:center}
+.payfx a{color:var(--acc);font-size:13.5px;text-decoration:underline}
 .inbar .go{background:var(--acc);color:var(--ink);font-size:14px;font-weight:500;padding:0 18px;
   display:grid;place-items:center;white-space:nowrap}
 .inbar .go:disabled{opacity:.5}
@@ -487,13 +493,7 @@ input:focus{outline:none;border-color:var(--acc)}
 .doc .docback{display:inline-block;margin-top:26px;font-size:13.5px;opacity:.85}
 .doc .kv{margin-top:4px}
 
-/* 匯率查詢（小羅 2026-09-30：要一眼看出「點下去就是查匯率」，所以做成藍色按鈕）*/
-.fx-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
-.fx-links a{display:inline-block;padding:10px 16px;border-radius:10px;font-size:13.5px;
-  font-weight:500;text-decoration:none;color:#fff;background:#1f6feb;
-  box-shadow:0 1px 0 rgba(0,0,0,.2)}
-.fx-links a:hover{background:#3079f3}
-.fx-links a::after{content:' ↗';font-size:12px;opacity:.85}
+/* 匯率查詢：改到付款方式下方（小羅 2026-10-03）*/
 
 /* ── 底部固定廣告（小羅 2026-10-01）：固定在視窗最底部、置中 ──
    · 用 `position:fixed` → 怎麼滑都在同一個位置；
