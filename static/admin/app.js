@@ -29,6 +29,7 @@ const FEATURE_LABELS = {
   'feature.pay_paypal': '付款 ── PayPal',
   'feature.pay_stripe': '付款 ── 站內刷卡（Stripe）',
   'feature.pay_newebpay': '付款 ── 藍新 NewebPay',
+  'feature.pay_ecpay': '付款 ── 綠界 ECPay（目前不用）',
 };
 const SEV = { critical: '嚴重', warn: '警告', info: '一般' };
 const KIND = { page_view: '進站', resolve: '解析', download: '下載',

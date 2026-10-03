@@ -85,7 +85,7 @@ PROVIDER_FLAGS = {
     "paypal": "feature.pay_paypal",
     "stripe": "feature.pay_stripe",
     "newebpay": "feature.pay_newebpay",
-    "ecpay": "feature.pay_newebpay",
+    "ecpay": "feature.pay_ecpay",   # 绿界（目前不用，給它獨立開關免跟藍新連動）
 }
 
 #: 各平台「支援的付款渠道」（前台圖標聯動用；多平台取聯集並去重）

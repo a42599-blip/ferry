@@ -42,6 +42,7 @@ _DEFAULT_FEATURES: dict[str, bool] = {
     "feature.pay_paypal": True,      # PayPal
     "feature.pay_stripe": False,     # 站內刷卡（Stripe，等申請）
     "feature.pay_newebpay": False,   # 藍新（等核准）
+    "feature.pay_ecpay": False,      # 綠界（目前不用）
 }
 
 #: 平台預設關閉（全部預設開啟）
