@@ -291,10 +291,13 @@ input:focus{outline:none;border-color:var(--acc)}
 .payways{display:flex;gap:8px;flex-wrap:wrap}
 /* 付款方式圖標（純顯示、不需連結）：同一排、統一高度 30px */
 .payicons{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-.payic{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 11px;
+.payic{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 10px;
   flex:0 0 auto;white-space:nowrap;
   border-radius:6px;font-size:12.5px;font-weight:700;letter-spacing:.3px;line-height:1;
   background:#fff;color:#1b2430;border:1px solid var(--line-soft)}
+.payic .pico.up{width:28px;height:18px}
+.payic .pemoji{font-size:15px;margin-right:4px;line-height:1}
+.payic .pico{width:18px;height:18px;margin-right:5px;flex:0 0 auto}
 .payic.pp{background:#003087;color:#fff;border-color:#003087}
 .payic.visa{background:#1a1f71;color:#fff;border-color:#1a1f71;font-style:italic}
 .payic.mc{background:#111;color:#fff;border-color:#111}
