@@ -284,6 +284,29 @@ async def delete_me(request: Request) -> dict:
 
 
 # ── 付款 ─────────────────────────────────────────────
+_FX_KEEP = ("USD", "CNY", "HKD", "JPY", "KRW", "SGD", "MYR", "EUR", "GBP",
+            "AUD", "CAD", "THB", "VND", "PHP")
+
+
+@router.get("/api/fx")
+async def fx_rates() -> dict:
+    """台幣對常用幣別的即時匯率（免費來源；只給站內換算小視窗用，不轉跳外部）。"""
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=6) as c:
+            r = await c.get("https://open.er-api.com/v6/latest/TWD")
+            d = r.json()
+        rates = d.get("rates") or {}
+        picked = {k: rates[k] for k in _FX_KEEP if k in rates}
+        if not picked:
+            raise ValueError("empty rates")
+        return {"ok": True, "base": "TWD",
+                "updated": d.get("time_last_update_utc", ""), "rates": picked}
+    except Exception:
+        raise HTTPException(status_code=503, detail="匯率服務暫時無法使用")
+
+
 @router.get("/api/pay/providers")
 async def pay_providers() -> dict:
     """前台付款方式（金流商設好環境變數才會 ready）。

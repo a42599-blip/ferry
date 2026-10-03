@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=59">
+<link rel="stylesheet" href="/style.css?v=60">
 <style>
 /* ⚠️ 手機導覽的「關鍵樣式」內嵌在這裡（小羅 2026-09-27）。
    原因：他的手機卡在舊的 style.css 快取（舊版 .tabs 是 display:none），
@@ -344,7 +344,7 @@
       <div class="offbox" id="pay-off" hidden><span data-i18n="billing_off">目前為公測期間，暫不收費，所有功能都可以免費使用</span><span class="ads-off-note" data-i18n="billing_off_ads">，也不會出現任何廣告。</span></div>
       <div class="msg" id="pay-status" hidden></div>
       <!-- ── 匯率快查（小羅 2026-10-03：移到付款方式下方，太下面沒人看到）── -->
-      <div class="payfx"><a href="https://www.xe.com/currencyconverter/convert/?Amount=100&From=TWD&To=USD" id="fx-open" rel="noopener" data-i18n="fx_link_one">查匯率換算（XE・多國語言）</a></div>
+      <div class="payfx"><a href="https://www.xe.com/currencyconverter/convert/?Amount=100&From=TWD&To=USD" id="fx-open" rel="noopener" data-i18n="fx_link_one">查匯率換算</a></div>
       <div id="payok"></div>
 
       <!-- ── 怎麼付款／怎麼退款（小羅 2026-09-30：金流商審核會看，客戶也一次看懂）── -->
@@ -512,7 +512,7 @@
 
 <script src="/sha256.js?v=27"></script>
 <script src="/save.js?v=28"></script>
-<script src="/app.js?v=63"></script>
+<script src="/app.js?v=64"></script>
 <script src="/transfer.js?v=33"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）

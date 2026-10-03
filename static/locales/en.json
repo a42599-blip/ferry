@@ -470,7 +470,12 @@
       "Exchange rates change every day and each bank or card network converts at a different moment, so we do not hard-code a number - we only link to the official converters for reference."
     ]
   ],
-  "fx_link_one": "Check exchange rate (XE, multilingual)",
+  "fx_link_one": "Check exchange rate",
+  "fx_title": "Currency converter",
+  "fx_close": "Close",
+  "fx_loading": "Loading…",
+  "fx_fail": "Exchange rates are unavailable right now. Please try again later.",
+  "fx_note_sub": "Live rate estimate — the actual rate is set by your card issuer at checkout.",
   "err_LOGIN_REQUIRED": "Please sign in first - your purchase is activated on your own account.",
   "pay_need_login": "Please sign in before paying, so the membership is activated on your own account.",
   "pay_confirm_to": "Please confirm which account this will be activated on:",

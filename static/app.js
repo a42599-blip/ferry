@@ -1431,14 +1431,33 @@ function setupPasswordEyes() {
 }
 setupPasswordEyes();
 
-// ── 匯率換算：改開「小彈窗」（小羅 2026-10-03）──
-//   xe.com 不允許被嵌入（X-Frame-Options: DENY）→ 用 480x700 小視窗，不整頁跳走
+// ── 匯率換算：站內浮動小視窗（小羅 2026-10-03）──
+//   需求：主頁完全不動、不跳轉、不遮整個畫面（右下角浮出小卡）
+//   資料來源：本站 /api/fx（後端代理即時匯率，免 CORS、不依賴外部網頁）
+async function openFx() {
+  const old = document.querySelector('.fxcard');
+  if (old) { old.remove(); return; }        // 再按一次 = 收起
+  const el = document.createElement('div');
+  el.className = 'fxcard';
+  el.innerHTML = '<div class="fxcard-h"><b>' + esc(t('fx_title')) + '</b>'
+    + '<button type="button" class="fxcard-x" aria-label="' + esc(t('fx_close')) + '">×</button></div>'
+    + '<div class="fxcard-b" id="fx-body"><div class="fxcard-load">' + esc(t('fx_loading')) + '</div></div>'
+    + '<div class="fxcard-f">' + esc(t('fx_note_sub')) + '</div>';
+  document.body.appendChild(el);
+  el.querySelector('.fxcard-x').addEventListener('click', () => el.remove());
+  try {
+    const j = await api('/api/fx');
+    const rows = Object.entries(j.rates || {}).map(([k, v]) =>
+      '<tr><td>' + esc(k) + '</td><td>' + (v * 100).toFixed(2)
+      + '</td><td>' + (v * 1000).toFixed(1) + '</td></tr>').join('');
+    el.querySelector('#fx-body').innerHTML = '<table class="fxtbl"><thead><tr>'
+      + '<th>TWD</th><th>100</th><th>1000</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  } catch (e) {
+    el.querySelector('#fx-body').innerHTML = '<div class="fxcard-load">' + esc(t('fx_fail')) + '</div>';
+  }
+}
 const fxLink = $('#fx-open');
-if (fxLink) fxLink.addEventListener('click', (e) => {
-  e.preventDefault();
-  const w = window.open(fxLink.href, 'fx_rate', 'width=480,height=700,noopener');
-  if (!w) window.location.href = fxLink.href;   // 被瀏覽器擋 → 才整頁開
-});
+if (fxLink) fxLink.addEventListener('click', (e) => { e.preventDefault(); openFx(); });
 
 $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   // ⚠️ 小羅 2026-09-30：付款前先核實「會開通到哪個帳號」，避免買了卻開給別人
