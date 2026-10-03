@@ -592,7 +592,7 @@ def set_status(member_id: str, status: str) -> bool:
 
 
 def search(keyword: str, limit: int = 50) -> list[dict]:
-    """客服查詢：用 Email／會員 ID／暱稱 找會員（小羅 2026-09-29：「賬號或 ID 或昵稱都要能搜」）。"""
+    """客服查詢：用 Email／會員 ID／暱稱 找會員（小羅 2026-09-29：「賬號或 ID 或暱稱都要能搜」）。"""
     kw = (keyword or "").strip()
     if not kw:
         return []
@@ -811,7 +811,7 @@ def set_nickname(member_id: str, nickname: str) -> dict | None:
             dup = db.one("SELECT id FROM members WHERE nickname=? AND id<>?"
                          " AND COALESCE(status,'') <> 'deleted'", (name, member_id))
             if dup:
-                raise ValueError("這個昵稱已經有人用了，請換一個")
+                raise ValueError("這個暱稱已經有人用了，請換一個")
     db.execute("UPDATE members SET nickname=? WHERE id=?", (name or None, member_id))
     return get(member_id)
 
