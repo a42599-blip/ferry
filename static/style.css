@@ -295,6 +295,7 @@ input:focus{outline:none;border-color:var(--acc)}
   flex:0 0 auto;white-space:nowrap;
   border-radius:6px;font-size:12.5px;font-weight:700;letter-spacing:.3px;line-height:1;
   background:#fff;color:#1b2430;border:1px solid var(--line-soft)}
+.payic .pico.mc{width:26px;height:16px}
 .payic .pico.up{width:28px;height:18px}
 .payic .pemoji{font-size:15px;margin-right:4px;line-height:1}
 .payic .pico{width:18px;height:18px;margin-right:5px;flex:0 0 auto}
