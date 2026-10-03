@@ -299,16 +299,15 @@ input:focus{outline:none;border-color:var(--acc)}
 .payok-card button{width:100%;padding:11px;border:0;border-radius:9px;font-size:15px;font-weight:700;
   cursor:pointer;background:linear-gradient(90deg,#7b5cff,#2f80ff);color:#fff}
 /* 付款方式圖標（純顯示、不需連結）：同一排、統一高度 30px */
-.payicons{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;overflow-x:auto;margin-bottom:10px;padding-bottom:2px;-webkit-overflow-scrolling:touch}
-.payicons::-webkit-scrollbar{height:0}
-.payic{display:inline-flex;align-items:center;justify-content:center;height:30px;width:82px;padding:0 6px;font-size:11.5px;
+.payicons{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.payic{display:inline-flex;align-items:center;justify-content:center;height:30px;width:84px;height:32px;padding:0 6px;font-size:11.5px;
   flex:0 0 auto;white-space:nowrap;
   border-radius:6px;font-size:12.5px;font-weight:700;letter-spacing:.3px;line-height:1;
   background:#fff;color:#1b2430;border:1px solid var(--line-soft)}
-.payic .pico.mc{width:26px;height:16px}
-.payic .pico.up{width:28px;height:18px}
+.payic .pico.mc{width:auto;height:16px;max-width:34px}
+.payic .pico.up{width:auto;height:16px;max-width:34px}
 .payic .pemoji{font-size:15px;margin-right:4px;line-height:1}
-.payic .pico{width:18px;height:18px;margin-right:5px;flex:0 0 auto}
+.payic .pico{width:auto;height:16px;max-width:30px;margin-right:4px;flex:0 0 auto}
 .payic.pp{background:#003087;color:#fff;border-color:#003087}
 .payic.visa{background:#1a1f71;color:#fff;border-color:#1a1f71;font-style:italic}
 .payic.mc{background:#111;color:#fff;border-color:#111}

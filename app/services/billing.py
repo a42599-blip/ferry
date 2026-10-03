@@ -95,7 +95,7 @@ PROVIDER_FLAGS = {
 #   · 藍新：信用卡（Visa/MC/JCB）・銀聯卡・ATM・超商代碼/條碼・Apple Pay / Google Pay / Samsung Pay / 台灣Pay
 PROVIDER_CHANNELS = {
     "paypal": ["paypal"],
-    "stripe": ["visa", "mastercard", "jcb", "amex", "unionpay"],
+    "stripe": ["visa", "mastercard", "jcb", "unionpay"],
     "newebpay": ["visa", "mastercard", "jcb", "unionpay", "cvs", "atm",
                  "applepay", "googlepay", "taiwanpay"],
     "ecpay": ["visa", "mastercard", "jcb", "cvs", "atm", "applepay"],
