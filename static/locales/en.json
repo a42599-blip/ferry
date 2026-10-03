@@ -287,7 +287,7 @@
   "pay_choose": "Choose a payment method",
   "pay_prov_paypal": "PayPal account or card",
   "pay_prov_stripe": "Credit card (on-site)",
-  "pay_prov_newebpay": "Card・CVS・ATM・Apple Pay",
+  "pay_prov_newebpay": "Provided by NewebPay: card, CVS, ATM, Apple Pay",
   "pay_cancel_btn": "Cancel",
   "pay_preparing_short": "(coming soon)",
   "pay_method": "Payment method",

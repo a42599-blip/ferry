@@ -287,7 +287,7 @@
   "pay_choose": "请选择付款方式",
   "pay_prov_paypal": "PayPal 账户或信用卡",
   "pay_prov_stripe": "信用卡（站内刷卡）",
-  "pay_prov_newebpay": "信用卡・超商・ATM・Apple Pay",
+  "pay_prov_newebpay": "蓝新金流提供：信用卡・超商・ATM・Apple Pay",
   "pay_cancel_btn": "取消",
   "pay_preparing_short": "（准备中）",
   "pay_method": "付款方式",
