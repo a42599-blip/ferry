@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="轉運站">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EBD08A"/>
+      <stop offset="1" stop-color="#C9A54E"/>
+    </linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="64" fill="url(#g)"/>
+  <path d="M34 50h40l-9-9a5 5 0 0 1 7-7l19 19a5 5 0 0 1 0 7L72 79a5 5 0 0 1-7-7l9-9H34a5 5 0 0 1 0-13z" fill="#161a20"/>
+  <path d="M94 78H54l9 9a5 5 0 0 1-7 7L37 75a5 5 0 0 1 0-7l19-19a5 5 0 0 1 7 7l-9 9h40a5 5 0 0 1 0 13z" fill="#161a20"/>
+</svg>

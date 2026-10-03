@@ -21,7 +21,7 @@ from ..core import db
 from . import events, notify
 
 CHECK_INTERVAL = 300          # 5 分鐘檢查一次
-DIGEST_HOUR = 9               # 每天 09:00（台北時間）寄摘要
+DIGEST_HOUR = 22              # 每天 22:00（台北時間，小羅 2026-10-04 指定）寄摘要
 _started_at = time.time()
 
 
