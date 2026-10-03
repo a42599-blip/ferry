@@ -471,11 +471,9 @@
     ]
   ],
   "fx_link_one": "查汇率换算",
+  "fx_open_new": "在计算器网站开启（全屏幕）",
   "fx_title": "汇率换算",
   "fx_close": "关闭",
-  "fx_loading": "载入中…",
-  "fx_fail": "目前无法取得汇率，请稍后再试。",
-  "fx_note_sub": "即时汇率估算，实际以刷卡当下为准。",
   "err_LOGIN_REQUIRED": "请先登录会员，付款后才会开通到你的账号。",
   "pay_need_login": "请先登录会员再付款 —— 这样才会开通到「你自己的账号」。",
   "pay_confirm_to": "请确认这是要开通到哪个账号：",

@@ -471,11 +471,9 @@
     ]
   ],
   "fx_link_one": "Check exchange rate",
+  "fx_open_new": "Open in calculator site (full screen)",
   "fx_title": "Currency converter",
   "fx_close": "Close",
-  "fx_loading": "Loading…",
-  "fx_fail": "Exchange rates are unavailable right now. Please try again later.",
-  "fx_note_sub": "Live rate estimate — the actual rate is set by your card issuer at checkout.",
   "err_LOGIN_REQUIRED": "Please sign in first - your purchase is activated on your own account.",
   "pay_need_login": "Please sign in before paying, so the membership is activated on your own account.",
   "pay_confirm_to": "Please confirm which account this will be activated on:",

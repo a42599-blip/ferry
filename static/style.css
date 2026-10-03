@@ -83,14 +83,12 @@ h1{font-size:22px;font-weight:500;line-height:1.5;margin-top:16px}
   padding:11px 14px;border-bottom:1px solid #2a313d}
 .fxcard-x{background:transparent;border:0;color:#8b95a3;font-size:20px;cursor:pointer;line-height:1}
 .fxcard-x:hover{color:#eef2f7}
-.fxcard-b{padding:8px 14px}
-.fxcard-f{padding:8px 14px 12px;font-size:11.5px;color:#8b95a3;border-top:1px solid #2a313d}
-.fxcard-load{font-size:13px;color:#8b95a3;padding:10px 0}
-.fxtbl{width:100%;border-collapse:collapse;font-size:13px}
-.fxtbl th{color:#8b95a3;font-weight:400;text-align:right;padding:2px 6px}
-.fxtbl td{padding:3px 6px;text-align:right;font-variant-numeric:tabular-nums}
-.fxtbl td:first-child{color:#B9BFC6;text-align:left}
-@media(max-width:560px){.fxcard{right:8px;bottom:8px;left:8px;width:auto;max-height:62vh}}
+.fxcard-b{padding:0}
+.fxfrm{width:100%;height:352px;border:0;background:#fff;display:block}
+.fxcard-f{padding:8px 14px 10px;text-align:center;border-top:1px solid #2a313d}
+.fxcard-f a{color:var(--acc);text-decoration:none;font-size:12px}
+.fxcard-f a:hover{text-decoration:underline}
+@media(max-width:560px){.fxcard{right:8px;bottom:8px;left:8px;width:auto;max-height:70vh}.fxfrm{height:320px}}
 .inbar .go{background:var(--acc);color:var(--ink);font-size:14px;font-weight:500;padding:0 18px;
   display:grid;place-items:center;white-space:nowrap}
 .inbar .go:disabled{opacity:.5}

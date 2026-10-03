@@ -471,11 +471,9 @@
     ]
   ],
   "fx_link_one": "查匯率換算",
+  "fx_open_new": "在計算器網站開啟（全螢幕）",
   "fx_title": "匯率換算",
   "fx_close": "關閉",
-  "fx_loading": "讀取中…",
-  "fx_fail": "目前無法取得匯率，請稍後再試。",
-  "fx_note_sub": "即時匯率估算，實際以刷卡當下為準。",
   "err_LOGIN_REQUIRED": "請先登入會員，付款後才會開通到你的帳號。",
   "pay_need_login": "請先登入會員再付款 —— 這樣才會開通到「你自己的帳號」。",
   "pay_confirm_to": "請確認這是要開通到哪個帳號：",

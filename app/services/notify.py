@@ -83,12 +83,38 @@ def cooldown_left(key: str) -> int:
 
 
 # ── 運送（三種選一）────────────────────────────────────
+def mail_conf() -> dict[str, str]:
+    """寄信設定：**後台設定（資料庫）優先**，其次環境變數。
+
+    小羅 2026-10-04：「自動寄信這塊你把它做完」——
+    做成後台可以自己填（不用碰 Railway）。
+    """
+
+    def g(key: str, env: str, default: str = "") -> str:
+        v = db.get_setting("mail." + key)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+        return (os.getenv(env) or default).strip()
+
+    return {
+        "host": g("host", "SMTP_HOST"),
+        "port": g("port", "SMTP_PORT", "587"),
+        "user": g("user", "SMTP_USER"),
+        "pass": g("pass", "SMTP_PASS"),
+        "tls": g("tls", "SMTP_TLS", "1"),
+        "from": g("from", "SMTP_FROM"),
+        "resend": g("resend_key", "RESEND_API_KEY"),
+        "webhook": (os.getenv("NOTIFY_WEBHOOK") or "").strip(),
+    }
+
+
 def transport() -> str:
-    if os.getenv("RESEND_API_KEY"):
+    c = mail_conf()
+    if c["resend"]:
         return "resend"
-    if os.getenv("SMTP_HOST"):
+    if c["host"]:
         return "smtp"
-    if os.getenv("NOTIFY_WEBHOOK"):
+    if c["webhook"]:
         return "webhook"
     return "none"
 
@@ -106,6 +132,7 @@ def _send_sync(subject: str, body: str, to: list[str] | None = None) -> tuple[bo
     給了＝寄給指定的人（會員忘記密碼的重設信就用這個）。
     """
     t = transport()
+    c = mail_conf()
     to = to or _recipients()
     if not to:
         return False, "沒有設定收件人"
@@ -114,12 +141,12 @@ def _send_sync(subject: str, body: str, to: list[str] | None = None) -> tuple[bo
         import urllib.request
 
         payload = json.dumps({
-            "from": os.getenv("NOTIFY_FROM", "ferry <onboarding@resend.dev>"),
+            "from": c["from"] or "ferry <onboarding@resend.dev>",
             "to": to, "subject": subject, "text": body,
         }).encode()
         req = urllib.request.Request(
             "https://api.resend.com/emails", data=payload,
-            headers={"Authorization": f"Bearer {os.getenv('RESEND_API_KEY')}",
+            headers={"Authorization": f"Bearer {c['resend']}",
                      "Content-Type": "application/json"},
         )
         try:
@@ -131,17 +158,17 @@ def _send_sync(subject: str, body: str, to: list[str] | None = None) -> tuple[bo
     if t == "smtp":
         msg = EmailMessage()
         msg["Subject"] = subject
-        msg["From"] = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", "ferry@localhost"))
+        msg["From"] = c["from"] or c["user"] or "ferry@localhost"
         msg["To"] = ", ".join(to)
         msg.set_content(body)
-        host = os.getenv("SMTP_HOST", "")
-        port = int(os.getenv("SMTP_PORT", "587") or 587)
+        host = c["host"]
+        port = int(c["port"] or 587)
         try:
             with smtplib.SMTP(host, port, timeout=15) as s:
-                if os.getenv("SMTP_TLS", "1") == "1":
+                if c["tls"] == "1":
                     s.starttls()
-                if os.getenv("SMTP_USER"):
-                    s.login(os.getenv("SMTP_USER"), os.getenv("SMTP_PASS", ""))
+                if c["user"]:
+                    s.login(c["user"], c["pass"])
                 s.send_message(msg)
             return True, "smtp ok"
         except Exception as exc:  # noqa: BLE001

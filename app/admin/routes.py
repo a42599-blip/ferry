@@ -653,6 +653,51 @@ async def set_notify(body: dict = Body(...), _: dict = Depends(require_admin)) -
     return {"ok": True, "notify_emails": emails}
 
 
+@router.get("/mail")
+async def get_mail(_: dict = Depends(require_admin)) -> dict:
+    """寄信設定（寄密碼重設信、付款通知等）。
+
+    小羅 2026-10-04：「自動寄信這塊你把它做完」→ 設定存資料庫，後台自己填就能改。
+    ⚠️ 密碼永遠不回傳（只告知是否已設定）。
+    """
+    from ..services import notify
+
+    c = notify.mail_conf()
+    return {"ok": True, "transport": notify.transport(),
+            "host": c["host"], "port": c["port"], "user": c["user"],
+            "from": c["from"], "tls": c["tls"],
+            "has_pass": bool(c["pass"]),
+            "smtp_in_db": bool(db.get_setting("mail.host"))}
+
+
+@router.post("/mail")
+async def set_mail(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
+    """設定寄信（留空的欄位不改；pass 空 = 不換密碼）。"""
+    from ..services import notify
+
+    for key, field in (("host", "host"), ("port", "port"), ("user", "user"),
+                       ("from", "from"), ("tls", "tls")):
+        if body.get(field) is not None:
+            db.set_setting("mail." + key, str(body.get(field) or "").strip())
+    if body.get("pass"):
+        db.set_setting("mail.pass", str(body["pass"]).strip())
+    if body.get("resend_key"):
+        db.set_setting("mail.resend_key", str(body["resend_key"]).strip())
+    return {"ok": True, "transport": notify.transport()}
+
+
+@router.post("/mail/test")
+async def test_mail(body: dict = Body(default={}), _: dict = Depends(require_admin)) -> dict:
+    """寄一封測試信（預設寄給後台設定的管理員信箱）。"""
+    from ..services import notify
+
+    to = [str(body.get("to") or "").strip()] if body.get("to") else None
+    ok, info = await notify.send_now(
+        "[轉運站] 寄信測試", "這是一封測試信。\n\n如果你收到這封，代表網站的寄信功能正常。\n\n轉運站  https://scefo.com",
+        to=to)
+    return {"ok": ok, "info": info, "to": to or notify._recipients()}
+
+
 @router.post("/system/totp")
 async def totp(action: str = Query(..., pattern="^(enable|disable|info)$"),
                 _: dict = Depends(require_admin)) -> dict:
