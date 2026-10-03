@@ -22,7 +22,6 @@ from . import events, notify
 
 CHECK_INTERVAL = 300          # 5 分鐘檢查一次
 DIGEST_HOUR = 9               # 每天 09:00（台北時間）寄摘要
-_last_digest_date = ""
 _started_at = time.time()
 
 
@@ -130,10 +129,9 @@ async def loop() -> None:
 
         # 每日摘要
         try:
-            global _last_digest_date
             today = time.strftime("%Y-%m-%d", time.localtime(time.time() + 8 * 3600))
-            if _local_hour() >= DIGEST_HOUR and _last_digest_date != today:
-                _last_digest_date = today
+            # 小羅 2026-10-04：改讀資料庫 —— 原本用記憶體變數，每次重新部署就會重寄一次摘要
+            if _local_hour() >= DIGEST_HOUR and db.get_setting("last_digest_date") != today:
                 db.set_setting("last_digest_date", today)
                 await notify.send_digest(days=1)
                 # 會員到期提醒 ＋ 到期後自動降回免費（每天一次）
