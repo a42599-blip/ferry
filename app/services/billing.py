@@ -73,7 +73,6 @@ def _norm_method(raw: str) -> str:
 
 
 PROVIDERS = {
-    "ecpay": {"label": "綠界 ECPay", "env": ["ECPAY_MERCHANT_ID", "ECPAY_HASH_KEY", "ECPAY_HASH_IV"]},
     "newebpay": {"label": "藍新 NewebPay", "env": ["NEWEBPAY_MERCHANT_ID", "NEWEBPAY_HASH_KEY", "NEWEBPAY_HASH_IV"]},
     "stripe": {"label": "Stripe", "env": ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]},
     # 小羅 2026-10-03：PayPal（站內彈窗；卡在「付款成功才開通」的同一套流程）
@@ -85,7 +84,6 @@ PROVIDER_FLAGS = {
     "paypal": "feature.pay_paypal",
     "stripe": "feature.pay_stripe",
     "newebpay": "feature.pay_newebpay",
-    "ecpay": "feature.pay_ecpay",   # 绿界（目前不用，給它獨立開關免跟藍新連動）
 }
 
 #: 各平台「支援的付款渠道」（前台圖標聯動用；多平台取聯集並去重）
@@ -98,7 +96,6 @@ PROVIDER_CHANNELS = {
     "stripe": ["visa", "mastercard", "jcb", "amex", "unionpay"],
     "newebpay": ["visa", "mastercard", "jcb", "unionpay", "cvs", "atm",
                  "applepay", "googlepay", "taiwanpay"],
-    "ecpay": ["visa", "mastercard", "jcb", "cvs", "atm", "applepay"],
 }
 
 #: PayPal REST 端點（沙箱測試可設 PAYPAL_API_BASE=https://api-m.sandbox.paypal.com）
@@ -354,8 +351,8 @@ def _verify_signature(provider: str, raw: bytes, headers: dict) -> bool:
         want = hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
         return hmac.compare_digest(want, parts["v1"])
 
-    if provider in ("ecpay", "newebpay"):
-        key = os.getenv("ECPAY_HASH_KEY" if provider == "ecpay" else "NEWEBPAY_HASH_KEY", "")
+    if provider == "newebpay":
+        key = os.getenv("NEWEBPAY_HASH_KEY", "")
         if not key:
             return False
         try:
@@ -542,7 +539,7 @@ PAYOUT_METHODS = {
 }
 
 #: 金流商抽成（僅供試算；實際以各家帳單為準）
-FEE_RATE = {"ecpay": 0.0288, "newebpay": 0.028, "stripe": 0.034, "payoneer": 0.03,
+FEE_RATE = {"newebpay": 0.028, "stripe": 0.034, "payoneer": 0.03,
             "ezpay": 0.03, "": 0.03}
 
 

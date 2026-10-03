@@ -29,7 +29,6 @@ const FEATURE_LABELS = {
   'feature.pay_paypal': '付款 ── PayPal',
   'feature.pay_stripe': '付款 ── 站內刷卡（Stripe）',
   'feature.pay_newebpay': '付款 ── 藍新 NewebPay',
-  'feature.pay_ecpay': '付款 ── 綠界 ECPay（目前不用）',
 };
 const SEV = { critical: '嚴重', warn: '警告', info: '一般' };
 const KIND = { page_view: '進站', resolve: '解析', download: '下載',
@@ -1061,7 +1060,7 @@ $('#ad-bottom-on')?.addEventListener('click', async () => {
 const PLAN_TW = { free: '免費', monthly: '月會員', lifetime: '終身會員' };
 
 const PLAT_LABEL = (p) => ({
-  newebpay: '藍新 NewebPay', ecpay: '綠界 ECPay', stripe: 'Stripe',
+  newebpay: '藍新 NewebPay', stripe: 'Stripe',
   payoneer: 'Payoneer', ezpay: 'ezPay 簡單付',
 }[p] || p || '（未標示）');
 
