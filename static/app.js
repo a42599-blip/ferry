@@ -1317,7 +1317,7 @@ async function loadPayWays() {
   payProviders = {};
   const seen = [];
   Object.entries(prov).forEach(([pid, v]) => {
-    if (!v.ready) return;
+    if (!v.enabled) return;                 // 以「開關」為準（金鑰未設也先列，按了會提示）
     payProviders[pid] = v;
     (v.channels || []).forEach((c) => { if (!seen.includes(c)) seen.push(c); });
   });
@@ -1342,8 +1342,9 @@ async function chooseProvider() {
     const el = document.createElement('div');
     el.className = 'paypick';
     el.innerHTML = '<div class="paypick-card"><h3>' + esc(t('pay_choose')) + '</h3>'
-      + list.map(([pid, v]) => '<button type="button" class="paypickbtn" data-p="' + esc(pid) + '">'
-          + esc(v.label) + '</button>').join('')
+      + list.map(([pid, v]) => '<button type="button" class="paypickbtn" data-p="' + esc(pid) + '"'
+          + (v.ready ? '' : ' disabled') + '>' + esc(v.label)
+          + (v.ready ? '' : ' <span class="dim">' + esc(t('pay_preparing_short')) + '</span>') + '</button>').join('')
       + '<button type="button" class="paypickcancel">' + esc(t('pay_cancel_btn')) + '</button></div>';
     document.body.appendChild(el);
     el.addEventListener('click', (e) => {

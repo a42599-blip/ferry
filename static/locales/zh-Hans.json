@@ -288,6 +288,7 @@
   "pay_ok_btn": "知道了",
   "pay_choose": "请选择付款方式",
   "pay_cancel_btn": "取消",
+  "pay_preparing_short": "（准备中）",
   "pay_method": "付款方式",
   "pay_beta": "目前为公测期间，暂不收费",
   "pay_not_ready": "付费功能正在准备中。开通后这里会出现信用卡／QR code 等付款方式。",

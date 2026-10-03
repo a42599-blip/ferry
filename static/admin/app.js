@@ -24,7 +24,7 @@ const FEATURE_LABELS = {
   'feature.free_limit_download': '免費次數限制 ── 無水印下載',
   'feature.free_limit_transfer': '免費次數限制 ── 無損傳輸',
   'feature.maintenance': '全站維護模式',
-  'feature.auth': '會員登入（預留）',
+  'feature.auth': '會員登入',
   'feature.billing': '付費／訂閱',
   'feature.pay_paypal': '付款 ── PayPal',
   'feature.pay_stripe': '付款 ── 站內刷卡（Stripe）',
