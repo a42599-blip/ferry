@@ -217,16 +217,35 @@ async def reset_password(body: dict = Body(...)) -> dict:
 
 @router.post("/api/member/find-account")
 async def find_account(body: dict = Body(...)) -> dict:
-    """忘記帳號：用喱稱找回（只回**打碼後**的 Email，不洩漏完整帳號）。"""
+    """忘記帳號：用暱稱查 → **寄到那個帳號的信箱**（畫面統一回覆，不洩漏帳號）。
+
+    小羅 2026-10-04：不可以「随便寫個忘記帳號就給帳號」→
+    所以改成：不管有沒有找到，畫面都回一樣的話；
+    真的有對應帳號時，把「你的登入帳號」寄到那個信箱去。
+    """
+    from .services import notify
+
     nk = str(body.get("nickname") or "").strip()
-    if len(nk) < 2:
-        raise BadRequest("請至少輸入 2 個字的喱稱")
-    rows = members.find_account(nk)
-    if not rows:
-        return {"ok": True, "found": [],
-                "message": "找不到這個喱稱的帳號。也可能是你沒設過喱稱，請試試 Email 前幾碼，或聯絡客服。"}
-    return {"ok": True, "found": rows,
-            "message": "這是符合的帳號（有打碼保護）："}
+    if len(nk) < 1:
+        raise BadRequest("請至少輸入 2 個字的暱稱")
+
+    same = ("如果這個暱稱有對應的帳號，我們已經把「你的登入帳號」"
+            "寄到那個 Email 了，請去收信（也看一下垃圾信匣）。")
+    emails = members.find_account(nk)
+    sent = 0
+    for email in emails:
+        text = ("你好，\n\n"
+                "有人（應該是你）在「轉運站」使用「忘記帳號」功能。\n\n"
+                f"你的登入帳號是：{email}\n\n"
+                "登入後可以到會員頁設定/修改密碼。\n"
+                "如果不是你本人查詢，忽略這封信就好。\n\n"
+                "轉運站  https://scefo.com\n")
+        try:
+            r = await notify.send_now("[轉運站] 你的登入帳號", text, to=[email])
+            sent += 1 if r.get("ok") else 0
+        except Exception:  # noqa: BLE001
+            pass
+    return {"ok": True, "sent": sent, "message": same}
 
 
 @router.get("/api/member/me")

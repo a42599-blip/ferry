@@ -330,7 +330,7 @@
   "btn_send_reset": "Send reset email",
   "btn_back": "Back",
   "btn_find_account": "Find my account",
-  "findacc_ph": "The nickname you set",
+  "findacc_ph": "Your nickname",
   "reset_lede": "Set your new password (6+ characters)",
   "btn_reset_now": "Set new password",
   "nickname_saved": "Nickname saved",

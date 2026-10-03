@@ -330,7 +330,7 @@
   "btn_send_reset": "寄送重設信",
   "btn_back": "返回",
   "btn_find_account": "找回帳號",
-  "findacc_ph": "你設過的喱稱",
+  "findacc_ph": "你的暱稱",
   "reset_lede": "請設定你的新密碼（至少 6 個字）",
   "btn_reset_now": "設定新密碼",
   "nickname_saved": "暱稱已儲存",

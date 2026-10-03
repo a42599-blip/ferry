@@ -882,19 +882,17 @@ def use_reset(token: str, new_password: str) -> dict:
 
 
 def find_account(nickname: str) -> list[str]:
-    """忘記帳號：用喱稱找回（只回**打碼後**的 Email，不洩漏完整帳號）。"""
+    """忘記帳號：用暱稱找出符合的**完整 Email**（只給內部寄信用，不對外顯示）。
+
+    小羅 2026-10-04：「不然他隨便一個人寫個忘記帳號你就隨便給他一個帳號也不對」
+    → 改為：只拿來寄信到那個信箱，畫面不對外揭露任何帳號。
+    """
     nk = (nickname or "").strip()
-    if len(nk) < 2:
+    if len(nk) < 1:
         return []
     rows = db.query("SELECT email FROM members WHERE COALESCE(nickname,'') LIKE ?"
-                    " AND COALESCE(status,'active')='active' LIMIT 10", (f"%{nk}%",))
-    out = []
-    for r in rows:
-        e = (r["email"] or "").strip()
-        if "@" in e:
-            u, dom = e.split("@", 1)
-            out.append(f"{_mask(u)}@{dom}")
-    return out
+                    " AND COALESCE(status,'active')='active' LIMIT 5", (f"%{nk}%",))
+    return [(r["email"] or "").strip() for r in rows if "@" in (r["email"] or "")]
 
 
 def tier_of(member_id: str | None) -> str:

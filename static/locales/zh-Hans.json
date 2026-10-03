@@ -330,7 +330,7 @@
   "btn_send_reset": "发送重置邮件",
   "btn_back": "返回",
   "btn_find_account": "找回账号",
-  "findacc_ph": "你设过的昵称",
+  "findacc_ph": "你的昵称",
   "reset_lede": "请设置你的新密码（至少 6 个字）",
   "btn_reset_now": "设置新密码",
   "nickname_saved": "昵称已保存",

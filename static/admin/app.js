@@ -375,7 +375,7 @@ async function pgQuotas() {
     <div class="adjustbox">
       <div class="lbl2">手動加次數（先查人、確認沒加錯再按下去）</div>
       <div class="inrow">
-        <input id="qt-who" placeholder="輸入會員 Email／會員 ID／喱稱">
+        <input id="qt-who" placeholder="輸入會員 Email／會員 ID／暱稱">
         <button class="gh" id="qt-find">先查這位會員</button>
       </div>
       <div id="qt-found" class="dim" style="font-size:12px;margin:6px 0 2px"></div>
@@ -413,7 +413,7 @@ async function pgQuotas() {
   let qtTarget = null;
   const qtFind = async () => {
     const who = $('#qt-who').value.trim();
-    if (!who) { $('#qt-msg').textContent = '請先填 Email／會員 ID／喱稱'; return null; }
+    if (!who) { $('#qt-msg').textContent = '請先填 Email／會員 ID／暱稱'; return null; }
     try {
       const r = await api('/members/search?q=' + encodeURIComponent(who));
       if (!r.rows.length) {
@@ -437,7 +437,7 @@ async function pgQuotas() {
   $('#qt-add').onclick = async () => {
     const who = $('#qt-who').value.trim();
     const n = Number($('#qt-n').value || 1);
-    if (!who) { $('#qt-msg').textContent = '請先填會員 Email／會員 ID／喱稱'; return; }
+    if (!who) { $('#qt-msg').textContent = '請先填會員 Email／會員 ID／暱稱'; return; }
     // 先確認對象（若還沒查過，或改了輸入框 → 重查）
     if (!qtTarget || (qtTarget.email || '') !== who) {
       const found = await qtFind();
@@ -1538,7 +1538,7 @@ async function loadMemberList() {
   $('#ml-count').textContent = `共 ${d.total} 位　第 ${d.page} / ${d.pages} 頁`;
   $('#ml-page').textContent = `${d.page} / ${d.pages}`;
   $('#ml-list').innerHTML = d.rows.length ? table([
-    { t: 'Email / 喱稱', v: (r) => `<span class="rowlink" data-mid="${esc(r.id)}">${esc(r.email || r.id)}</span>`
+    { t: 'Email / 暱稱', v: (r) => `<span class="rowlink" data-mid="${esc(r.id)}">${esc(r.email || r.id)}</span>`
         + (r.nickname ? ` <span class="dim">（${esc(r.nickname)}）</span>` : ''), html: true },
     { t: '方案', v: (r) => `<span class="badge ${r.paid ? 'ok' : ''}">${esc(r.plan_name)}</span>`
         + (r.status === 'suspended' ? ' <span class="badge err">停權</span>' : '')
@@ -1619,7 +1619,7 @@ async function openMemberCard(mid) {
     ${pctLeft !== null ? `<div class="klife"><i style="width:${pctLeft}%"></i></div>` : ''}
     <div class="mgrid">
       <div><span>會員 ID</span>${esc(m.id)}</div>
-      <div><span>喱稱</span><b>${esc(m.nickname || '–')}</b>${m.nickname ? ' <button class="gh" id="adj-nick-clr" style="padding:1px 6px;font-size:11px">清除</button>' : ''}</div>
+      <div><span>暱稱</span><b>${esc(m.nickname || '–')}</b>${m.nickname ? ' <button class="gh" id="adj-nick-clr" style="padding:1px 6px;font-size:11px">清除</button>' : ''}</div>
       <div><span>Email</span><b>${esc(m.email || '–')}</b></div>
       <div><span>會員種類</span><b>${esc(kindName)}</b></div>
       <div><span>方案價格</span>${isPaid ? `NT$ ${m.price}` : '免費'}</div>
@@ -1762,13 +1762,13 @@ async function openMemberCard(mid) {
     } catch (e) { alert(e.message); }
   };
 
-  // 喱稱清除
+  // 暱稱清除
   const nkClr = $('#adj-nick-clr');
   if (nkClr) nkClr.onclick = async () => {
-    if (!confirm('清除這位會員的喱稱？（他會回到用 Email 顯示）')) return;
+    if (!confirm('清除這位會員的暱稱？（他會回到用 Email 顯示）')) return;
     try {
       await api(`/members/${mid}/nickname`, { method: 'POST', body: JSON.stringify({ nickname: '' }) });
-      queue('已清除喱稱'); openMemberCard(mid); loadMemberList();
+      queue('已清除暱稱'); openMemberCard(mid); loadMemberList();
     } catch (e) { alert(e.message); }
   };
 }

@@ -566,7 +566,7 @@ async def reset_member_password(member_id: str, body: dict = Body(...),
 @router.post("/members/{member_id}/nickname")
 async def set_member_nickname(member_id: str, body: dict = Body(...),
                               _: dict = Depends(require_admin)) -> dict:
-    """後台幫會員改／清喱稱（小羅 2026-09-29：會員資料要有喱稱）。"""
+    """後台幫會員改／清暱稱（小羅 2026-09-29：會員資料要有暱稱）。"""
     from ..services import members
 
     m = members.set_nickname(member_id, str(body.get("nickname") or ""))
@@ -692,10 +692,11 @@ async def test_mail(body: dict = Body(default={}), _: dict = Depends(require_adm
     from ..services import notify
 
     to = [str(body.get("to") or "").strip()] if body.get("to") else None
-    ok, info = await notify.send_now(
-        "[轉運站] 寄信測試", "這是一封測試信。\n\n如果你收到這封，代表網站的寄信功能正常。\n\n轉運站  https://scefo.com",
+    r = await notify.send_now(
+        "[轉運站] 寄信測試",
+        "這是一封測試信。\n\n如果你收到這封，代表網站的寄信功能正常。\n\n轉運站  https://scefo.com",
         to=to)
-    return {"ok": ok, "info": info, "to": to or notify._recipients()}
+    return {"ok": r.get("ok"), "info": r.get("note"), "to": r.get("to")}
 
 
 @router.post("/system/totp")

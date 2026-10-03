@@ -1177,13 +1177,12 @@ $('#m-forgot-send').onclick = async () => {
 $('#m-findacc-do').onclick = async () => {
   const btn = $('#m-findacc-do');
   const nickname = $('#m-findacc-nick').value.trim();
-  if (nickname.length < 2) { msg('#m-findacc-msg', t('findacc_ph'), 'err'); return; }
+  if (nickname.length < 1) { msg('#m-findacc-msg', t('findacc_ph'), 'err'); return; }
   btn.disabled = true;
   try {
     const j = await api('/api/member/find-account', { method: 'POST', body: JSON.stringify({ nickname }) });
-    const list = (j.found || []).join('、');
-    const ok = (j.found || []).length > 0;
-    msg('#m-findacc-msg', ok ? `${j.message} ${list}` : (j.message || ''), ok ? 'ok' : 'err');
+    // 小羅 2026-10-04：不顯示帳號，只告知「已寄到你的信箱」
+    msg('#m-findacc-msg', j.message || '', 'ok');
   } catch (e) { msg('#m-findacc-msg', e.message, 'err'); }
   finally { btn.disabled = false; }
 };
