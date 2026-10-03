@@ -138,20 +138,18 @@ def _send_sync(subject: str, body: str, to: list[str] | None = None) -> tuple[bo
         return False, "沒有設定收件人"
 
     if t == "resend":
-        import urllib.request
+        # 小羅 2026-10-04：改用 httpx —— urllib 的 User-Agent 會被 Resend 擋（403）
+        import httpx
 
-        payload = json.dumps({
-            "from": c["from"] or "ferry <onboarding@resend.dev>",
-            "to": to, "subject": subject, "text": body,
-        }).encode()
-        req = urllib.request.Request(
-            "https://api.resend.com/emails", data=payload,
-            headers={"Authorization": f"Bearer {c['resend']}",
-                     "Content-Type": "application/json"},
-        )
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                return (200 <= resp.status < 300), f"resend {resp.status}"
+            resp = httpx.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {c['resend']}"},
+                json={"from": c["from"] or "onboarding@resend.dev",
+                      "to": to, "subject": subject, "text": body},
+                timeout=15,
+            )
+            return (200 <= resp.status_code < 300), f"resend {resp.status_code}"
         except Exception as exc:  # noqa: BLE001
             return False, f"resend 失敗：{str(exc)[:120]}"
 
