@@ -309,6 +309,8 @@
       <div class="paybox" id="paybox">
         <div class="lbl2" data-i18n="pay_method">付款方式</div>
         <div class="payways" id="pay-ways"></div>
+        <div id="paypal-buttons" hidden></div>
+        <div class="note" data-i18n="pay_cards_note">支援 PayPal 付款、信用卡（Visa／Mastercard／JCB）；付款完成立即開通</div>
         <div class="payqr" id="pay-qr" hidden></div>
       </div>
       <div class="offbox" id="pay-off" hidden><span data-i18n="billing_off">目前為公測期間，暫不收費，所有功能都可以免費使用</span><span class="ads-off-note" data-i18n="billing_off_ads">，也不會出現任何廣告。</span></div>
@@ -482,7 +484,7 @@
 
 <script src="/sha256.js?v=27"></script>
 <script src="/save.js?v=28"></script>
-<script src="/app.js?v=53"></script>
+<script src="/app.js?v=54"></script>
 <script src="/transfer.js?v=33"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）

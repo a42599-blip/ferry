@@ -291,7 +291,8 @@ async def pay_providers() -> dict:
     之後接第三方支付只要設環境變數，不用改程式。
     """
     return {"ok": True, "providers": billing.available_providers(),
-            "plans": billing.plans(), "enabled": billing.enabled()}
+            "plans": billing.plans(), "enabled": billing.enabled(),
+            "paypal_client_id": billing.paypal_client_id()}
 
 
 @router.post("/api/pay/checkout")
@@ -301,6 +302,13 @@ async def checkout(request: Request, body: dict = Body(...)) -> dict:
     provider = body.get("provider", "ecpay")
     base = str(request.base_url).rstrip("/")
     return {"ok": True, **billing.create_checkout(subject, plan, provider, base_url=base)}
+
+
+@router.post("/api/pay/paypal/capture")
+async def paypal_capture(body: dict = Body(...)) -> dict:
+    """站內彈窗付款完成後呼叫；確認 PayPal 真的收到錢才開通（付款失敗不開通）。"""
+    return {"ok": True, **billing.capture_paypal(
+        str(body.get("order_id", "")), str(body.get("paypal_order_id", "")))}
 
 
 @router.post("/api/pay/webhook/{provider}")

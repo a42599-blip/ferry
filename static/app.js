@@ -1307,7 +1307,7 @@ async function loadPlans() {
 //   支援兩種呈現：
 //     ① 線上刷卡／導頁付款（checkout_url）
 //     ② QR code（有些金流商回傳 qr_code / qr_url，當場掃碼付款）
-const PAY_ICON = { ecpay: '🟢', newebpay: '🔵', stripe: '💳' };
+const PAY_ICON = { ecpay: '🟢', newebpay: '🔵', stripe: '💳', paypal: '🅿️' };
 
 async function loadPayWays() {
   const box = $('#pay-ways');
@@ -1333,6 +1333,62 @@ function currentProvider() {
   return on ? on.dataset.pay : ($('#pay-ways')?.querySelector('[data-pay]')?.dataset.pay || 'ecpay');
 }
 
+// ── PayPal：站內彈窗付款（不跳外網；付款成功才開通）─────────
+//   小羅 2026-10-03：① 彈窗必做 ② 付款失敗不開通 ③ 全掛在 feature.billing 開關下
+let __ppOrderId = '';
+function loadPayPalSdk(clientId) {
+  return new Promise((resolve, reject) => {
+    if (window.paypal) { resolve(window.paypal); return; }
+    const s = document.createElement('script');
+    s.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(clientId)
+          + '&currency=TWD&intent=capture&components=buttons';
+    s.onload = () => resolve(window.paypal);
+    s.onerror = () => reject(new Error('PayPal SDK load failed'));
+    document.head.appendChild(s);
+  });
+}
+
+async function openPayPal(plan) {
+  const box = $('#paypal-buttons');
+  if (!box) return;
+  let cfg;
+  try { cfg = await api('/api/pay/providers'); } catch { return; }
+  const cid = cfg.paypal_client_id || '';
+  if (!cid) { msg('#pay-status', t('pay_not_ready'), 'err'); return; }
+  msg('#pay-status', t('pay_loading'), 'ok');
+  try {
+    const pp = await loadPayPalSdk(cid);
+    box.hidden = false;
+    box.innerHTML = '';
+    pp.Buttons({
+      style: { layout: 'vertical', shape: 'rect', label: 'paypal', height: 44 },
+      createOrder: async () => {
+        const j = await api('/api/pay/checkout', { method: 'POST', body: JSON.stringify({
+          plan, provider: 'paypal' }) });
+        __ppOrderId = j.order_id;
+        return j.paypal_order_id;
+      },
+      onApprove: async (data) => {
+        try {
+          const j = await api('/api/pay/paypal/capture', { method: 'POST', body: JSON.stringify({
+            order_id: __ppOrderId, paypal_order_id: data.orderID }) });
+          if (j && j.ok) {
+            msg('#pay-status', t('pay_activated_to'), 'ok');
+            box.hidden = true;
+            loadMe();
+          } else {
+            msg('#pay-status', t('pay_failed'), 'err');
+          }
+        } catch (e) { msg('#pay-status', e.message, 'err'); }
+      },
+      onError: () => { msg('#pay-status', t('pay_failed'), 'err'); },
+      onCancel: () => { msg('#pay-status', t('pay_cancel'), 'err'); }
+    }).render('#paypal-buttons');
+  } catch (e) {
+    msg('#pay-status', e.message, 'err');
+  }
+}
+
 $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   // ⚠️ 小羅 2026-09-30：付款前先核實「會開通到哪個帳號」，避免買了卻開給別人
   if (!state.loggedIn) {
@@ -1344,8 +1400,11 @@ $$('[data-buy]').forEach((b) => b.addEventListener('click', async () => {
   if (!confirm(t('pay_confirm_to') + '\n\n' + t('m_email') + '：' + state.email
                + '\n' + t('plans_title') + '：' + planName)) return;
   try {
+    const provider = currentProvider();
+    // ⓪ PayPal → 站內彈窗（不跳外網）
+    if (provider === 'paypal') { await openPayPal(b.dataset.buy); return; }
     const j = await api('/api/pay/checkout', { method: 'POST', body: JSON.stringify({
-      plan: b.dataset.buy, provider: currentProvider() }) });
+      plan: b.dataset.buy, provider }) });
     // ① 導頁式付款
     if (j.checkout_url) { window.location.href = j.checkout_url; return; }
     // ② QR code 付款（金流商回傳圖片或字串）

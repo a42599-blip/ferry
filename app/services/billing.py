@@ -23,6 +23,8 @@ import secrets
 import time
 from typing import Any
 
+import httpx
+
 from ..core import db
 from ..core.errors import AppError, BadRequest, LoginRequired
 from . import flags
@@ -74,7 +76,87 @@ PROVIDERS = {
     "ecpay": {"label": "綠界 ECPay", "env": ["ECPAY_MERCHANT_ID", "ECPAY_HASH_KEY", "ECPAY_HASH_IV"]},
     "newebpay": {"label": "藍新 NewebPay", "env": ["NEWEBPAY_MERCHANT_ID", "NEWEBPAY_HASH_KEY", "NEWEBPAY_HASH_IV"]},
     "stripe": {"label": "Stripe", "env": ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]},
+    # 小羅 2026-10-03：PayPal（站內彈窗；卡在「付款成功才開通」的同一套流程）
+    "paypal": {"label": "PayPal", "env": ["PAYPAL_CLIENT_ID", "PAYPAL_SECRET"]},
 }
+
+#: PayPal REST 端點（沙箱測試可設 PAYPAL_API_BASE=https://api-m.sandbox.paypal.com）
+def _paypal_base() -> str:
+    return os.getenv("PAYPAL_API_BASE", "https://api-m.paypal.com").rstrip("/")
+
+
+def paypal_client_id() -> str:
+    """前端 JS SDK 用的 client id（client id 是公開值，可以給前端）。"""
+    return os.getenv("PAYPAL_CLIENT_ID", "")
+
+
+def _paypal_token() -> str:
+    cid, sec = os.getenv("PAYPAL_CLIENT_ID", ""), os.getenv("PAYPAL_SECRET", "")
+    if not cid or not sec:
+        raise PaymentNotConfigured("PayPal 尚未設定完成，缺少：PAYPAL_CLIENT_ID／PAYPAL_SECRET")
+    r = httpx.post(_paypal_base() + "/v1/oauth2/token", auth=(cid, sec),
+                   data={"grant_type": "client_credentials"}, timeout=20)
+    r.raise_for_status()
+    return r.json()["access_token"]
+
+
+def paypal_create_order(order_id: str, amount: float) -> dict:
+    """建立 PayPal 訂單（回傳 PayPal 的 order id，前端 SDK 用它開彈窗）。"""
+    token = _paypal_token()
+    r = httpx.post(
+        _paypal_base() + "/v2/checkout/orders",
+        headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+        json={
+            "intent": "CAPTURE",
+            "purchase_units": [{
+                "reference_id": order_id,
+                "amount": {"currency_code": "TWD", "value": f"{float(amount):.2f}"},
+            }],
+        }, timeout=25)
+    if r.status_code >= 400:
+        raise BadRequest("PayPal 建立訂單失敗：" + r.text[:200])
+    return r.json()
+
+
+def paypal_capture(paypal_order_id: str) -> dict:
+    """擄取（capture）PayPal 訂單；只有狀態 COMPLETED 才算付款成功。"""
+    token = _paypal_token()
+    r = httpx.post(
+        _paypal_base() + f"/v2/checkout/orders/{paypal_order_id}/capture",
+        headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+        timeout=25)
+    if r.status_code >= 400:
+        raise BadRequest("PayPal 付款失敗：" + r.text[:200])
+    return r.json()
+
+
+def capture_paypal(order_id: str, paypal_order_id: str) -> dict:
+    """前端彈窗付款完成後呼叫：**向 PayPal 確認真的收到錢，才開通**。
+
+    ⚠️ 小羅 2026-10-03：付款失敗／未完成 → 不開通。
+    """
+    if not order_id or not paypal_order_id:
+        raise BadRequest("缺少訂單資訊")
+    row = db.one("SELECT * FROM orders WHERE id=?", (order_id,))
+    if row is None:
+        raise BadRequest("找不到這筆訂單")
+    if row["status"] == "paid":
+        return {"ok": True, "already": True}
+    cap = paypal_capture(paypal_order_id)
+    if (cap.get("status") or "").upper() != "COMPLETED":
+        raise BadRequest("PayPal 付款未完成（狀態：%s）" % (cap.get("status") or "unknown"))
+    amt: float | None = None
+    txn = ""
+    try:
+        pu = (cap.get("purchase_units") or [{}])[0]
+        c0 = ((pu.get("payments") or {}).get("captures") or [{}])[0]
+        amt = float(((c0.get("amount") or {}).get("value")) or 0) or None
+        txn = c0.get("id", "") or ""
+    except Exception:  # noqa: BLE001
+        pass
+    res = activate(order_id, raw_amount=amt, txn=txn, method="信用卡")
+    res["provider"] = "paypal"
+    return res
 
 
 class PaymentNotConfigured(AppError):
@@ -186,6 +268,12 @@ def create_checkout(subject: str, plan: str, provider: str,
     events.add_order(oid, member_id=subject, plan=plan, amount=price,
                      currency="TWD", status="pending", note=f"provider={provider}",
                      provider=provider)
+    if provider == "paypal":
+        po = paypal_create_order(oid, price)
+        return {"ok": True, "order_id": oid, "provider": "paypal",
+                "paypal_order_id": po.get("id", ""),
+                "checkout_url": f"{base_url}/api/pay/checkout/{oid}",
+                "note": "PayPal：由前端 JS SDK 開彈窗付款（付款成功才開通）"}
     if provider == "stripe":
         return {"ok": True, "order_id": oid, "provider": provider,
                 "checkout_url": f"{base_url}/api/pay/checkout/{oid}",
