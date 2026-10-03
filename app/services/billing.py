@@ -91,7 +91,7 @@ PROVIDER_FLAGS = {
 #: 各平台「支援的付款渠道」（前台圖標聯動用；多平台取聯集並去重）
 #   2026-10-03 查證：
 #   · PayPal：PayPal 餘額、信用卡（Visa/MC/JCB，部分地區含銀聯）
-#   · Stripe（台灣）：Visa / Mastercard / JCB / AmEx / 中國銀聯
+#   · Stripe（台灣）：Visa / Mastercard / JCB / 中國銀聯
 #   · 藍新：信用卡（Visa/MC/JCB）・銀聯卡・ATM・超商代碼/條碼・Apple Pay / Google Pay / Samsung Pay / 台灣Pay
 PROVIDER_CHANNELS = {
     "paypal": ["paypal"],
