@@ -164,12 +164,18 @@ def _send_sync(subject: str, body: str, to: list[str] | None = None) -> tuple[bo
         host = c["host"]
         port = int(c["port"] or 587)
         try:
-            with smtplib.SMTP(host, port, timeout=15) as s:
-                if c["tls"] == "1":
-                    s.starttls()
-                if c["user"]:
-                    s.login(c["user"], c["pass"])
-                s.send_message(msg)
+            if c["tls"] == "2":          # 2 = SSL（465；有些機房會擋 587）
+                with smtplib.SMTP_SSL(host, port, timeout=15) as s:
+                    if c["user"]:
+                        s.login(c["user"], c["pass"])
+                    s.send_message(msg)
+            else:
+                with smtplib.SMTP(host, port, timeout=15) as s:
+                    if c["tls"] == "1":
+                        s.starttls()
+                    if c["user"]:
+                        s.login(c["user"], c["pass"])
+                    s.send_message(msg)
             return True, "smtp ok"
         except Exception as exc:  # noqa: BLE001
             return False, f"smtp 失敗：{str(exc)[:120]}"
