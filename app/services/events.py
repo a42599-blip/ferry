@@ -479,6 +479,22 @@ def mark_paid(order_id: str) -> None:
     db.execute("UPDATE orders SET status='paid', paid_at=? WHERE id=?", (time.time(), order_id))
 
 
+def mark_failed(order_id: str, reason: str = "") -> None:
+    """記錄付款失敗（小羅 2026-10-03：失敗紀錄也要進後台，供客服追查）。
+
+    只把仍在 pending 的訂單標成 failed，不覆蓋已 paid 的。
+    """
+    if not order_id:
+        return
+    row = db.one("SELECT status, note FROM orders WHERE id=?", (order_id,))
+    if row is None or (row["status"] or "") == "paid":
+        return
+    old = (row["note"] or "")
+    extra = ("付款失敗：" + str(reason)[:120]) if reason else "付款失敗"
+    note = (old + " | " + extra).strip(" |")[:400]
+    db.execute("UPDATE orders SET status='failed', note=? WHERE id=?", (note, order_id))
+
+
 def revenue_summary(days: int = 30) -> dict:
     since = _since(days)
     month = db.scalar(

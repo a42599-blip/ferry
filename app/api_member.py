@@ -309,11 +309,19 @@ async def checkout(request: Request, body: dict = Body(...)) -> dict:
 async def paypal_return(token: str = "", order_id: str = "") -> HTMLResponse:
     """PayPal 付款完成後導回（彈窗內）。確認收款才開通，並顯示可關閉的完成畫面。"""
     ok = False
+    err = ""
     try:
         billing.capture_paypal(order_id, token)
         ok = True
-    except Exception:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
         ok = False
+        err = str(e)[:120]
+        try:
+            from .services import events as _ev
+            if order_id:
+                _ev.mark_failed(order_id, err or "付款失敗")
+        except Exception:  # noqa: BLE001
+            pass
     title = "開通成功" if ok else "付款未完成"
     emoji = "🎉" if ok else "⚠️"
     desc = ("恭喜你，已開通成為會員！\n這個視窗會自動關閉。"

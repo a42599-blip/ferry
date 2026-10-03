@@ -154,7 +154,13 @@ def capture_paypal(order_id: str, paypal_order_id: str) -> dict:
         raise BadRequest("缺少 PayPal 訂單資訊")
     cap = paypal_capture(paypal_order_id)
     if (cap.get("status") or "").upper() != "COMPLETED":
-        raise BadRequest("PayPal 付款未完成（狀態：%s）" % (cap.get("status") or "unknown"))
+        st = cap.get("status") or "unknown"
+        pu0 = (cap.get("purchase_units") or [{}])[0]
+        oid0 = order_id or (pu0.get("reference_id") or "")
+        if oid0:
+            from . import events as _ev
+            _ev.mark_failed(oid0, "PayPal 未完成（%s）" % st)
+        raise BadRequest("PayPal 付款未完成（狀態：%s）" % st)
     pu = (cap.get("purchase_units") or [{}])[0]
     if not order_id:
         order_id = pu.get("reference_id") or ""
