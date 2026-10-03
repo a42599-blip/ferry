@@ -891,7 +891,7 @@ def find_account(nickname: str) -> list[str]:
     if len(nk) < 1:
         return []
     rows = db.query("SELECT email FROM members WHERE COALESCE(nickname,'') LIKE ?"
-                    " AND COALESCE(status,'active')='active' LIMIT 5", (f"%{nk}%",))
+                    " AND COALESCE(status,'') <> 'deleted' LIMIT 5", (f"%{nk}%",))
     return [(r["email"] or "").strip() for r in rows if "@" in (r["email"] or "")]
 
 
