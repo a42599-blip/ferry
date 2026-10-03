@@ -8,7 +8,7 @@ from __future__ import annotations
 import time
 
 from fastapi import APIRouter, Body, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse
 
 from .core.errors import BadRequest
 from .services import auth, billing, members, notify
@@ -305,14 +305,36 @@ async def checkout(request: Request, body: dict = Body(...)) -> dict:
     return {"ok": True, **billing.create_checkout(subject, plan, provider, base_url=base)}
 
 
-@router.get("/api/pay/paypal/return")
-async def paypal_return(token: str = "", order_id: str = "") -> RedirectResponse:
-    """PayPal 付款完成後導回本站；後端在此向 PayPal 確認收款，確認才開通。"""
+@router.get("/api/pay/paypal/return", response_class=HTMLResponse)
+async def paypal_return(token: str = "", order_id: str = "") -> HTMLResponse:
+    """PayPal 付款完成後導回（彈窗內）。確認收款才開通，並顯示可關閉的完成畫面。"""
+    ok = False
     try:
         billing.capture_paypal(order_id, token)
-        return RedirectResponse(url="/?pay=ok", status_code=302)
+        ok = True
     except Exception:  # noqa: BLE001
-        return RedirectResponse(url="/?pay=fail", status_code=302)
+        ok = False
+    title = "開通成功" if ok else "付款未完成"
+    emoji = "🎉" if ok else "⚠️"
+    desc = ("恭喜你，已開通成為會員！\n這個視窗會自動關閉。"
+            if ok else "付款沒有完成，未開通會員。\n請關閉視窗後再試一次。")
+    desc_html = desc.replace("\n", "<br>")
+    html = f"""<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{title}</title><style>
+body{{margin:0;font-family:-apple-system,"Microsoft JhengHei",sans-serif;background:#0f1115;color:#eef2f7;
+ display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;box-sizing:border-box}}
+.card{{background:#171b22;border:1px solid #2a313d;border-radius:16px;padding:28px 24px;max-width:420px;width:100%;text-align:center}}
+h1{{font-size:20px;margin:12px 0 10px}}p{{color:#c7d0dc;line-height:1.7;font-size:15px;margin:0 0 18px}}
+button{{width:100%;padding:13px;border:0;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;
+ background:linear-gradient(90deg,#7b5cff,#2f80ff);color:#fff}}
+</style></head><body><div class="card">
+<div style="font-size:44px">{emoji}</div><h1>{title}</h1><p>{desc_html}</p>
+<button onclick="try{{window.close()}}catch(e){{}}">關閉視窗</button>
+</div><script>
+setTimeout(function(){{try{{window.close()}}catch(e){{}}}}, {3000 if ok else 10000});
+</script></body></html>"""
+    return HTMLResponse(content=html)
 
 
 @router.post("/api/pay/paypal/capture")

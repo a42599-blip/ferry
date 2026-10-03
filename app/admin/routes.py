@@ -334,12 +334,18 @@ async def members_page(q: str = Query(""), plan: str = Query(""),
 
 @router.get("/members/{member_id}/card")
 async def member_card(member_id: str, _: dict = Depends(require_admin)) -> dict:
-    """會員資料卡（含方案歷史、最近活動、回報紀錄）。"""
-    from ..services import members
+    """會員資料卡（含方案歷史、最近活動、回報紀錄、付費訂單）。
+
+    小羅 2026-10-03：付費資訊（訂單／時間／金額／交易號）要留在資料卡，
+    日後客戶退款或爭議時可追溯（對應收款平台憑證）。
+    """
+    from ..services import members, events
 
     card = members.card(member_id)
     if not card:
         raise HTTPException(status_code=404, detail="找不到這個會員")
+    subj = f"user:{member_id}"
+    card["orders"] = [o for o in events.orders(500) if (o.get("member_id") or "") == subj]
     return {"ok": True, "card": card}
 
 

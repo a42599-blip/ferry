@@ -289,6 +289,15 @@ input:focus{outline:none;border-color:var(--acc)}
 .paybox{margin-top:18px;border-top:1px solid var(--line-soft);padding-top:14px}
 .paybox .lbl2{font-size:12.5px;color:var(--dim);margin-bottom:9px}
 .payways{display:flex;gap:8px;flex-wrap:wrap}
+/* 付款成功提示（可關閉；手機也不會擋住全畫面）*/
+.payok{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;padding:14px;z-index:1000}
+.payok-card{background:#171b22;border:1px solid #2a313d;border-radius:14px;padding:18px 18px 14px;
+  max-width:420px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.45);text-align:center}
+.payok-emoji{font-size:34px;line-height:1}
+.payok-card h3{margin:8px 0 6px;font-size:17px}
+.payok-card p{margin:0 0 12px;color:var(--dim);font-size:14px;line-height:1.6}
+.payok-card button{width:100%;padding:11px;border:0;border-radius:9px;font-size:15px;font-weight:700;
+  cursor:pointer;background:linear-gradient(90deg,#7b5cff,#2f80ff);color:#fff}
 /* 付款方式圖標（純顯示、不需連結）：同一排、統一高度 30px */
 .payicons{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .payic{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 10px;

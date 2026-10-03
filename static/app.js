@@ -1333,6 +1333,23 @@ function currentProvider() {
   return on ? on.dataset.pay : ($('#pay-ways')?.querySelector('[data-pay]')?.dataset.pay || 'ecpay');
 }
 
+// ── 付款成功提示（可關閉；手機／電腦都對應）───────────────
+function showPaySuccess() {
+  const old = document.querySelector('.payok');
+  if (old) old.remove();
+  const el = document.createElement('div');
+  el.className = 'payok';
+  el.innerHTML = '<div class="payok-card">'
+    + '<div class="payok-emoji">🎉</div>'
+    + '<h3>' + esc(t('pay_ok_title')) + '</h3>'
+    + '<p>' + esc(t('pay_ok_desc')) + '</p>'
+    + '<button type="button" id="payok-close">' + esc(t('pay_ok_btn')) + '</button>'
+    + '</div>';
+  document.body.appendChild(el);
+  el.querySelector('#payok-close').addEventListener('click', () => el.remove());
+  setTimeout(() => el.remove(), 15000);
+}
+
 // ── PayPal：點「訂閱」→ 開 PayPal 付款頁（彈窗，不離開本站）───────
 //   小羅 2026-10-03：① 直接進付款頁（可選信用卡）② 付款成功才開通
 //   ③ 金額由後端訂單決定（月 88／終身 988）
@@ -1355,6 +1372,7 @@ async function openPayPal(plan) {
           clearInterval(timer);
           msg('#pay-status', t('pay_activated_to'), 'ok');
           try { w.close(); } catch (e) { /* 忽略 */ }
+          showPaySuccess();
           loadMe();
         }
       } catch (e) { /* 繼續等 */ }

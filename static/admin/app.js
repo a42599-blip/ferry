@@ -1580,6 +1580,17 @@ async function openMemberCard(mid) {
     + (h.note ? `　<span class="dim">${esc(h.note)}</span>` : '') + '</div>').join('')
     || '<div class="dim">尚無紀錄</div>';
   const recent = renderRecent(m.recent);
+  // 付費訂單（小羅 2026-10-03：退款／爭議時要能追溯金流憑證）
+  const PL_ORDER = { free: '免費', monthly: '月會員', lifetime: '終身會員' };
+  const orders = (m.orders || []).map((o) => `<div class="hrow">${fmtTime(o.created_at)}　`
+    + `<b>${esc(PL_ORDER[o.plan] || o.plan || '—')}</b>　NT$ ${fmtN(o.amount)}　`
+    + `<span class="badge ${o.status === 'paid' ? 'ok' : ''}">${esc(o.status === 'paid' ? '已付款' : o.status)}</span>`
+    + (o.provider ? `　<span class="dim">${esc(o.provider)}</span>` : '')
+    + (o.pay_method ? `　<span class="dim">${esc(o.pay_method)}</span>` : '')
+    + `<br><span class="dim">訂單 ${esc(o.id)}</span>`
+    + (o.provider_txn ? `<br><span class="dim">交易號 ${esc(o.provider_txn)}</span>` : '')
+    + (o.note ? `<br><span class="dim">${esc(o.note)}</span>` : '') + '</div>').join('')
+    || '<div class="dim">尚無付費訂單</div>';
   const logins = (m.logins || []).map((x) =>
     `<div class="hrow">${fmtTime(x.ts)}　<span class="dim">${esc(x.os || '')}`
     + `${x.browser ? ' · ' + esc(x.browser) : ''}`
@@ -1656,6 +1667,10 @@ async function openMemberCard(mid) {
     <div class="rows" style="margin-top:14px">
       <div class="pnl"><div class="lbl">方案變更歷史</div>${hist}</div>
       <div class="pnl"><div class="lbl">最近活動（每 8 秒自動更新）</div><div id="mc-recent">${recent}</div></div>
+    </div>
+    <div class="pnl" style="margin-top:12px">
+      <div class="lbl">付費訂單（供退款／爭議追溯）</div>
+      ${orders}
     </div>
     <div class="pnl" style="margin-top:12px">
       <div class="lbl">登入歷史（共 ${fmtN(m.login_count)} 次）</div>
