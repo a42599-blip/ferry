@@ -301,7 +301,7 @@ input:focus{outline:none;border-color:var(--acc)}
 /* 付款方式圖標（純顯示、不需連結）：同一排、統一高度 30px */
 .payicons{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;overflow-x:auto;margin-bottom:10px;padding-bottom:2px;-webkit-overflow-scrolling:touch}
 .payicons::-webkit-scrollbar{height:0}
-.payic{display:inline-flex;align-items:center;justify-content:center;height:30px;min-width:68px;padding:0 8px;
+.payic{display:inline-flex;align-items:center;justify-content:center;height:30px;width:82px;padding:0 6px;font-size:11.5px;
   flex:0 0 auto;white-space:nowrap;
   border-radius:6px;font-size:12.5px;font-weight:700;letter-spacing:.3px;line-height:1;
   background:#fff;color:#1b2430;border:1px solid var(--line-soft)}
