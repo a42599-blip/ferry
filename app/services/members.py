@@ -890,9 +890,10 @@ def find_account(nickname: str) -> list[str]:
     nk = (nickname or "").strip()
     if len(nk) < 1:
         return []
-    rows = db.query("SELECT email FROM members WHERE COALESCE(nickname,'') LIKE ?"
-                    " AND COALESCE(status,'') <> 'deleted' LIMIT 5", (f"%{nk}%",))
-    return [(r["email"] or "").strip() for r in rows if "@" in (r["email"] or "")]
+    rows = db.query("SELECT email, nickname, COALESCE(status,'') AS st FROM members"
+                    " WHERE COALESCE(nickname,'') LIKE ? LIMIT 10", (f"%{nk}%",))
+    return [(r["email"] or "").strip() for r in rows
+            if r["st"] != "deleted" and "@" in (r["email"] or "")]
 
 
 def tier_of(member_id: str | None) -> str:
