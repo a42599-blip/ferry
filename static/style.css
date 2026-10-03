@@ -522,3 +522,12 @@ input:focus{outline:none;border-color:var(--acc)}
 .paypickbtn{width:100%;padding:14px;margin-bottom:10px;border:1px solid #2a313d;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;background:#1e242e;color:#eef2f7}
 .paypickbtn:hover{background:#252c38}
 .paypickcancel{width:100%;padding:12px;border:0;border-radius:10px;font-size:15px;cursor:pointer;background:transparent;color:#8b95a3}
+
+/* 其他渠道徽章（品牌色；讓它們看起來像圖標而不是純文字）*/
+.payic[data-ch="amex"]{background:#016FD0;color:#fff;border-color:#016FD0}
+.payic[data-ch="applepay"]{background:#000;color:#fff;border-color:#000}
+.payic[data-ch="googlepay"]{background:#fff;color:#3c4043;border-color:#dadce0}
+.payic[data-ch="samsungpay"]{background:#1428A0;color:#fff;border-color:#1428A0}
+.payic[data-ch="taiwanpay"]{background:#e60012;color:#fff;border-color:#e60012}
+.payic[data-ch="alipay"]{background:#1677FF;color:#fff;border-color:#1677FF}
+.payic[data-ch="wechat"]{background:#07C160;color:#fff;border-color:#07C160}
