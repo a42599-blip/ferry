@@ -487,5 +487,6 @@
   "beta_pub_ads": "Free during public beta, but with ads — after your free quota runs out, watch a short ad to keep going.",
   "btn_leave": "Disconnect",
   "tr_left_ok": "Disconnected",
-  "tr_busy_stop": "Transfer in progress — please wait"
+  "tr_busy_stop": "Transfer in progress — please wait",
+  "tr_slow_net": "Slow connection: the two devices may be on different networks. Try the same Wi-Fi first."
 }

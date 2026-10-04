@@ -8,16 +8,13 @@
   if (!$('#p-transfer')) return;
   const t = (k, d) => (window.FY?.t ? window.FY.t(k, d) : d) || d || k;
 
-  // ⚠️ 只有 STUN 的話，遇到手機電信網路（CGNAT）或不同網路時常常連不上，
-  //    使用者看到的就是「配對成功但一直沒傳」。所以一定要有 TURN 中繼。
+  // 跨網路（手機 4G ↔ 電腦）時會「卡在那裡不動」→ 拿掉，只留 STUN。
+  // 同一 WiFi 直連、大部分家用 NAT 打洞都能通；打不通會「快速失敗」而不是卡死。
   const ICE = { iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    // 免費公開 TURN（Metered OpenRelay）—— 連不上時的最後手段
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
   ], iceCandidatePoolSize: 4 };
+
   const CHUNK = 64 * 1024;
   const HIGH_WATER = 8 * 1024 * 1024;
   const LOW_WATER = 1 * 1024 * 1024;
