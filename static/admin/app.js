@@ -742,7 +742,8 @@ async function pgDevices() {
           <div class="mhead">
             <b>${esc(m.email || m.id)}</b>
             <span class="badge ${m.plan !== 'free' ? 'ok' : ''}">${esc(PL[m.plan] || m.plan)}</span>
-            ${m.status === 'suspended' ? '<span class="badge err">已停權</span>' : ''}
+            ${m.status === 'deleted' ? '<span class="badge err">已註銷</span>'
+              : m.status === 'suspended' ? '<span class="badge err">已停權</span>' : ''}
           </div>
           <div class="mgrid">
             <div><span>註冊時間</span>${fmtTime(m.created_at)}</div>
@@ -1721,8 +1722,10 @@ async function openMemberCard(mid) {
       <div><span>Email</span><b>${esc(m.email || '–')}</b></div>
       <div><span>會員種類</span><b>${esc(kindName)}</b></div>
       <div><span>方案價格</span>${isPaid ? (m.paid_amount ? `NT$ ${fmtN(m.paid_amount)}` : 'NT$ 0（手動開通）') : '免費'}</div>
-      <div><span>帳號狀態</span>${m.status === 'suspended'
-          ? '<span class="badge err">已停權</span>' : '<span class="badge ok">正常</span>'}</div>
+      <div><span>帳號狀態</span>${
+        m.status === 'deleted' ? '<span class="badge err">已註銷（可復原）</span>'
+        : m.status === 'suspended' ? '<span class="badge err">已停權</span>'
+        : '<span class="badge ok">正常</span>'}</div>
       <div><span>註冊時間</span>${fmtTime(m.created_at)}</div>
       <div><span>付費起始</span>${m.plan_started_at ? fmtTime(m.plan_started_at) : '–'}</div>
       <div><span>到期時間</span>${m.expires_at ? fmtTime(m.expires_at) : '永久'}</div>
@@ -1761,6 +1764,7 @@ async function openMemberCard(mid) {
         <button class="big sm" id="adj-go">套用調整</button>
         <button class="gh" id="adj-sus">${m.status === 'suspended' ? '復權' : '停權'}</button>
         <button class="gh" id="adj-del" style="color:#d33;border-color:#d33">刪除帳號</button>
+        ${m.status !== 'active' ? '<button class="big sm" id="adj-restore">♻️ 復原帳號</button>' : ''}
       </div>
       <div class="dim" id="adj-status" style="font-size:11.5px"></div>
     </div>
@@ -1853,13 +1857,25 @@ async function openMemberCard(mid) {
   const delBtn = $('#adj-del');
   if (delBtn) delBtn.onclick = async () => {
     const who = m.email || m.id;
-    if (!confirm(`⚠️ 確定要刪除「${who}」的帳號？\n\n（他會立即無法登入；資料保留，可從「復原刪掉的會員」救回）`)) return;
+    if (!confirm(`⚠️ 確定要刪除「${who}」的帳號？\n\n（他會立即無法登入；資料保留。\n刪除後他會從名單消失，要救回請用上方搜尋他的 Email 打開資料卡 → ♻️ 復原帳號，或按「復原刪掉的會員」）`)) return;
     if (!confirm('再確認一次：真的要刪除？')) return;
     try {
       await api(`/members/${mid}?confirm=DELETE`, { method: 'DELETE' });
       queue('已刪除帳號：' + who);
       $('#ml-cardbox').hidden = true;
       loadMemberList();
+    } catch (e) { alert(e.message); }
+  };
+
+  // ♻️ 復原帳號（小羅 2026-10-04：註銷後要能一鍵救回）
+  const resBtn = $('#adj-restore');
+  if (resBtn) resBtn.onclick = async () => {
+    const who = m.email || m.id;
+    if (!confirm(`確定要復原「${who}」的帳號？（取消註銷，他就能重新登入）`)) return;
+    try {
+      await api(`/members/${mid}/restore`, { method: 'POST', body: JSON.stringify({}) });
+      queue('已復原帳號：' + who);
+      openMemberCard(mid); loadMemberList();
     } catch (e) { alert(e.message); }
   };
 

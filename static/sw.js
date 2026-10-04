@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v40';  // v40：2026-10-04 後台操作紀錄
+const CACHE = 'ferry-img-v41';  // v41：2026-10-04 後台註銷狀態顯示＋一鍵復原
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',
