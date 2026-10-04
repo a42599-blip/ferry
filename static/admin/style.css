@@ -36,7 +36,8 @@ code{background:rgba(255,255,255,.06);padding:3px 8px;border-radius:3px;word-bre
 /* ── 頂欄 ── */
 .dtop{height:56px;display:flex;align-items:center;gap:16px;padding:0 22px;
   border-bottom:1px solid var(--line-soft);flex:0 0 auto}
-.dtop .lg{font-size:17px}
+.dtop .lg{font-size:17px;display:flex;align-items:center;gap:8px}
+.dtop .logo-mark{width:26px;height:26px;border-radius:50%;display:block;flex:0 0 auto}
 .dtop .r{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--dim)}
 .dtop select,.dtop .gh{border:1px solid rgba(255,255,255,.16);background:transparent;
   padding:6px 10px;font-size:12.5px;color:var(--text)}

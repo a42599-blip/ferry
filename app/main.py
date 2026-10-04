@@ -435,8 +435,7 @@ async def get_quota(request: Request):
     mid = auth.current_member_id(request)
     tier = members_service.tier_of(mid)
     m = members_service.get(mid) if mid else None
-    used = int((st.get("download") or {}).get("used") or 0) + \
-        int((st.get("transfer") or {}).get("used") or 0)
+    used = quota.used_total(subject, tz_name=tz)
     ads = ads_service.state(tier, used)
     # ⚠️ 前台是拿「內層 quota」畫畫面 → 等級／到期／廣告要一起放進內層，
     #    否則前台讀不到（實測踩到：月會員仍顯示今日剩餘次數）

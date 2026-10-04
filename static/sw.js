@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v42';  // v42：2026-10-04 後台通知按鈕改明顯按鈕式
+const CACHE = 'ferry-img-v43';  // v43：2026-10-04 次數合併顯示＋後台 logo
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

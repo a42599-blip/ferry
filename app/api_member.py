@@ -87,7 +87,7 @@ async def ads_reward(request: Request, body: dict = Body(default={})) -> dict:
     kind = "transfer" if str((body or {}).get("kind") or "") == "transfer" else "download"
 
     # 廣告的計次＝下載＋傳輸「合併」（與 /api/quota 的 ads.used 一致）
-    used_all = quota_service.used("download", subject) + quota_service.used("transfer", subject)
+    used_all = quota_service.used_total(subject)
     st = ads_service.state(tier, used_all)
     if not st["enabled"]:
         raise BadRequest("廣告功能尚未啟用")

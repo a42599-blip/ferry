@@ -74,6 +74,16 @@ def used(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> int:
         return 0
 
 
+def used_total(subject: str, *, tz_name: str = "Asia/Taipei") -> int:
+    """下載＋傳輸的**合併**用量。
+
+    小羅 2026-10-04：「解析次數跟無損傳輸次數要合併計算、統一顯示。」
+    → 兩者共用同一個每日額度（下載用掉的次數會算在傳輸這邊，反之亦然）。
+    """
+    return (used("download", subject, tz_name=tz_name)
+            + used("transfer", subject, tz_name=tz_name))
+
+
 def remaining(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> int:
     """今天還可以用幾次。
 
@@ -83,7 +93,7 @@ def remaining(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> int:
     """
     if not _limit_on(kind) or _is_paid(subject) or _ads_off_for(subject):
         return 9999  # 不限（公測全開／該模組開關關掉／會員／該等級廣告開關關掉）
-    return max(0, daily_limit(kind, subject) - used(kind, subject, tz_name=tz_name))
+    return max(0, daily_limit(kind, subject) - used_total(subject, tz_name=tz_name))
 
 
 def consume(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
@@ -93,7 +103,7 @@ def consume(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
 
     dk = _date_key(tz_name)
     if _limit_on(kind) and not _is_paid(subject) and not _ads_off_for(subject):
-        cur = used(kind, subject, tz_name=tz_name)
+        cur = used_total(subject, tz_name=tz_name)        # 下載＋傳輸合併計算
         if cur >= daily_limit(kind, subject):
             # ⚠️ 2026-09-29 小羅：「只要他願意看廣告，就永遠再給他次數，**永遠不要**告訴他
             #    『今天次數用完請等明天』—— 他看得越多我越賺錢。」
@@ -118,7 +128,7 @@ def consume(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
     return {
         "kind": kind,
         "limit": daily_limit(kind, subject),
-        "used": used(kind, subject, tz_name=tz_name),
+        "used": used_total(subject, tz_name=tz_name),
         "remaining": remaining(kind, subject, tz_name=tz_name),
         "reset_at": f"{dk}T00:00:00（{tz_name} 隔日）",
         "unlimited": not _limit_on(kind) or _is_paid(subject) or _ads_off_for(subject),
@@ -178,17 +188,19 @@ def status(subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
     _ads_off = _ads_off_for(subject)
     dl_unlimited = not _limit_on("download") or paid or _ads_off
     tr_unlimited = not _limit_on("transfer") or paid or _ads_off
+    # ⚠️ 小羅 2026-10-04：下載與傳輸**合併計算** → 兩邊顯示同一個「合併已用／剩餘」
+    total = used_total(subject, tz_name=tz_name)
     return {
         "download": {
             "limit": daily_limit("download", subject),
-            "used": used("download", subject, tz_name=tz_name),
+            "used": total,
             "remaining": remaining("download", subject, tz_name=tz_name),
             "reset_hint": hint,
             "unlimited": dl_unlimited,
         },
         "transfer": {
             "limit": daily_limit("transfer", subject),
-            "used": used("transfer", subject, tz_name=tz_name),
+            "used": total,
             "remaining": remaining("transfer", subject, tz_name=tz_name),
             "reset_hint": hint,
             "unlimited": tr_unlimited,
