@@ -15,6 +15,7 @@ import secrets
 import time
 
 from ..core import db
+from ..core import timezone as tz_util
 from ..core.errors import BadRequest
 
 
@@ -521,7 +522,7 @@ async def run_expiry_tasks() -> dict:
         if db.get_setting(key):
             continue
         plan_name = (billing.PLANS.get(m["plan"]) or {}).get("name", m["plan"])
-        when = time.strftime("%Y-%m-%d", time.localtime(m["expires_at"]))
+        when = tz_util.fmt(m["expires_at"], m.get("tz"))
         body = chr(10).join([
             f"你的「{plan_name}」將於 {when} 到期（剩 {left} 天）。",
             "",
@@ -564,7 +565,7 @@ async def run_expiry_tasks() -> dict:
                 m["email"], "【轉運站】會員已到期",
                 chr(10).join([
                     f"你的「{(billing.PLANS.get(old) or {}).get('name', old)}」" 
-                    f"已於 {time.strftime('%Y-%m-%d', time.localtime(m['expires_at']))} 到期。",
+                    f"已於 {tz_util.fmt(m['expires_at'], m.get('tz'))} 到期。",
                     "",
                     "目前已恢復成免費會員（每日免費 5 次）。",
                     "• 免費次數用完，看一次 15 秒廣告可再解鎖 5 次（以此類推）",

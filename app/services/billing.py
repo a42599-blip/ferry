@@ -26,6 +26,7 @@ from typing import Any
 import httpx
 
 from ..core import db
+from ..core import timezone as tz_util
 from ..core.errors import AppError, BadRequest, LoginRequired
 from . import flags
 
@@ -389,7 +390,7 @@ def activate(order_id: str, *, raw_amount: float | None = None, txn: str = "",
     buyer = (row["member_id"] or "")
     if not buyer.startswith("user:"):
         raise BadRequest("這筆訂單沒有綁定會員帳號，為避免開錯人，請人工確認")
-    bm = db.one("SELECT id, email, status FROM members WHERE id=?", (buyer[5:],))
+    bm = db.one("SELECT id, email, status, tz FROM members WHERE id=?", (buyer[5:],))
     if not bm:
         from . import notify as _n
 
@@ -475,7 +476,7 @@ def activate(order_id: str, *, raw_amount: float | None = None, txn: str = "",
     #     而且後台要用這個訂單號就能搜尋這筆交易。」
     #   → 信裡一定帶「訂單編號」，客服用編號就能在後台以 /order/lookup 查到。
     if expires:
-        expiry = time.strftime("%Y-%m-%d %H:%M", time.localtime(expires)) + "（月會員 31 天）"
+        expiry = tz_util.fmt(expires, bm["tz"], "%Y-%m-%d %H:%M") + "（月會員 31 天）"
     else:
         expiry = "永久（終身會員）"
     cust_body = (

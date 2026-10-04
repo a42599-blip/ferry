@@ -7,3 +7,4 @@ bgutil-ytdlp-pot-provider==2.0.0   # YouTube 通行證外掛（版本要跟 Dock
 playwright==1.49.1
 pytest==8.3.4
 pytest-asyncio==0.25.0
+tzdata>=2024.1

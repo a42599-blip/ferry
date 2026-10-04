@@ -77,6 +77,24 @@ def from_request(request=None) -> str:
     return DEFAULT_TZ
 
 
+def fmt(ts: float, tz_name: str | None = None, pattern: str = "%Y-%m-%d") -> str:
+    """把時間戳格式化成「指定時區」的字串（預設 Asia/Taipei）。
+
+    信件裡所有日期都要走這裡 —— 不要用伺服器的 `time.localtime`
+    （Railway 是 UTC，會跟會員的當地時間差一天）。
+    """
+    import datetime as _dt
+
+    try:
+        from zoneinfo import ZoneInfo
+
+        return _dt.datetime.fromtimestamp(ts, ZoneInfo(tz_name or DEFAULT_TZ)).strftime(pattern)
+    except Exception:  # noqa: BLE001 — 時區查不到就退回系統時間
+        import time as _t
+
+        return _t.strftime(pattern, _t.localtime(ts))
+
+
 def _is_valid(tz: str) -> bool:
     try:
         from zoneinfo import ZoneInfo
