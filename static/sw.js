@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v36';  // v36：2026-10-04 後台即時監控顯示修正（只看自己的磁碟）
+const CACHE = 'ferry-img-v37';  // v37：2026-10-04 後台會員卡顯示「0 元（手動開通）／未收款」
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

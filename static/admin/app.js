@@ -733,7 +733,8 @@ async function pgDevices() {
         const hist = (m.history || []).map((h) =>
           `<div class="hrow"><span class="dim">${fmtTime(h.at)}</span>　`
           + `${esc(PL[h.from_plan] || h.from_plan || '—')} → <b>${esc(PL[h.to_plan] || h.to_plan)}</b>`
-          + (h.amount ? `　NT$ ${h.amount}` : '')
+          + (h.to_plan && h.to_plan !== 'free'
+            ? `　NT$ ${fmtN(h.amount || 0)}${h.amount ? '' : '（未收款）'}` : '')
           + (h.reason ? `　<span class="dim">${esc(h.reason)}</span>` : '')
           + (h.note ? `　<span class="dim">${esc(h.note)}</span>` : '') + `</div>`).join('')
           || '<div class="dim">尚無變更紀錄</div>';
@@ -1649,7 +1650,8 @@ async function openMemberCard(mid) {
   const q = m.quota || {};
   const hist = (m.history || []).map((h) => `<div class="hrow">${fmtTime(h.at)}　`
     + `${esc(PL_NAME[h.from_plan] || h.from_plan || '—')} → <b>${esc(PL_NAME[h.to_plan] || h.to_plan)}</b>`
-    + (h.amount ? `　NT$ ${h.amount}` : '')
+    + (h.to_plan && h.to_plan !== 'free'
+      ? `　NT$ ${fmtN(h.amount || 0)}${h.amount ? '' : '（未收款）'}` : '')
     + (h.reason ? `　<span class="dim">${esc(h.reason)}</span>` : '')
     + (h.note ? `　<span class="dim">${esc(h.note)}</span>` : '') + '</div>').join('')
     || '<div class="dim">尚無紀錄</div>';
@@ -1693,7 +1695,7 @@ async function openMemberCard(mid) {
       <div><span>暱稱</span><b>${esc(m.nickname || '–')}</b>${m.nickname ? ' <button class="gh" id="adj-nick-clr" style="padding:1px 6px;font-size:11px">清除</button>' : ''}</div>
       <div><span>Email</span><b>${esc(m.email || '–')}</b></div>
       <div><span>會員種類</span><b>${esc(kindName)}</b></div>
-      <div><span>方案價格</span>${isPaid ? `NT$ ${m.price}` : '免費'}</div>
+      <div><span>方案價格</span>${isPaid ? (m.paid_amount ? `NT$ ${fmtN(m.paid_amount)}` : 'NT$ 0（手動開通）') : '免費'}</div>
       <div><span>帳號狀態</span>${m.status === 'suspended'
           ? '<span class="badge err">已停權</span>' : '<span class="badge ok">正常</span>'}</div>
       <div><span>註冊時間</span>${fmtTime(m.created_at)}</div>

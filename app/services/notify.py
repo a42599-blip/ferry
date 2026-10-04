@@ -370,7 +370,7 @@ def build_digest(days: int = 1) -> tuple[str, str]:
         f"收益：US$ {s['revenue']}",
         "",
         f"會員：今天新註冊 {ms['free_today']} 位（免費）　付費會員 {ms['paid']} 位"
-        f"（月會員 {ms['monthly']}／終身 {ms['lifetime']}）",
+        f"（月會員 {ms['monthly']}／終身 {ms['lifetime']}；其中手動開通 0 元 {ms['gift']} 位）",
         "",
         f"傳輸成功率：{t['success_rate'] if t['success_rate'] is not None else '–'}%",
         "",

@@ -483,8 +483,14 @@ def plan_stats() -> dict:
         "SELECT COUNT(*) FROM members WHERE plan=?", (billing.PLAN_MONTHLY,)) or 0)
     lifetime = int(db.scalar(
         "SELECT COUNT(*) FROM members WHERE plan=?", (billing.PLAN_LIFETIME,)) or 0)
+    # 手動開通（0 元）：付費方案但沒有「已付款」訂單 → 後台私下開通／送朋友
+    #   小羅 2026-10-04：「手動這邊都寫 0 元開通，收益不能算到他們。」
+    gift = int(db.scalar(
+        "SELECT COUNT(*) FROM members m WHERE m.plan<>? AND NOT EXISTS ("
+        " SELECT 1 FROM orders o WHERE o.member_id='user:'||m.id AND o.status='paid')",
+        (billing.PLAN_FREE,)) or 0)
     return {"free_today": free_today, "monthly": monthly, "lifetime": lifetime,
-            "paid": monthly + lifetime}
+            "paid": monthly + lifetime, "gift": gift}
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -713,6 +719,12 @@ def card(member_id: str) -> dict | None:
         return None
     m["plan_name"] = (billing.PLANS.get(m.get("plan")) or {}).get("name", m.get("plan"))
     m["price"] = (billing.PLANS.get(m.get("plan")) or {}).get("price", 0)
+    # 實際收到多少錢（已付款訂單合計；手動開通＝0）
+    subj = "user:" + member_id
+    m["paid_amount"] = round(sum(
+        float(o["amount"] or 0) for o in db.query(
+            "SELECT amount FROM orders WHERE member_id=? AND status='paid'", (subj,))
+    ), 2)
     m["history"] = plan_history(member_id, limit=30)
     dev = m.get("device_id") or ""
     m["recent"] = events.device_trace(dev, limit=15) if dev else []
