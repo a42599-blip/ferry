@@ -464,6 +464,29 @@ def counts_by(only: str = "all") -> int:
     return len(emails(only))
 
 
+def plan_stats() -> dict:
+    """會員統計（給每日摘要用）。
+
+    小羅 2026-10-04：「每日摘要加上今天幾個免費註冊、幾個付費、月費幾個、終身幾個。」
+    """
+    import datetime as _dt
+
+    from . import billing
+
+    tp = _dt.timezone(_dt.timedelta(hours=8))          # 台北
+    today0 = _dt.datetime.now(tp).replace(
+        hour=0, minute=0, second=0, microsecond=0).timestamp()
+    free_today = int(db.scalar(
+        "SELECT COUNT(*) FROM members WHERE created_at>=? AND (plan IS NULL OR plan=?)",
+        (today0, billing.PLAN_FREE)) or 0)
+    monthly = int(db.scalar(
+        "SELECT COUNT(*) FROM members WHERE plan=?", (billing.PLAN_MONTHLY,)) or 0)
+    lifetime = int(db.scalar(
+        "SELECT COUNT(*) FROM members WHERE plan=?", (billing.PLAN_LIFETIME,)) or 0)
+    return {"free_today": free_today, "monthly": monthly, "lifetime": lifetime,
+            "paid": monthly + lifetime}
+
+
 # ══════════════════════════════════════════════════════════════════
 #  會員到期處理（小羅 2026-09-27）
 #  「時間到之前要提醒客戶，看他願不願意付費；不然就要恢復一天五次的機制。」
@@ -497,10 +520,18 @@ async def run_expiry_tasks() -> dict:
             f"你的「{plan_name}」將於 {when} 到期（剩 {left} 天）。",
             "",
             "到期後：",
-            "• 會員資格會暫停，無限次數會恢復成「每日免費 5 次」",
+            "• 會員資格會恢復成免費會員（每日免費 5 次）",
+            "• 免費次數用完，看一次 15 秒廣告可再解鎖 5 次",
             "• 續約後立即恢復無限次數",
             "",
-            "續約請回到網站 →「方案」頁。",
+            "★ 續約不會浪費：",
+            "現在續約一個月，會從你目前的到期日接續計算，",
+            f"也就是「剩 {left} 天 + 31 天」→ 到期日直接往後加，不會少算。",
+            "",
+            "為避免到期後無法無限使用，建議盡快到網站「方案」頁續約。",
+            "",
+            "轉運站 scefo.com",
+            "客服信箱：a42599@gmail.com",
             "",
             "（這是系統自動通知，不用回覆）",
         ])
@@ -525,8 +556,14 @@ async def run_expiry_tasks() -> dict:
                     f"你的「{(billing.PLANS.get(old) or {}).get('name', old)}」" 
                     f"已於 {time.strftime('%Y-%m-%d', time.localtime(m['expires_at']))} 到期。",
                     "",
-                    "目前已恢復成免費方案（每日免費 5 次）。",
-                    "隨時可以回到網站「方案」頁續約，續約後立即恢復無限次數。",
+                    "目前已恢復成免費會員（每日免費 5 次）。",
+                    "• 免費次數用完，看一次 15 秒廣告可再解鎖 5 次（以此類推）",
+                    "• 隨時可以付費續約，續約後立即恢復無限次數",
+                    "",
+                    "要續約請到網站「方案」頁。",
+                    "",
+                    "轉運站 scefo.com",
+                    "客服信箱：a42599@gmail.com",
                 ]))
         except Exception:  # noqa: BLE001
             pass

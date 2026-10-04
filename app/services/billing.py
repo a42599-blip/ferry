@@ -407,14 +407,26 @@ def activate(order_id: str, *, raw_amount: float | None = None, txn: str = "",
         raise BadRequest("這筆訂單的帳號已註銷（未開通，已通知管理員）")
 
     plan = row["plan"]
-    expected = float(row["amount"])
+    expected = float(row["amount"])         # ← 金額在下單時就鎖定（月 88／終身 988）
     paid = float(raw_amount) if raw_amount is not None else expected
     mismatch = raw_amount is not None and abs(paid - expected) > 0.5
-    price = expected                        # ← 以訂單金額為準
+    price = expected
     fee = round(price * 0.05, 2)            # 概估手續費（實際以金流商帳單為準）
     note = (row["note"] or "")
+
+    # ⚠️ 小羅 2026-10-04：金額在下單時就鎖定；金流商回報的金額若跟訂單不符
+    #   → **一律不開通**（避免「選 88 卻只付 50 也開通」）→ 記錄並通知管理員人工核實。
     if mismatch:
-        note = (note + " | 金額不符：通知 %s / 訂單 %s" % (paid, expected)).strip(" |")
+        try:
+            import asyncio
+
+            asyncio.get_event_loop().create_task(notify.notify(
+                "pay_amount_mismatch", "付款金額與訂單不符（未開通）",
+                "訂單 %s：訂單金額 %s，金流商通知 %s（已擋下、未開通，請人工核實）"
+                % (order_id, expected, paid), force=True))
+        except Exception:  # noqa: BLE001
+            pass
+        raise BadRequest("付款金額與訂單不符，未開通（已通知管理員）")
 
     events.add_order(order_id, member_id=row["member_id"], plan=plan, amount=price,
                      currency=row["currency"] or "TWD", fee=fee, status="paid",
@@ -423,16 +435,6 @@ def activate(order_id: str, *, raw_amount: float | None = None, txn: str = "",
     events.set_order_txn(order_id, txn)
     if method:
         events.set_order_method(order_id, method)
-    if mismatch:
-        try:
-            import asyncio
-
-            asyncio.get_event_loop().create_task(notify.notify(
-                "pay_amount_mismatch", "付款金額與訂單不符（請核實）",
-                "訂單 %s：訂單金額 %s，金流商通知 %s（已按訂單金額開通）"
-                % (order_id, expected, paid), force=True))
-        except Exception:  # noqa: BLE001
-            pass
 
     # ── 到期日計算（小羅 2026-09-27 定案的規則）────────────────
     #  ① 月會員一次算 31 天
@@ -475,21 +477,20 @@ def activate(order_id: str, *, raw_amount: float | None = None, txn: str = "",
     if expires:
         expiry = time.strftime("%Y-%m-%d %H:%M", time.localtime(expires)) + "（月會員 31 天）"
     else:
-        expiry = "終身會員（永久有效）"
+        expiry = "永久（終身會員）"
     cust_body = (
         "您好，\n\n"
         "我們已收到您的付款，會員方案已自動開通 🎉\n\n"
         f"訂單編號：{order_id}\n"
         f"方案：{plan_name}\n"
         f"金額：{money}\n"
-        f"開通效期：{expiry}\n"
+        f"到期日：{expiry}\n"
         + (f"付款方式：{method}\n" if method else "")
         + (f"金流商交易序號：{txn}\n" if txn else "")
         + "\n請保留「訂單編號」，若有付款或開通問題，"
         "來信客服並附上訂單編號，我們會盡快為你處理。\n\n"
         "轉運站 scefo.com\n"
         "客服信箱：a42599@gmail.com\n"
-        "客服電話：0980-222196\n"
     )
     try:
         import asyncio

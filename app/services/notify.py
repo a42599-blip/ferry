@@ -37,6 +37,8 @@ EVENTS: dict[str, dict[str, Any]] = {
     "cert_expiring":    {"title": "SSL 憑證／網域即將到期", "severity": "critical", "can_disable": False},
     "copyright_notice": {"title": "版權檢舉／侵權投訴", "severity": "critical", "can_disable": False},
     "payout_request":   {"title": "提現申請",       "severity": "info",     "can_disable": True},
+    "pay_amount_mismatch": {"title": "付款金額與訂單不符（未開通）", "severity": "critical", "can_disable": False},
+    "pay_no_member":    {"title": "付款成功但找不到會員帳號", "severity": "critical", "can_disable": False},
     "user_report":      {"title": "使用者回報問題",   "severity": "info",     "can_disable": True},
     "deploy":           {"title": "部署完成／失敗",   "severity": "info",     "can_disable": True},
 }
@@ -355,6 +357,9 @@ def build_digest(days: int = 1) -> tuple[str, str]:
     errs = ev.top_errors(days)
     t = ev.transfer_stats(days)
 
+    from . import members as _mem
+
+    ms = _mem.plan_stats()
     lines = [
         f"【轉運站】每日摘要（近 {days} 天）",
         "",
@@ -363,6 +368,9 @@ def build_digest(days: int = 1) -> tuple[str, str]:
         f"{s['success_rate'] if s['success_rate'] is not None else '–'}%）",
         f"下載：{s['downloads']} 次    傳輸：{s['transfers']} 次",
         f"收益：US$ {s['revenue']}",
+        "",
+        f"會員：今天新註冊 {ms['free_today']} 位（免費）　付費會員 {ms['paid']} 位"
+        f"（月會員 {ms['monthly']}／終身 {ms['lifetime']}）",
         "",
         f"傳輸成功率：{t['success_rate'] if t['success_rate'] is not None else '–'}%",
         "",
