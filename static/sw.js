@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v34';  // v34：2026-10-03 付款彈窗圖案按鈕＋匯率小彈窗
+const CACHE = 'ferry-img-v35';  // v35：2026-10-04 後台即時監控（圖未變，僅依鐵律升版）
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

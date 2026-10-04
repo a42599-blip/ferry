@@ -461,6 +461,7 @@ def activate(order_id: str, *, raw_amount: float | None = None, txn: str = "",
         "pay_success", "新付款成功",
         f"訂單：{order_id}\n方案：{PLANS.get(plan, {}).get('name', plan)}\n"
         f"金額：US$ {price:.2f}\n會員：{mid or '(未登入裝置)'}",
+        force=True,
     )
     try:
         import asyncio

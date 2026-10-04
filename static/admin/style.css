@@ -318,3 +318,12 @@ textarea:focus{border-color:var(--acc)}
   border-radius:10px;padding:0 7px;font-size:10.5px;font-weight:700;line-height:16px;
   vertical-align:middle}
 .side button.on .sidebadge{background:#5eead4;color:#052e2b}
+
+/* ── 即時監控診斷橫幅（後台「錯誤與告警」；小羅 2026-10-04）── */
+.vdiag{padding:12px 14px;border:1px solid var(--line);border-left:3px solid var(--dim);
+  font-size:12.5px;line-height:1.75;margin-bottom:12px}
+.vdiag.ok{border-left-color:var(--ok)}
+.vdiag.warn{border-left-color:var(--err)}
+.vdiag.info{border-left-color:var(--acc)}
+.vdiag b{font-size:13px;color:var(--text)}
+.vdiag .sub{color:var(--dim);font-size:11.5px;margin-top:5px}

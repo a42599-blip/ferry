@@ -1270,7 +1270,77 @@ const ERR_TW = {
 };
 const errTw = (code) => ERR_TW[code] || (code ? `其他（${code}）` : '未記錄原因');
 
+// ── 即時監控（伺服器／機房）── 小羅 2026-10-04：要中文、要即時
+async function renderVitals(force) {
+  const diag = $('#v-diag');
+  if (!diag) return;
+  diag.innerHTML = '<p class="note">讀取中…</p>';
+  let v;
+  try {
+    v = await api('/vitals' + (force ? '?force=1' : ''));
+  } catch (e) {
+    diag.innerHTML = `<div class="vdiag info"><b>ℹ️ 讀不到即時狀態</b><div class="sub">${esc(e.message)}</div></div>`;
+    return;
+  }
+  const d = v.diagnosis || {};
+  const ICON = { ok: '🟢', warn: '🔴', info: '🟡' };
+  const LEVEL = { ok: 'ok', warn: 'warn', info: 'info' };
+  const rail = v.railway || {};
+  let inc = '';
+  (rail.incidents || []).forEach((it) => {
+    inc += `<div class="vdiag ${it.affects_us ? 'warn' : 'info'}">
+      <b>${it.affects_us ? '⚠️ 本站機房受影響：' : 'ℹ️ Railway 機房公告：'}${esc(it.title)}</b>
+      <div class="sub">狀態：${esc(it.status)}${it.impact ? '（' + esc(it.impact) + '）' : ''}${it.areas ? '｜範圍：' + esc(it.areas) : ''}</div>
+      ${it.latest ? `<div class="sub">官方說明：${esc(it.latest)}</div>` : ''}
+      <div class="sub">英文原文：${esc(it.title_raw)}${it.url ? `　<a href="${esc(it.url)}" target="_blank" rel="noopener">看官方頁面</a>` : ''}</div>
+    </div>`;
+  });
+  if (rail.error) {
+    inc = `<div class="vdiag info"><b>ℹ️ 讀不到 Railway 狀態</b><div class="sub">${esc(rail.error)}</div></div>`;
+  } else if (!(rail.incidents || []).length) {
+    inc = '<div class="vdiag ok"><b>🟢 Railway 機房：目前沒有故障公告</b></div>';
+  }
+  diag.innerHTML = `<div class="vdiag ${LEVEL[d.level] || 'info'}">
+      <b>${ICON[d.level] || '⚪'} 診斷：${esc(d.short || '–')}</b>
+      <div class="sub">${esc(d.detail || '')}</div></div>` + inc;
+
+  const r = v.region || {};
+  const cpu = v.cpu || {};
+  const rows = [
+    ['本站機房', `${r.zh || '–'}（${r.id || '–'}）`],
+    ['記憶體', v.memory_mb ? v.memory_mb + ' MB' : '–'],
+    ['資料庫反應', v.latency_ms == null ? '取得失敗'
+      : `${v.latency_ms} 毫秒${v.latency_ms > 800 ? ' ⚠️ 偏慢' : ' ✅'}`],
+    ['開機時間', v.uptime_seconds ? Math.round(v.uptime_seconds / 60) + ' 分' : '–'],
+    ['量測時間', v.at ? fmtTime(v.at) : '–'],
+  ];
+  (v.disks || []).forEach((dk) => rows.push([dk.label,
+    `已用 ${fmtBytes(dk.used)}／共 ${fmtBytes(dk.total)}（剩 ${fmtBytes(dk.free)}，${dk.percent}%）`]));
+  if (cpu.cpus) rows.push(['CPU 負載', `${cpu['1m']}（1 分）／${cpu.cpus} 核`]);
+  const rep = $('#v-report');
+  if (rep) rep.innerHTML = rows.map(([k, val]) =>
+    `<div class="metric"><span>${k}</span><span>${esc(val)}</span></div>`).join('');
+}
+
+// ── 寄信額度（Resend）── 小羅 2026-10-04
+async function renderMailQuota() {
+  const box = $('#mail-quota');
+  if (!box) return;
+  box.innerHTML = '<p class="note">查詢中…</p>';
+  try {
+    const q = await api('/mail/quota');
+    if (!q.ok) { box.innerHTML = `<p class="note">${esc(q.error || '查詢失敗')}</p>`; return; }
+    box.innerHTML =
+      `<div class="metric"><span>寄信方式</span><span>${esc(q.transport)}</span></div>`
+      + `<div class="metric"><span>今天已寄</span><span>${fmtN(q.today)}／${fmtN(q.daily_limit)} 封（剩 ${fmtN(q.daily_left)}）</span></div>`
+      + `<div class="metric"><span>本月已寄</span><span>${fmtN(q.month)}／${fmtN(q.monthly_limit)} 封（剩 ${fmtN(q.monthly_left)}）</span></div>`;
+  } catch (e) {
+    box.innerHTML = `<p class="note">❌ ${esc(e.message)}</p>`;
+  }
+}
+
 async function pgErrors() {
+  renderVitals();
   const d = await api('/errors?days=' + days());
   $('#err-top').innerHTML = table([
     { t: '平台', v: (r) => esc(r.platform || '（未辨識）') },
@@ -1376,6 +1446,7 @@ $('#ab-save')?.addEventListener('click', async () => {
 });
 
 async function pgSystem() {
+  renderMailQuota();
   const d = await api('/system');
   $('#sys-info').innerHTML = [
     ['出口 IP', d.egress_ip || '取得失敗'],
@@ -1430,6 +1501,8 @@ $('#n-digest').addEventListener('click', async () => {
   alert(d.ok ? `摘要已寄出（${d.transport}）` : `未寄出：${d.note}`);
 });
 $('#n-run').addEventListener('click', async () => { await api('/monitor/run', { method: 'POST' }); alert('監控已執行'); render(); });
+$('#v-refresh')?.addEventListener('click', () => renderVitals(true));
+$('#mq-refresh')?.addEventListener('click', () => renderMailQuota());
 
 let cleanCount = 0;
 $('#clean-preview').addEventListener('click', async () => {

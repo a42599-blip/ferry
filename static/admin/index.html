@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/admin/style.css?v=38">
+<link rel="stylesheet" href="/admin/style.css?v=39">
 </head>
 <body>
 
@@ -467,6 +467,14 @@
         </div>
         <div class="pnl">
           <div class="rowbetween">
+            <div class="lbl">即時監控（伺服器與機房）</div>
+            <div><button class="gh" id="v-refresh">立即重測</button></div>
+          </div>
+          <div id="v-diag"></div>
+          <div id="v-report"></div>
+        </div>
+        <div class="pnl">
+          <div class="rowbetween">
             <div class="lbl">通知事件開關</div>
             <div><button class="gh" id="n-test">寄測試信</button>
                  <button class="gh" id="n-digest">寄每日摘要</button>
@@ -539,6 +547,14 @@
           </div>
         </div>
         <div class="pnl">
+          <div class="rowbetween">
+            <div class="lbl">📧 寄信額度（Resend）</div>
+            <div><button class="gh" id="mq-refresh">重新查詢</button></div>
+          </div>
+          <p class="note">免費方案：每天 <b>100</b> 封、每月 <b>3,000</b> 封。這裡顯示今天／本月已寄與剩餘；每日摘要信也會附上。</p>
+          <div id="mail-quota"></div>
+        </div>
+        <div class="pnl">
           <div class="lbl">資料管理</div>
           <p class="note">我們不存任何檔案；這裡管的是匿名統計事件。</p>
           <div class="inrow">
@@ -561,6 +577,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=53"></script>
+<script src="/admin/app.js?v=54"></script>
 </body>
 </html>

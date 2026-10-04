@@ -10,6 +10,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import csv
 import io
 import time
@@ -605,6 +606,17 @@ async def errors(days: int = Query(7, ge=1, le=365), _: dict = Depends(require_a
     }
 
 
+@router.get("/vitals")
+async def get_vitals(force: bool = Query(False), _: dict = Depends(require_admin)) -> dict:
+    """即時監控：機房狀態／硬碟／資料庫延遲／記憶體／CPU（全部中文）。
+
+    小羅 2026-10-04：「後台要能抓到即時的伺服器狀態…全部幫我中文化。」
+    """
+    from ..services import vitals
+
+    return await vitals.snapshot(force=force)
+
+
 # ── 系統 ──────────────────────────────────────────────
 @router.get("/system")
 async def system(_: dict = Depends(require_admin)) -> dict:
@@ -700,6 +712,17 @@ async def test_mail(body: dict = Body(default={}), _: dict = Depends(require_adm
         "這是一封測試信。\n\n如果你收到這封，代表網站的寄信功能正常。\n\n轉運站  https://scefo.com",
         to=to)
     return {"ok": r.get("ok"), "info": r.get("note"), "to": r.get("to")}
+
+
+@router.get("/mail/quota")
+async def get_mail_quota(_: dict = Depends(require_admin)) -> dict:
+    """寄信額度（Resend 免費：每天 100 封、每月 3,000 封）。
+
+    小羅 2026-10-04：「後台隨時可查看還剩多少封。」
+    """
+    from ..services import notify
+
+    return await asyncio.to_thread(notify.resend_quota)
 
 
 @router.get("/diag/find")
@@ -922,7 +945,7 @@ async def order_lookup(id: str = Query(...), _: dict = Depends(require_admin)) -
 @router.post("/refund/apply")
 async def refund_apply(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
     """登記一筆退款申請（客戶來信 / 後台代登）。"""
-    from ..services import billing
+    from ..services import billing, notify
 
     row = billing.refund_apply(
         order_id=(body or {}).get("order_id") or "",
@@ -931,6 +954,15 @@ async def refund_apply(body: dict = Body(...), _: dict = Depends(require_admin))
         reason=(body or {}).get("reason") or "",
         note=(body or {}).get("note") or "",
     )
+    # 小羅 2026-10-04：「有人要求退款要立即收到信件」→ 當下就寄（不受冷卻限制）
+    try:
+        await notify.notify(
+            "pay_failed", "收到退款申請",
+            f"訂單：{row.get('order_id') or '－'}\n會員：{row.get('email') or '－'}\n"
+            f"金額：{row.get('currency') or 'TWD'} {row.get('amount')}\n"
+            f"原因：{row.get('reason') or '（未填）'}", force=True)
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True, "row": row, "refunds": billing.refunds()}
 
 
@@ -938,10 +970,19 @@ async def refund_apply(body: dict = Body(...), _: dict = Depends(require_admin))
 async def refund_status(rid: int, body: dict = Body(...),
                         _: dict = Depends(require_admin)) -> dict:
     """更新退款狀態（processing / done / rejected）。done 會把會員降回免費。"""
-    from ..services import billing
+    from ..services import billing, notify
 
-    billing.refund_set_status(rid, (body or {}).get("status") or "processing",
-                              (body or {}).get("note") or "")
+    new_status = (body or {}).get("status") or "processing"
+    billing.refund_set_status(rid, new_status, (body or {}).get("note") or "")
+    # 小羅 2026-10-04：「退款完成／被拒也要立刻通知」
+    if new_status in ("done", "rejected"):
+        label = "退款已完成（已退款給客戶）" if new_status == "done" else "退款申請已駁回"
+        try:
+            await notify.notify("pay_failed", label,
+                                f"退款編號：{rid}\n狀態：{new_status}\n備註：{(body or {}).get('note') or '－'}",
+                                force=True)
+        except Exception:  # noqa: BLE001
+            pass
     return {"ok": True, "refunds": billing.refunds()}
 
 

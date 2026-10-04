@@ -125,6 +125,94 @@ def _recipients() -> list[str]:
     return ev.notify_recipients()
 
 
+# ── 寄信額度（小羅 2026-10-04：「後台隨時可看還剩多少封」）────
+#    Resend 免費方案：每天 100 封、每月 3,000 封。
+#    ⚠️ Resend 沒有「額度」端點 → 用信件列表自己算（以台北時間為準）。
+RESEND_DAILY_LIMIT = 100
+RESEND_MONTHLY_LIMIT = 3000
+_QUOTA_MAX_PAGES = 12                    # 最多掃 1,200 封，避免查太久
+
+
+def _parse_dt(s: str):
+    """Resend 的時間字串 → datetime（帶時區）。"""
+    import datetime as _dt
+
+    txt = str(s or "").strip().replace("Z", "+00:00")
+    if not txt:
+        return None
+    try:
+        d = _dt.datetime.fromisoformat(txt)
+    except ValueError:
+        try:
+            d = _dt.datetime.strptime(txt[:19], "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return None
+    return d if d.tzinfo else d.replace(tzinfo=_dt.timezone.utc)
+
+
+def resend_quota() -> dict:
+    """查這個月／今天寄了幾封、還剩多少（免費額度）。"""
+    out: dict[str, Any] = {
+        "ok": False, "transport": transport(),
+        "daily_limit": RESEND_DAILY_LIMIT, "monthly_limit": RESEND_MONTHLY_LIMIT,
+        "today": 0, "month": 0,
+        "daily_left": RESEND_DAILY_LIMIT, "monthly_left": RESEND_MONTHLY_LIMIT,
+        "error": "",
+    }
+    if transport() != "resend":
+        out["error"] = "目前寄信方式不是 Resend"
+        return out
+
+    import datetime as _dt
+
+    import httpx
+
+    key = mail_conf()["resend"]
+    tz8 = _dt.timezone(_dt.timedelta(hours=8))
+    today = _dt.datetime.now(tz8).date()
+    month_start = today.replace(day=1)
+    after = None
+    scanned = 0
+    try:
+        with httpx.Client(timeout=15) as c:
+            for _ in range(_QUOTA_MAX_PAGES):
+                params = {"limit": 100}
+                if after:
+                    params["after"] = after
+                r = c.get("https://api.resend.com/emails", params=params,
+                          headers={"Authorization": f"Bearer {key}"})
+                if r.status_code != 200:
+                    out["error"] = f"Resend 回應 {r.status_code}"
+                    return out
+                data = r.json()
+                rows = data.get("data") or []
+                if not rows:
+                    break
+                old = False
+                for row in rows:
+                    scanned += 1
+                    ts = _parse_dt(row.get("created_at"))
+                    if ts is None:
+                        continue
+                    day = ts.astimezone(tz8).date()
+                    if day == today:
+                        out["today"] += 1
+                    if day >= month_start:
+                        out["month"] += 1
+                    else:
+                        old = True
+                after = rows[-1].get("id")
+                if old or not data.get("has_more"):
+                    break
+        out["ok"] = True
+    except Exception as exc:  # noqa: BLE001
+        out["error"] = f"查詢失敗：{str(exc)[:80]}"
+    out["daily_left"] = max(0, RESEND_DAILY_LIMIT - out["today"])
+    out["monthly_left"] = max(0, RESEND_MONTHLY_LIMIT - out["month"])
+    out["scanned"] = scanned
+    return out
+
+
 def _send_sync(subject: str, body: str, to: list[str] | None = None) -> tuple[bool, str]:
     """實際寄送。回傳 (成功, 說明)。
 
@@ -292,6 +380,11 @@ def build_digest(days: int = 1) -> tuple[str, str]:
 
 async def send_digest(days: int = 1) -> dict:
     subject, body = build_digest(days)
+    # 附上寄信額度（小羅 2026-10-04：「附在每日摘要信裡」）
+    q = await asyncio.to_thread(resend_quota)
+    if q.get("ok"):
+        body += (f"\n\n寄信額度：今天 {q['today']}/{q['daily_limit']} 封（剩 {q['daily_left']}）"
+                 f"　本月 {q['month']}/{q['monthly_limit']} 封（剩 {q['monthly_left']}）")
     ok, note = await asyncio.to_thread(_send_sync, subject, body)
     _log(subject, body, ok, note, "digest")
     return {"ok": ok, "note": note, "to": _recipients(), "transport": transport()}
@@ -307,47 +400,57 @@ async def send_digest(days: int = 1) -> dict:
 # ══════════════════════════════════════════════════════════════════
 
 def _send_one(to: str, subject: str, body: str) -> tuple[bool, str]:
-    """寄給單一收件人（沿用既有的寄送方式）。"""
-    if transport() == "none":
+    """寄給單一收件人。
+
+    ⚠️ 設定一律以**後台（`mail_conf()`）為準**（小羅 2026-10-04：一對一信以前只讀環境變數，
+    會跟後台設的 Resend 不一致，且 urllib 會被 Resend 擋 403 → 統一改用 httpx）。
+    """
+    c = mail_conf()
+    t = transport()
+    if t == "none":
         return False, "未設定寄送方式"
-    if transport() == "resend":
-        import json as _json
-        import urllib.request as _rq
 
-        key = os.getenv("RESEND_API_KEY", "")
-        frm = os.getenv("NOTIFY_FROM") or "onboarding@resend.dev"
-        data = _json.dumps({"from": frm, "to": [to], "subject": subject, "text": body}).encode()
-        req = _rq.Request("https://api.resend.com/emails", data=data,
-                          headers={"Authorization": f"Bearer {key}",
-                                   "Content-Type": "application/json"})
+    if t == "resend":
+        import httpx
+
         try:
-            with _rq.urlopen(req, timeout=25) as r:
-                return 200 <= r.status < 300, f"HTTP {r.status}"
+            resp = httpx.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {c['resend']}"},
+                json={"from": c["from"] or "onboarding@resend.dev",
+                      "to": [to], "subject": subject, "text": body},
+                timeout=25,
+            )
+            return (200 <= resp.status_code < 300), f"resend {resp.status_code}"
         except Exception as exc:  # noqa: BLE001
-            return False, str(exc)[:120]
-    # SMTP
-    import smtplib
-    from email.message import EmailMessage
+            return False, f"resend 失敗：{str(exc)[:120]}"
 
-    try:
-        host = os.getenv("SMTP_HOST", "")
-        port = int(os.getenv("SMTP_PORT") or 587)
-        user = os.getenv("SMTP_USER", "")
-        pwd = os.getenv("SMTP_PASS", "")
-        frm = os.getenv("SMTP_FROM") or user
+    if t == "smtp":
         msg = EmailMessage()
-        msg["From"] = frm
-        msg["To"] = to
         msg["Subject"] = subject
+        msg["From"] = c["from"] or c["user"] or "ferry@localhost"
+        msg["To"] = to
         msg.set_content(body)
-        with smtplib.SMTP(host, port, timeout=25) as sv:
-            sv.starttls()
-            if user:
-                sv.login(user, pwd)
-            sv.send_message(msg)
-        return True, "sent"
-    except Exception as exc:  # noqa: BLE001
-        return False, str(exc)[:120]
+        host = c["host"]
+        port = int(c["port"] or 587)
+        try:
+            if c["tls"] == "2":
+                with smtplib.SMTP_SSL(host, port, timeout=25) as sv:
+                    if c["user"]:
+                        sv.login(c["user"], c["pass"])
+                    sv.send_message(msg)
+            else:
+                with smtplib.SMTP(host, port, timeout=25) as sv:
+                    if c["tls"] == "1":
+                        sv.starttls()
+                    if c["user"]:
+                        sv.login(c["user"], c["pass"])
+                    sv.send_message(msg)
+            return True, "smtp ok"
+        except Exception as exc:  # noqa: BLE001
+            return False, f"smtp 失敗：{str(exc)[:120]}"
+
+    return False, "這種寄送方式不支援一對一寄信"
 
 
 async def send_to(to: str, subject: str, body: str) -> dict:
