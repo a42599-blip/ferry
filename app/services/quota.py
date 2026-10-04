@@ -91,8 +91,8 @@ def remaining(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> int:
     所以「已用次數」可以變成**負數**（負數＝客服贈送的次數）：
         已用 0、送 2 次 → 已用 -2 → 剩餘 = 5 - (-2) = 7 ✅
     """
-    if not _limit_on(kind) or _is_paid(subject) or _ads_off_for(subject):
-        return 9999  # 不限（公測全開／該模組開關關掉／會員／該等級廣告開關關掉）
+    if not _limit_on(kind) or _is_paid(subject):
+        return 9999  # 不限（該模組次數限制關掉／會員）
     return max(0, daily_limit(kind, subject) - used_total(subject, tz_name=tz_name))
 
 
@@ -102,13 +102,12 @@ def consume(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
         raise ValueError(f"unknown quota kind: {kind}")
 
     dk = _date_key(tz_name)
-    if _limit_on(kind) and not _is_paid(subject) and not _ads_off_for(subject):
+    if _limit_on(kind) and not _is_paid(subject):
         cur = used_total(subject, tz_name=tz_name)        # 下載＋傳輸合併計算
         if cur >= daily_limit(kind, subject):
-            # ⚠️ 2026-09-29 小羅：「只要他願意看廣告，就永遠再給他次數，**永遠不要**告訴他
-            #    『今天次數用完請等明天』—— 他看得越多我越賺錢。」
-            #    → 這個等級有開廣告（訪客 3／免費會員 5）時，一律回「該看廣告」，
-            #      前端會跳廣告、看完再加回同樣的次數 → 可以無限輪迴（見 ads.state 的 due）。
+            # 小羅 2026-10-04 定案：
+            #   有開廣告（該等級）→ 次數用完＝看廣告解鎖（看得越多越賺）
+            #   沒開廣告          → 次數用完＝**只能等明天**（不能解鎖）
             from . import ads as _ads
 
             if _ads.enabled_for(tier_of(subject)):
@@ -131,7 +130,7 @@ def consume(kind: str, subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
         "used": used_total(subject, tz_name=tz_name),
         "remaining": remaining(kind, subject, tz_name=tz_name),
         "reset_at": f"{dk}T00:00:00（{tz_name} 隔日）",
-        "unlimited": not _limit_on(kind) or _is_paid(subject) or _ads_off_for(subject),
+        "unlimited": not _limit_on(kind) or _is_paid(subject),
     }
 
 
@@ -152,21 +151,6 @@ def _limit_on(kind: str) -> bool:
         return True
 
 
-def _ads_off_for(subject: str) -> bool:
-    """這個等級的廣告開關若「關掉」→ 該等級**不再限制次數**（小羅 2026-09-29）。
-
-    為什麼要連動：次數用完時，客人是靠「看廣告換次數」才能繼續。
-    如果廣告開關關掉、次數限制還開著 → 客人用完就**卡死**（沒有廣告可以看、也不能再用）。
-    → 所以：廣告關掉（該等級）＝ 該等級不限次數。
-    """
-    from . import ads as ads_service
-
-    tier = tier_of(subject)
-    if tier not in ("guest", "free"):
-        return False
-    return not ads_service.enabled_for(tier)
-
-
 def _is_paid(subject: str) -> bool:
     """是否為付費會員（預留接口，接上 billing 後就生效）。"""
     try:
@@ -185,9 +169,8 @@ def status(subject: str, *, tz_name: str = "Asia/Taipei") -> dict:
     hint = f"{parts[1]}-{parts[2]} 00:00"        # 例：09-27 00:00
     # ⚠️ 「不限次數」要**分模組**判斷（下載與傳輸的免費開關是分開的）
     paid = _is_paid(subject)
-    _ads_off = _ads_off_for(subject)
-    dl_unlimited = not _limit_on("download") or paid or _ads_off
-    tr_unlimited = not _limit_on("transfer") or paid or _ads_off
+    dl_unlimited = not _limit_on("download") or paid
+    tr_unlimited = not _limit_on("transfer") or paid
     # ⚠️ 小羅 2026-10-04：下載與傳輸**合併計算** → 兩邊顯示同一個「合併已用／剩餘」
     total = used_total(subject, tz_name=tz_name)
     return {
