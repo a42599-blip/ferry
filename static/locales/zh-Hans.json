@@ -272,7 +272,7 @@
   "tr_quota_label": "无损传输",
   "tr_failed_hint": "连不上对方。请确认两台装置在同一个 WiFi，或重新配对一次。",
   "tr_timeout_hint": "还没连上。若两台不在同一个网络，可能被防火墙挡住；请改连同一个 WiFi 再试。",
-  "quota_vip": "付费会员：不限次数、不看广告",
+  "quota_vip": "升级付费会员：不限制次数、不看广告",
   "btn_paste_only": "📋 贴上",
   "btn_parse": "🔍 解析",
   "pay_cards_note": "支援 PayPal 付款、信用卡（Visa／Mastercard／JCB）；付款完成立即开通",

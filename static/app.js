@@ -84,7 +84,7 @@ function applyLang() {
 async function loadLang(code) {
   state.lang = code || localStorage.getItem('fy_lang') || 'zh-Hant';
   try {
-    const r = await fetch('/locales/' + state.lang + '.json?v=67');
+    const r = await fetch('/locales/' + state.lang + '.json?v=68');
     state.L = await r.json();
   } catch { state.L = {}; }
   localStorage.setItem('fy_lang', state.lang);
@@ -267,7 +267,11 @@ function applyFlags(cfg) {
   //   兩顆都關掉 → 再出現。不只首頁：所有帶 .ads-off-note 的說明都會跟著（用 class 統一控制）。
   //   ⚠️ 將來正式上線（付費網站）時，這段公測說明要改成「付費會員福利」的說法（等小羅決定）。
   // 「全站有沒有廣告」的說明文字用（任一廣告開關開著 → 公測「沒有廣告」的說明就收起來）
-  _adsOn = !!(f['feature.ads_guest'] || f['feature.ads_member'] || f['feature.ads_bottom']);
+  // 「實際有沒有廣告」：彈窗（15 秒）廣告要「次數限制 + 廣告」兩組都開才會真的跳（小羅 2026-10-04）；
+  //   底部固定廣告只要開，就算「有廣告」。
+  const _limitOn = f['feature.free_limit_download'] !== false || f['feature.free_limit_transfer'] !== false;
+  const _adLive = !!(f['feature.ads_guest'] || f['feature.ads_member']) && _limitOn;
+  _adsOn = _adLive || !!f['feature.ads_bottom'];
   applyAdCode('popup', cfg.ad_codes?.popup);          // 彈窗廣告（後台「彈窗廣告」那格；何時彈由 ads_guest／ads_member 決定）
   if (f['feature.ads_bottom']) applyBottomAd(cfg.ad_codes?.bottom);  // 底部固定廣告（獨立開關，只負責顯示／不顯示；小羅 2026-10-02）
   applyAdsNotes();
@@ -489,8 +493,11 @@ function applyAdsNotes() {
   const _f = state.config?.features || {};
   const gateOn = !!(_f['feature.ads_guest'] || _f['feature.ads_member']);
   const limitOn = _f['feature.free_limit_download'] !== false || _f['feature.free_limit_transfer'] !== false;
-  const onText = (gateOn && limitOn) ? t('beta_ads_limit') : t('beta_ads_only');
-  $$('.ads-on-note').forEach((el) => { el.hidden = !gateOn; el.textContent = onText; });
+  // ⚠️ 彈窗（15 秒）廣告只有在「次數限制」也開著時才會真的跳（小羅 2026-10-04）：
+  //    次數沒限制 → 永遠不會「次數用完」→ 廣告開關形同無效。所以「有廣告」＝兩組都要開。
+  const adLive = gateOn && limitOn;
+  const onText = t('beta_ads_only') + t('beta_ads_limit');
+  $$('.ads-on-note').forEach((el) => { el.hidden = !adLive; el.textContent = onText; });
   $$('[data-i18n="ads_body"]').forEach((el) => {
     el.textContent = _adsOn ? t('ads_body_live') : t('ads_body');
   });

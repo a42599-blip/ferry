@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v44';  // v44：2026-10-04 開關聯動文字（公測/廣告/次數）
+const CACHE = 'ferry-img-v46';  // v46：2026-10-04 修正廣告聯動（實際有廣告才算）
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

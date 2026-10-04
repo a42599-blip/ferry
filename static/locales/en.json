@@ -272,7 +272,7 @@
   "tr_quota_label": "Lossless transfer",
   "tr_failed_hint": "Could not connect. Make sure both devices are on the same WiFi, or pair again.",
   "tr_timeout_hint": "Not connected yet. If the devices are on different networks, a firewall may block it — try the same WiFi.",
-  "quota_vip": "Paid members: unlimited and no ads",
+  "quota_vip": "Upgrade to a paid member: unlimited uses, no ads",
   "btn_paste_only": "📋 Paste",
   "btn_parse": "🔍 Parse",
   "pay_cards_note": "Pay with PayPal or credit card (Visa / Mastercard / JCB). Membership activates instantly after payment.",
