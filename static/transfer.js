@@ -270,6 +270,7 @@
           try { S.pc?.close(); } catch { /* 忽略 */ }
           S.dc = null; S.pc = null; S.peer = null; S.sending = false; S.receiving = null;
           $('#tr-send').disabled = true;
+          clearPairUI();                       // 對方斷開：綠框也要立即消失
           renderPeers(t('tr_peer_left'));      // 配對狀態列也寫，訊息不會被後面的連線訊息蓋掉
           status(t('tr_peer_left'), 'err');
         }
@@ -277,12 +278,22 @@
         for (const m of j.messages || []) await handleSignal(m);
       } catch (e) {
         if (String(e.message).includes('過期') || String(e.message).includes('不存在')) {
-          stopPoll(); status(t('tr_expired'), 'err');
+          stopPoll();
+          clearPairUI();                       // 房間過期：綠框也要清
+          status(t('tr_expired'), 'err');
         }
       }
     }, 900);
   }
   function stopPoll() { if (S.poll) { clearInterval(S.poll); S.poll = null; } }
+
+  /** 小羅 2026-10-05：不論哪一邊斷開，UI 必須「立即」回到沒配對。
+   *  之前只清了 peerbox，綠色框（joined-note）還留著 → 誤以為還連著。 */
+  function clearPairUI() {
+    const jn = $('#joined-note'); if (jn) jn.hidden = true;
+    const cb = $('#codebox'); if (cb) cb.hidden = true;
+    const sd = $('#tr-send'); if (sd) sd.disabled = true;
+  }
 
   /** 主動離開配對（清乾淨，回到「還沒配對」的狀態）。 */
   async function leavePair(grace = 0) {
@@ -299,10 +310,7 @@
     S.receiving = null; S.cancelIdx.clear(); S.sendIds = {};
     forgetLast();
     $('#tr-send').disabled = true;
-    // 小羅 2026-10-05：斷開後「已連上」絲框（joined-note）與我的配對碼區
-    // 必須一起清掉 —— 不然綠色框還在，會讓人誤會「還連著」。
-    const jn = $('#joined-note'); if (jn) jn.hidden = true;
-    const cb = $('#codebox'); if (cb) cb.hidden = true;
+    clearPairUI();                           // 自己按斷開：綠框／配對碼區一起清
     renderPeers(t('tr_none_yet'));
   }
 
@@ -425,7 +433,10 @@
       if (S.pc?.connectionState === 'connected') status(t('tr_connected'), 'ok');
       $('#tr-send').disabled = !S.files.length;
     };
-    dc.onclose = () => { status(t('tr_closed'), 'err'); $('#tr-send').disabled = true; };
+    dc.onclose = () => {
+      status(t('tr_closed'), 'err'); $('#tr-send').disabled = true;
+      clearPairUI();                         // 連線關閉：綠框立即消失
+    };
     dc.onmessage = (e) => onData(e.data);
   }
 
