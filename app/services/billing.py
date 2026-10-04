@@ -282,7 +282,7 @@ def _order_id() -> str:
 
     格式：FY + 年月日 + 4 碼英數，例如 FY260930A1B2
     """
-    return "FY%s%s" % (time.strftime("%y%m%d"), secrets.token_hex(2).upper())
+    return "FY%s%s" % (tz_util.fmt(time.time(), None, "%y%m%d"), secrets.token_hex(2).upper())
 
 
 def create_checkout(subject: str, plan: str, provider: str,

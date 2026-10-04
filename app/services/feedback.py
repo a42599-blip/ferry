@@ -11,6 +11,7 @@ import time as _t
 from typing import Optional
 
 from ..core import db
+from ..core import timezone as tz_util
 
 
 def add(*, message: str, device_id: Optional[str] = None, contact: Optional[str] = None,
@@ -36,7 +37,7 @@ def list_all(*, days: int = 30, only_new: bool = False, limit: int = 300) -> lis
     out = []
     for r in db.query(sql, (since, limit)):
         row = dict(r)
-        row["when"] = _t.strftime("%m-%d %H:%M", _t.localtime(row["ts"]))
+        row["when"] = tz_util.fmt(row["ts"], None, "%m-%d %H:%M")
         row["handled"] = bool(row.get("handled"))
         out.append(row)
     return out
@@ -69,7 +70,7 @@ def digest_since(ts: float) -> tuple[str, str]:
         return "", ""
     lines = [f"【轉運站】使用者回報彙總（{len(rows)} 則）", ""]
     for r in rows[:40]:
-        when = _t.strftime("%m-%d %H:%M", _t.localtime(r["ts"]))
+        when = tz_util.fmt(r["ts"], None, "%m-%d %H:%M")
         plat = r.get("platform") or "未標示"
         lines.append(f"• [{when}] ({plat}) {r['message'][:160]}")
         if r.get("contact"):
@@ -118,7 +119,7 @@ def replies_of(fid: int, limit: int = 50) -> list[dict]:
     out = []
     for r in rows:
         d = dict(r)
-        d["when"] = _t.strftime("%m-%d %H:%M", _t.localtime(d["ts"]))
+        d["when"] = tz_util.fmt(d["ts"], None, "%m-%d %H:%M")
         out.append(d)
     return out
 

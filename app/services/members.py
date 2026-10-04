@@ -77,7 +77,8 @@ def register(email: str, password: str, *, device_id: str | None = None,
     return {"id": mid, "email": email, "plan": "free"}
 
 
-def login(email: str, password: str, *, device_id: str | None = None) -> dict:
+def login(email: str, password: str, *, device_id: str | None = None,
+          tz: str | None = None) -> dict:
     email = (email or "").strip().lower()
     row = db.one("SELECT * FROM members WHERE email = ?", (email,))
     if row is None or not _verify(password or "", row["password"] or ""):
@@ -92,6 +93,9 @@ def login(email: str, password: str, *, device_id: str | None = None) -> dict:
     touch_login(row["id"])
     if device_id:
         db.execute("UPDATE members SET device_id=? WHERE id=?", (device_id, row["id"]))
+    # 每次登入更新時區（會員可能換地方／換裝置）→ 之後的信件日期才會跟著對
+    if tz and tz != row["tz"]:
+        db.execute("UPDATE members SET tz=? WHERE id=?", (tz, row["id"]))
     from . import events
 
     events.link_member(device_id or "", row["id"], row["email"])

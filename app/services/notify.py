@@ -21,6 +21,7 @@ from email.message import EmailMessage
 from typing import Any
 
 from ..core import db
+from ..core import timezone as tz_util
 
 # ── 事件定義（key -> 標題 / 嚴重度 / 可否關閉）──────────
 EVENTS: dict[str, dict[str, Any]] = {
@@ -315,7 +316,8 @@ async def notify(event: str, title: str, body: str, *, force: bool = False) -> d
 
     subject = f"[轉運站] {meta['severity'].upper()} · {title}"
     prefix = {"critical": "🔴", "warn": "🟠", "info": "🔵"}.get(meta["severity"], "🔵")
-    text = f"{prefix} {title}\n\n{body}\n\n時間：{time.strftime('%Y-%m-%d %H:%M:%S')}\n事件：{event}"
+    text = (f"{prefix} {title}\n\n{body}\n\n"
+            f"時間：{tz_util.fmt(time.time(), None, '%Y-%m-%d %H:%M:%S')}\n事件：{event}")
 
     if transport() == "none":
         _log(subject, text, False, "未設定寄送方式", event)

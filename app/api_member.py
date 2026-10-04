@@ -10,6 +10,7 @@ import time
 from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
+from .core import timezone as tz_util
 from .core.errors import BadRequest
 from .services import auth, billing, members, notify
 
@@ -36,7 +37,7 @@ async def get_plans() -> dict:
 async def register(request: Request, body: dict = Body(...)) -> dict:
     # 記錄註冊時的地區（Cloudflare 會給 cf-ipcountry）→ 後台可看地區分佈
     m = members.register(body.get("email", ""), body.get("password", ""),
-                         device_id=_device(request), tz=body.get("tz"),
+                         device_id=_device(request), tz=tz_util.from_request(request),
                          country=request.headers.get("cf-ipcountry"))
     return {"ok": True, "member": m, "token": members.issue_token(m["id"])}
 
@@ -44,7 +45,7 @@ async def register(request: Request, body: dict = Body(...)) -> dict:
 @router.post("/api/member/login")
 async def login(request: Request, body: dict = Body(...)) -> dict:
     m = members.login(body.get("email", ""), body.get("password", ""),
-                      device_id=_device(request))
+                      device_id=_device(request), tz=tz_util.from_request(request))
     return {"ok": True, "member": {"id": m["id"], "email": m["email"], "plan": m["plan"]},
             "token": m["token"]}
 

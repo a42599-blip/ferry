@@ -13,6 +13,7 @@ import time as _t
 from typing import Optional
 
 from ..core import db
+from ..core import timezone as tz_util
 
 LEVELS = {"info": "一般", "warn": "重要", "critical": "緊急"}
 
@@ -31,7 +32,7 @@ def list_all(limit: int = 100) -> list[dict]:
     out = []
     for r in db.query("SELECT * FROM announcements ORDER BY ts DESC LIMIT ?", (limit,)):
         row = dict(r)
-        row["when"] = _t.strftime("%m-%d %H:%M", _t.localtime(row["ts"]))
+        row["when"] = tz_util.fmt(row["ts"], None, "%m-%d %H:%M")
         row["level_label"] = LEVELS.get(row["level"], row["level"])
         row["expired"] = bool(row["expires_at"] and row["expires_at"] < _t.time())
         out.append(row)
