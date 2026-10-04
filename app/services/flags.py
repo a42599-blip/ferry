@@ -176,6 +176,8 @@ def snapshot() -> dict:
         "quota": {
             "download_per_day": settings.free_download_per_day,
             "transfer_per_day": settings.free_transfer_per_day,
+            "guest_per_day": settings.free_limit_guest,
+            "member_per_day": settings.free_limit_member,
         },
         "history_limit": settings.history_limit,
         "maintenance": feats.get("feature.maintenance", False),

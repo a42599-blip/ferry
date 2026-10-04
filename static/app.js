@@ -15,10 +15,14 @@ const state = {
 // ── i18n（全域共用，transfer.js 也會用）───────────────
 // 方案價格（後台可改）：說明文字用 {pm}／{pl} 代入「目前價格」（小羅 2026-10-04）
 const PLAN_PRICES = { monthly: 88, lifetime: 988 };
+// 免費次數（後台可改）：文字用 {g}／{m} 代入「訪客／免費會員每日次數」（小羅 2026-10-04）
+const LIMITS = { g: 3, m: 5 };
 function px(v) {
   if (typeof v === 'string') {
     return v.replace(/\{pm\}/g, String(PLAN_PRICES.monthly))
-            .replace(/\{pl\}/g, String(PLAN_PRICES.lifetime));
+            .replace(/\{pl\}/g, String(PLAN_PRICES.lifetime))
+            .replace(/\{g\}/g, String(LIMITS.g))
+            .replace(/\{m\}/g, String(LIMITS.m));
   }
   if (Array.isArray(v)) return v.map(px);
   if (v && typeof v === 'object') {
@@ -84,7 +88,7 @@ function applyLang() {
 async function loadLang(code) {
   state.lang = code || localStorage.getItem('fy_lang') || 'zh-Hant';
   try {
-    const r = await fetch('/locales/' + state.lang + '.json?v=68');
+    const r = await fetch('/locales/' + state.lang + '.json?v=69');
     state.L = await r.json();
   } catch { state.L = {}; }
   localStorage.setItem('fy_lang', state.lang);
@@ -486,20 +490,17 @@ function applyAdsNotes() {
     ph.hidden = hasAd;
   }
   $$('.ads-off-note').forEach((el) => { el.hidden = _adsOn; });
-  // 有廣告時顯示的說明（小羅 2026-10-04）：
-  //   判斷「次數廣告」（ads_guest／ads_member）有沒有開，並看「次數限制」有沒有開：
-  //   ① 只開廣告（無次數限制）→「，但有廣告」
-  //   ② 廣告＋次數限制都開 →「；免費次數用完，看廣告即可繼續使用」
+  // 公測說明（單句，依開關組合；小羅 2026-10-04）：
+  //   · 次數限制組（下載／傳輸任一開）＝有限制次數
+  //   · 彈窗廣告實際會跳 ＝ 次數限制組 AND 廣告組 都開
   const _f = state.config?.features || {};
   const gateOn = !!(_f['feature.ads_guest'] || _f['feature.ads_member']);
   const limitOn = _f['feature.free_limit_download'] !== false || _f['feature.free_limit_transfer'] !== false;
-  // ⚠️ 彈窗（15 秒）廣告只有在「次數限制」也開著時才會真的跳（小羅 2026-10-04）：
-  //    次數沒限制 → 永遠不會「次數用完」→ 廣告開關形同無效。所以「有廣告」＝兩組都要開。
   const adLive = gateOn && limitOn;
-  const onText = t('beta_ads_only') + t('beta_ads_limit');
-  $$('.ads-on-note').forEach((el) => { el.hidden = !adLive; el.textContent = onText; });
+  const sentence = adLive ? t('beta_pub_ads') : (limitOn ? t('beta_pub_limit') : t('beta_pub_free'));
+  $$('.beta-sentence').forEach((el) => { el.textContent = sentence; });
   $$('[data-i18n="ads_body"]').forEach((el) => {
-    el.textContent = _adsOn ? t('ads_body_live') : t('ads_body');
+    el.textContent = adLive ? t('ads_body_live') : t('ads_body');
   });
 }
 window.FY = Object.assign(window.FY || {}, { applyAdsNotes });
@@ -508,6 +509,8 @@ window.FY = Object.assign(window.FY || {}, { applyAdsNotes });
 async function loadConfig() {
   const cfg = await api('/api/config');
   state.config = cfg;
+  LIMITS.g = cfg.quota?.guest_per_day ?? 3;
+  LIMITS.m = cfg.quota?.member_per_day ?? 5;
   applyFlags(cfg);
   buildPlans();
   renderAbout();
