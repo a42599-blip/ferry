@@ -410,6 +410,12 @@ async def report(request: Request, body: dict = Body(...)) -> dict:
     feedback.add(message=msg, device_id=_device(request), contact=body.get("contact"),
                  platform=body.get("platform"), url=body.get("url"))
 
+    # 小羅 2026-10-05：聯動測試（tools/check_linkage.py）也會打這支 API，
+    # 以前會真的寄一封「使用者回報」給小羅 → 分不出是真是假。
+    # 現在：測試來源（標題有「聯動測試」或 @test 信箱）只寫 DB、不寄信。
+    if "聯動測試" in msg or str(body.get("contact") or "").endswith("@test"):
+        return {"ok": True, "message": "（測試資料，未發通知）"}
+
     try:
         since = float(db.get_setting("notify_last_report_ts") or 0)
     except (TypeError, ValueError):

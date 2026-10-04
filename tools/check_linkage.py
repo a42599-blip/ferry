@@ -55,7 +55,10 @@ def http(base: str, path: str, *, method: str = "GET", body=None,
          headers: dict | None = None, timeout: int = 60):
     """送一個請求，回傳 (狀態碼, 解析後的內容)。"""
     h = {"User-Agent": UA, "Accept": "application/json", "Origin": base,
-         "Referer": base + "/"}
+         "Referer": base + "/",
+         # 小羅 2026-10-05：這支工具是「測試」——打上標記，
+         # 讓後端把產生的解析事件標成測試（不污染失敗率告警）。
+         "X-Linkage-Test": "1"}
     if body is not None:
         h["Content-Type"] = "application/json"
     if headers:

@@ -74,18 +74,33 @@ async def check_once(*, notify_on_start: bool = False) -> dict:
         db.set_setting("last_egress_ip", ip)
 
     # ③ 解析失敗率（近 30 分）
+    # 小羅 2026-10-05：
+    #  1. 排除聯動測試事件（device_id='linkage-test'）→ 測試不能污染告警
+    #  2. 訊息要寫清楚是哪個平台失敗（以前只寫「10/11（91%）」，看不懂）
     since = time.time() - 1800
-    total = int(db.scalar("SELECT COUNT(*) FROM events WHERE kind='resolve' AND ts>=?", (since,)))
+    TEST = "linkage-test"
+    total = int(db.scalar(
+        "SELECT COUNT(*) FROM events WHERE kind='resolve' AND ts>=? AND COALESCE(device_id,'')<>?",
+        (since, TEST)))
     fails = int(db.scalar(
-        "SELECT COUNT(*) FROM events WHERE kind='resolve' AND result='fail' AND ts>=?", (since,)))
+        "SELECT COUNT(*) FROM events WHERE kind='resolve' AND result='fail' AND ts>=? AND COALESCE(device_id,'')<>?",
+        (since, TEST)))
     out["resolve_30m"] = {"total": total, "fail": fails}
-    if total >= 10:
+    if total >= 10 and fails >= 5:
         rate = fails / total * 100
         out["resolve_fail_rate"] = round(rate, 1)
         if rate > 50:
+            # 近 30 分失敗最多的平台（最多列 3 個）
+            rows = db.query(
+                "SELECT platform, COUNT(*) AS n FROM events"
+                " WHERE kind='resolve' AND result='fail' AND ts>=?"
+                "   AND COALESCE(device_id,'')<>? AND COALESCE(platform,'')<>''"
+                " GROUP BY platform ORDER BY n DESC LIMIT 3", (since, TEST)) or []
+            who = "、".join(f"{r['platform']}（{r['n']} 次）" for r in rows) or "（未標示平台）"
             await notify.notify("platform_fail", "解析失敗率過高",
-                                f"近 30 分：{fails}/{total}（{rate:.0f}%）失敗。"
-                                f"可在後台「功能與平台」關閉問題平台。")
+                                f"近 30 分鐘：解析失敗 {fails} 次／共 {total} 次（{rate:.0f}%）。\n"
+                                f"失敗最多的平台：{who}\n"
+                                f"→ 可在後台「功能與平台」關閉問題平台。")
 
     # ④ 各平台失敗率（近 1 小時）
     bad = []

@@ -394,6 +394,10 @@ async def post_resolve(body: ResolveIn, request: Request):
 
     subject = auth.current_subject(request)      # 額度用（會員／裝置）
     device = auth._device_id(request)            # 事件用（永遠是裝置，軌跡才不會斷）
+    # 小羅 2026-10-05：聯動測試（tools/check_linkage.py）會打這支 API，
+    # 若照算會污染「解析失敗率」告警 → 標記成 test，統計時排除。
+    if request.headers.get("x-linkage-test"):
+        device = "linkage-test"
     tz = tz_util.from_request(request)           # ← 依「裝置所在位置」的當地時間
     info_dict: dict = {}
     try:
