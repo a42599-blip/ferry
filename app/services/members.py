@@ -223,11 +223,14 @@ def plan_history(member_id: str, limit: int = 50) -> list[dict]:
 
 
 def set_plan(member_id: str, plan: str, expires_at: float | None = None, *,
-             amount: float = 0.0, reason: str = "admin", note: str = "") -> None:
+             amount: float = 0.0, reason: str = "admin", note: str = "",
+             force_log: bool = False) -> None:
     """設定方案（付款成功、後台改方案、到期降級…都會走這裡）。
 
     ⚠️ 一併記錄「付費起始時間」與寫入方案變更歷史，
        這樣才回答得出「什麼時間加入會員、用什麼費率、什麼時間到期」。
+    force_log=True：就算方案沒變（例如已是免費又按「關閉」）也**照樣留一筆紀錄**
+                    —— 小羅 2026-10-04：後台的動作不能「沒紀錄」。
     """
     m = get(member_id) or {}
     old = m.get("plan") or "free"
@@ -237,7 +240,7 @@ def set_plan(member_id: str, plan: str, expires_at: float | None = None, *,
         "   THEN ? ELSE plan_started_at END"
         " WHERE id=?",
         (plan, expires_at, plan, old, time.time(), member_id))
-    if old != plan:
+    if old != plan or force_log:
         log_plan(member_id, m.get("email"), old, plan, amount=amount,
                  expires_at=expires_at, reason=reason, note=note)
 
@@ -624,6 +627,17 @@ def grant_plan(member_id: str, plan: str, days: int = 0, *,
         base = float(cur_exp)          # 還沒到期 → 從原到期日往後加
     new_exp = (base + add_days * 86400) if add_days else None
     set_plan(member_id, plan, new_exp, reason=reason, note=note or f"後台補償 {add_days} 天")
+    return get(member_id) or {}
+
+
+def revoke_plan(member_id: str, *, note: str = "") -> dict:
+    """後台「關閉會員（降回免費）」。
+
+    小羅 2026-10-04：「恢復成免費版的紀錄怎麼沒有？」→
+    這個動作**不論原本是不是免費，都一定寫進方案變更歷史**。
+    """
+    set_plan(member_id, "free", None, reason="admin",
+             note=note or "後台關閉會員（降回免費）", force_log=True)
     return get(member_id) or {}
 
 

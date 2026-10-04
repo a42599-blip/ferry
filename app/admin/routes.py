@@ -367,7 +367,11 @@ async def adjust_member(member_id: str, body: dict = Body(...),
     note = (body.get("note") or "後台手動調整")[:200]
     done = []
 
-    if plan:
+    if plan == "free":
+        # 關閉會員（降回免費）：一定留紀錄（即使原本就是免費）—— 小羅 2026-10-04
+        members.revoke_plan(member_id)
+        done.append("方案→免費（關閉會員）")
+    elif plan:
         members.grant_plan(member_id, plan, days, reason="gift", note=note)
         done.append(f"方案→{plan}" + (f'(+{days}天)' if days else ""))
     elif days:
