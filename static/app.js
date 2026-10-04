@@ -13,10 +13,25 @@ const state = {
 };
 
 // ── i18n（全域共用，transfer.js 也會用）───────────────
+// 方案價格（後台可改）：說明文字用 {pm}／{pl} 代入「目前價格」（小羅 2026-10-04）
+const PLAN_PRICES = { monthly: 88, lifetime: 988 };
+function px(v) {
+  if (typeof v === 'string') {
+    return v.replace(/\{pm\}/g, String(PLAN_PRICES.monthly))
+            .replace(/\{pl\}/g, String(PLAN_PRICES.lifetime));
+  }
+  if (Array.isArray(v)) return v.map(px);
+  if (v && typeof v === 'object') {
+    const o = {};
+    Object.keys(v).forEach((k) => { o[k] = px(v[k]); });
+    return o;
+  }
+  return v;
+}
 function t(key, fallback) {
   const v = state.L[key];
   if (v === undefined || v === null) return fallback !== undefined ? fallback : key;
-  return v;                    // 空字串是「該語言不需要這個字」，不是缺翻譯
+  return px(v);                // 空字串是「該語言不需要這個字」，不是缺翻譯
 }
 // ⚠️ 用 Object.assign（不能用 = 覆蓋，否則會蓋掉 save.js 的存檔工具）
 window.FY = Object.assign(window.FY || {}, { t: (k, d) => t(k, d), lang: () => state.lang });
@@ -68,7 +83,7 @@ function applyLang() {
 async function loadLang(code) {
   state.lang = code || localStorage.getItem('fy_lang') || 'zh-Hant';
   try {
-    const r = await fetch('/locales/' + state.lang + '.json?v=63');
+    const r = await fetch('/locales/' + state.lang + '.json?v=64');
     state.L = await r.json();
   } catch { state.L = {}; }
   localStorage.setItem('fy_lang', state.lang);
@@ -1288,9 +1303,11 @@ async function loadPlans() {
   try {
     const j = await api('/api/pay/plans');
     Object.entries(j.plans || {}).forEach(([id, p]) => {
+      if (p && p.price != null) PLAN_PRICES[id] = p.price;
       const el = document.querySelector(`[data-price="${id}"]`);
       if (el) el.textContent = p.price;
     });
+    applyLang();          // 價格載入後重新代入說明文字（{pm}／{pl}）
   } catch { /* 忽略 */ }
 }
 // ── 付款資訊（小羅 2026-10-03：這區只是「說明支援哪些渠道」，不可點、無連結）──

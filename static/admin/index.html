@@ -326,6 +326,21 @@
               所以以後多接幾家也能分開對帳。</p></div>
         </div>
 
+        <!-- ── 方案價格（小羅 2026-10-04：我要可以自己調價；前台／付款／說明一起變）── -->
+        <div class="pnl">
+          <div class="lbl">方案價格（前台、付款、條款說明會一起變）</div>
+          <p class="note">改這裡的金額 → <b>前台方案頁價格、請款金額、方案說明與服務條款</b>都會跟著改
+            （特價／漲價都可自己調）。已購買的舊會員不受影響。</p>
+          <div class="inrow">
+            <label class="tinylabel">月會員（NT$）</label>
+            <input id="pr-monthly" type="number" min="1" step="1" placeholder="88">
+            <label class="tinylabel">終身會員（NT$）</label>
+            <input id="pr-lifetime" type="number" min="1" step="1" placeholder="988">
+            <button class="big sm" id="pr-save">儲存價格</button>
+            <span class="dim" id="pr-msg" style="font-size:11.5px"></span>
+          </div>
+        </div>
+
         <!-- ── 收款設定（第三方支付接入點位）── -->
         <div class="pnl">
           <div class="lbl">收款設定（怎麼接第三方支付）</div>
@@ -577,6 +592,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=56"></script>
+<script src="/admin/app.js?v=57"></script>
 </body>
 </html>

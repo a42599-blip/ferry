@@ -1075,6 +1075,23 @@ async function pgRevenue() {
   const rcnt = (k) => (rk[k] || {}).count || 0;
   const ramt = (k) => (rk[k] || {}).amount || 0;
 
+  // ── 方案價格（小羅 2026-10-04：後台自己調價 → 前台／付款／說明一起變）──
+  try {
+    const pl = await api('/plans');
+    if ($('#pr-monthly')) $('#pr-monthly').value = (pl.plans?.monthly?.price ?? '');
+    if ($('#pr-lifetime')) $('#pr-lifetime').value = (pl.plans?.lifetime?.price ?? '');
+  } catch { /* 忽略 */ }
+  $('#pr-save').onclick = async () => {
+    const m = Number($('#pr-monthly').value), l = Number($('#pr-lifetime').value);
+    if (!(m > 0) || !(l > 0)) return alert('兩個價格都要大於 0');
+    if (!confirm(`確定改成：\n月會員 NT$ ${m}\n終身會員 NT$ ${l}\n\n（前台價格、請款金額、方案說明都會一起變）`)) return;
+    try {
+      await api('/plans', { method: 'PUT', body: JSON.stringify({ prices: { monthly: m, lifetime: l } }) });
+      queue('方案價格已更新（前台立即生效）');
+      $('#pr-msg').textContent = '已更新 ✓';
+    } catch (e) { alert('儲存失敗：' + e.message); }
+  };
+
   // ── KPI（對帳用：總收入／退款／撥款／待撥款／人數）──
   $('#rev-kpis').innerHTML = [
     kpi('累計總收入', 'NT$ ' + fmtN(t.gross_all),

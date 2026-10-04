@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v37';  // v37：2026-10-04 後台會員卡顯示「0 元（手動開通）／未收款」
+const CACHE = 'ferry-img-v38';  // v38：2026-10-04 後台可調方案價格（前台／說明一起變）
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',
