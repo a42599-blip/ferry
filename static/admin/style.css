@@ -112,6 +112,9 @@ textarea:focus{border-color:var(--acc)}
 .big.gh:hover{border-color:var(--acc);color:var(--acc)}
 .big:disabled{opacity:.45;cursor:not-allowed}
 
+/* ── 通知動作按鈕列（小羅 2026-10-04：做成明顯按鈕，一眼看到、不再漏看）── */
+.acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
 /* ── 底部狀態列 ── */
 .queue{height:44px;border-top:1px solid var(--line-soft);display:flex;align-items:center;
   gap:16px;padding:0 22px;font-size:12.5px;color:var(--dim);flex:0 0 auto;flex-wrap:wrap}
