@@ -186,6 +186,9 @@ ol.steps{margin:10px 0 0 18px;font-size:12.5px;line-height:1.95;color:#CFD3D8}
 .plan ul{margin:10px 0 0 16px;font-size:12.5px;color:var(--dim);line-height:1.9}
 .plan ul b{color:var(--text);font-weight:500}
 .plan .big{margin-top:14px}
+/* 「目前使用中」標記（小羅 2026-10-04）：出現在會員「現在用的那個方案」卡上 */
+.plan .plancur{margin-top:14px;height:50px;display:grid;place-items:center;font-size:14px;
+  font-weight:500;color:var(--acc);border:1px dashed var(--acc-line);border-radius:8px}
 
 /* ── 歷史 ─────────────────────────────────────── */
 .hlist{margin-top:12px;display:flex;flex-direction:column;gap:0;border:1px solid var(--line)}

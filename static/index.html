@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=62">
+<link rel="stylesheet" href="/style.css?v=63">
 <style>
 /* ⚠️ 手機導覽的「關鍵樣式」內嵌在這裡（小羅 2026-09-27）。
    原因：他的手機卡在舊的 style.css 快取（舊版 .tabs 是 display:none），
@@ -290,19 +290,21 @@
           <h3 data-i18n="plan_free">免費</h3>
           <div class="price num">NT$ 0</div>
           <ul id="plan-free-list"></ul>
-          <button class="big gh" disabled data-i18n="plan_current">目前使用中</button>
+          <button class="big gh" id="plan-free-btn" disabled data-i18n="plan_current">目前使用中</button>
         </div>
         <div class="plan hot">
           <h3 data-i18n="plan_monthly">月會員</h3>
           <div class="price num">NT$ <span data-price="monthly">88</span><i data-i18n="plan_per_month">/月</i></div>
           <ul id="plan-monthly-list"></ul>
-          <button class="big" data-buy="monthly" data-i18n="btn_subscribe">立即開通</button>
+          <div class="plancur" id="cur-monthly" hidden data-i18n="plan_current">目前使用中</div>
+          <button class="big" id="plan-monthly-btn" data-buy="monthly" data-i18n="btn_subscribe">立即開通</button>
         </div>
         <div class="plan">
           <h3 data-i18n="plan_lifetime">終身會員</h3>
           <div class="price num">NT$ <span data-price="lifetime">988</span><i data-i18n="plan_early">早鳥・原價 NT$1,980・限 200 名</i></div>
           <ul id="plan-lifetime-list"></ul>
-          <button class="big" data-buy="lifetime" data-i18n="btn_subscribe">立即開通</button>
+          <div class="plancur" id="cur-lifetime" hidden data-i18n="plan_current">目前使用中</div>
+          <button class="big" id="plan-lifetime-btn" data-buy="lifetime" data-i18n="btn_subscribe">立即開通</button>
         </div>
       </div>
       <!-- ── 付款機制（小羅 2026-09-27 要求先預留）─────────────
@@ -514,7 +516,7 @@
 
 <script src="/sha256.js?v=27"></script>
 <script src="/save.js?v=28"></script>
-<script src="/app.js?v=71"></script>
+<script src="/app.js?v=72"></script>
 <script src="/transfer.js?v=33"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）

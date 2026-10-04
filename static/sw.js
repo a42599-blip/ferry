@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v38';  // v38：2026-10-04 後台可調方案價格（前台／說明一起變）
+const CACHE = 'ferry-img-v39';  // v39：2026-10-04 方案卡片目前使用中／續訂按鈕
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

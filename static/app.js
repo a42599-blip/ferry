@@ -69,6 +69,7 @@ function applyLang() {
   document.title = t('brand', '轉運站') + ' · ' + t('dl_title');
   buildTeach();
   buildPlans();
+  renderPlanButtons();
   renderAbout();
   renderPlatforms(state.config?.platforms, state.config?.enabled_platform_count);
   renderQuota(state.quota);
@@ -83,7 +84,7 @@ function applyLang() {
 async function loadLang(code) {
   state.lang = code || localStorage.getItem('fy_lang') || 'zh-Hant';
   try {
-    const r = await fetch('/locales/' + state.lang + '.json?v=65');
+    const r = await fetch('/locales/' + state.lang + '.json?v=66');
     state.L = await r.json();
   } catch { state.L = {}; }
   localStorage.setItem('fy_lang', state.lang);
@@ -206,6 +207,30 @@ const AVAILABLE_TABS = ['download', 'transfer', 'teach', 'plans', 'about', 'memb
 // 付費訂閱是否開啟（feature.billing 沒設 → 當成開啟，維持原本行為）
 const billingOn = (f) => (f || {})['feature.billing'] !== false;
 
+// 方案卡片的按鈕狀態（小羅 2026-10-04）：
+//   免費 → 免費卡「目前使用中」；月／終身都可買
+//   月會員 → 月卡「目前使用中」＋按鈕變「續訂」（可重複訂閱）；終身仍可買（升級）
+//   終身會員 → 終身卡「目前使用中」；**月／終身兩顆付費按鈕都消失**（不需再付費）
+function renderPlanButtons() {
+  const tier = (state.me && state.me.tier) || 'guest';
+  const billing = billingOn(state.config && state.config.features);
+  const isFree = (tier === 'free' || tier === 'guest');
+  const freeBtn = $('#plan-free-btn');
+  const mBtn = $('#plan-monthly-btn');
+  const lBtn = $('#plan-lifetime-btn');
+  const mCur = $('#cur-monthly');
+  const lCur = $('#cur-lifetime');
+  if (freeBtn) freeBtn.hidden = !isFree;
+  if (mCur) mCur.hidden = (tier !== 'monthly');
+  if (lCur) lCur.hidden = (tier !== 'lifetime');
+  if (mBtn) {
+    mBtn.hidden = !billing || tier === 'lifetime';
+    mBtn.dataset.i18n = (tier === 'monthly') ? 'btn_renew' : 'btn_subscribe';
+    mBtn.textContent = t(mBtn.dataset.i18n);
+  }
+  if (lBtn) lBtn.hidden = !billing || tier === 'lifetime';
+}
+
 function applyFlags(cfg) {
   const f = cfg.features || {};
   // 分頁／面板
@@ -231,7 +256,7 @@ function applyFlags(cfg) {
 
   // ── 付費訂閱開關（feature.billing）───────────────────────
   //   關掉 → 方案頁的「立即開通」按鈕收起來，改成「公測期間暫不收費」。
-  $$('[data-buy]').forEach((b) => { b.hidden = !billingOn(f); });
+  renderPlanButtons();
   if ($('#paybox')) $('#paybox').hidden = !billingOn(f);
   if ($('#pay-off')) $('#pay-off').hidden = billingOn(f);
 
@@ -1038,6 +1063,7 @@ function renderWho(me) {
   // 「會員」分頁按鈕：登入後直接顯示暱稱（一眼就知道已登入）
   const tab = $('[data-tab="member"]');
   if (tab) tab.textContent = logged ? nick : t('nav_member', '會員');
+  renderPlanButtons();          // 方案卡片的「目前使用中」＋付費按鈕要跟著身分變
 }
 
 // ── 廣告（預留）────────────────────────────────────────
