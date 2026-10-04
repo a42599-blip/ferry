@@ -71,6 +71,9 @@ function applyLang() {
   });
   document.documentElement.lang = state.lang;
   document.title = t('brand', '轉運站') + ' · ' + t('dl_title');
+  // 小羅 2026-10-05：切換語言時，JS「動態寫上去」的文字（例：無損傳輸的
+  // 「已連上」綠框、連線狀態、連線裝置、狀態訊息）也要跟著重翻。
+  try { window.dispatchEvent(new CustomEvent('fy:lang', { detail: { lang: state.lang } })); } catch (_) { /* 忽略 */ }
   buildTeach();
   buildPlans();
   renderPlanButtons();

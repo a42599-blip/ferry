@@ -51,9 +51,28 @@
     return v.toFixed(v < 10 && i > 0 ? 1 : 0) + ' ' + u[i];
   };
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const status = (t, kind = '') => {
-    const el = $('#tr-status'); el.hidden = false; el.className = 'msg ' + kind; el.textContent = t;
+  // 小羅 2026-10-05：status() 現在吃「i18n key」（不是已翻好的字），
+  // 並記住 key + 附加字（檔名／裝置名），切語言時才能重新翻譯。
+  const _lz = { statusKey: null, statusArg: '', statusKind: '', peerKey: null, joined: false };
+  const status = (key, kind = '', arg = '') => {
+    const el = $('#tr-status');
+    // 後端回來的錯誤訊息（不是 key）→ 直接顯示，不記
+    const known = (typeof key === 'string' && key.startsWith('tr_'));  // 呼叫端已統一傳 key
+    _lz.statusKey = known ? key : null;
+    _lz.statusArg = arg || '';
+    _lz.statusKind = kind;
+    el.hidden = false; el.className = 'msg ' + kind;
+    el.textContent = (known ? window.FY.t(key) : key) + _lz.statusArg;
   };
+
+  // ── 切換語言 → 把「動態寫上去的文字」重新翻譯（小羅 2026-10-05）──
+  window.addEventListener('fy:lang', () => {
+    if (_lz.joined) { const jn = $('#joined-note'); if (jn) jn.hidden = false, jn.textContent = t('tr_joined_note'); }
+    if (_lz.peerKey) { const st = $('#pv-state'); if (st) st.textContent = t(_lz.peerKey); }
+    if (_lz.statusKey) { const el = $('#tr-status'); if (el && !el.hidden) el.textContent = t(_lz.statusKey) + _lz.statusArg; }
+    renderKnown();          // 「上次的裝置…」按鈕文字
+    renderFiles();          // 「N 個項目」等
+  });
 
   S.peerId = deviceId();
 
@@ -156,6 +175,7 @@
       $('#codebox').hidden = true;
       $('#joined-note').hidden = false;
       $('#joined-note').textContent = t('tr_joined_note');
+      _lz.joined = true;
     } else {
       $('#mycode').textContent = j.code;
       $('#codebox').hidden = false;
@@ -164,7 +184,7 @@
     renderKnown();
     touch();
     if (j.peers?.length) { S.peer = j.peers[0]; rememberLast(); onPeerFound(); }
-    else { status(t('tr_waiting')); startPoll(); }
+    else { status('tr_waiting'); startPoll(); }
   }
 
   function renderKnown() {
@@ -173,7 +193,7 @@
     box.innerHTML = '<div class="lbl" style="margin-bottom:6px">' + t('tr_known') + '</div>' + S.known.map((p, i) =>
       `<button class="big gh sm" style="margin-top:6px" data-peer="${esc(p)}">${esc(String(p).slice(0, 22))}… ${t('tr_reconnect')}</button>`).join('');
     box.querySelectorAll('[data-peer]').forEach((b) => b.addEventListener('click', async () => {
-      if (S.sending) { status(t('tr_busy_switch'), 'err'); return; }   // 傳輸中就別換
+      if (S.sending) { status('tr_busy_switch', 'err'); return; }   // 傳輸中就別換
       try {
         // ⚠️ 換一台之前先離開舊配對（一次只配一台；不然舊房間會殘留幽靈裝置）
         if (S.code && S.peer && S.peer !== b.dataset.peer) await leavePair(0);
@@ -196,7 +216,7 @@
     let target = '';
     try { target = localStorage.getItem(LAST_KEY) || ''; } catch { target = ''; }
     if (!target) return;
-    status(t('tr_auto_reconnecting'));
+    status('tr_auto_reconnecting');
     try {
       if (S.code) await leavePair(0);          // 換一台前先離開舊的
       const j = await api('/pair', { method: 'POST', body: JSON.stringify({ peer_id: S.peerId, target }) });
@@ -206,7 +226,7 @@
       onPeerFound();
     } catch {
       forgetLast();                     // 對方不在線上（或已過期）→ 不要再一直試
-      status(t('tr_auto_failed'));
+      status('tr_auto_failed');
     }
   }
 
@@ -219,7 +239,7 @@
   if (document.querySelector('#p-transfer')?.classList.contains('on')) setTimeout(autoReconnect, 800);
 
   $('#tr-gen').addEventListener('click', async () => {
-    if (S.sending) return status(t('tr_busy_switch'), 'err');
+    if (S.sending) return status('tr_busy_switch', 'err');
     try {
       if (S.code) await leavePair(0);          // 重新產生＝換一台
       await join(null);
@@ -227,8 +247,8 @@
   });
   $('#tr-join').addEventListener('click', async () => {
     const code = ($('#join-code').value || '').trim();
-    if (code.length !== 6) return status(t('tr_enter6'), 'err');
-    if (S.sending) return status(t('tr_busy_switch'), 'err');
+    if (code.length !== 6) return status('tr_enter6', 'err');
+    if (S.sending) return status('tr_busy_switch', 'err');
     try {
       if (S.code) await leavePair(0);          // 換一台前先離開舊的
       await join(code);
@@ -238,11 +258,11 @@
 
   // 小羅 2026-10-05：手動「斷開配對」（不用關網頁、不用刷開）
   $('#tr-leave').addEventListener('click', async () => {
-    if (S.sending || S.receiving) { status(t('tr_busy_stop'), 'err'); return; }
+    if (S.sending || S.receiving) { status('tr_busy_stop', 'err'); return; }
     await leavePair(0);
-    renderPeers(t('tr_left_ok'));
+    renderPeers('tr_left_ok');
     renderKnown();
-    status(t('tr_left_ok'), 'ok');
+    status('tr_left_ok', 'ok');
   });
 
   /** 顯示「這台裝置／對方裝置」與連線狀態（使用者才知道接對了沒） */
@@ -253,8 +273,9 @@
     $('#pv-me').textContent = (S.myName || S.peerId || '–').slice(0, 24);
     $('#pv-other').textContent = S.peer ? String(S.peer).slice(0, 24) : t('tr_none_yet');
     if (state) {
-      $('#pv-state').textContent = state;
-      $('#pv-dot').classList.toggle('on', state === t('tr_connected'));
+      _lz.peerKey = state;                       // 記 key，切語言時重翻
+      $('#pv-state').textContent = t(state);
+      $('#pv-dot').classList.toggle('on', state === 'tr_connected');
     }
   }
 
@@ -271,8 +292,8 @@
           S.dc = null; S.pc = null; S.peer = null; S.sending = false; S.receiving = null;
           $('#tr-send').disabled = true;
           clearPairUI();                       // 對方斷開：綠框也要立即消失
-          renderPeers(t('tr_peer_left'));      // 配對狀態列也寫，訊息不會被後面的連線訊息蓋掉
-          status(t('tr_peer_left'), 'err');
+          renderPeers('tr_peer_left');      // 配對狀態列也寫，訊息不會被後面的連線訊息蓋掉
+          status('tr_peer_left', 'err');
         }
         if (!S.peer && j.peers?.length) { S.peer = j.peers[0]; rememberLast(); onPeerFound(); }
         for (const m of j.messages || []) await handleSignal(m);
@@ -280,7 +301,7 @@
         if (String(e.message).includes('過期') || String(e.message).includes('不存在')) {
           stopPoll();
           clearPairUI();                       // 房間過期：綠框也要清
-          status(t('tr_expired'), 'err');
+          status('tr_expired', 'err');
         }
       }
     }, 900);
@@ -290,6 +311,7 @@
   /** 小羅 2026-10-05：不論哪一邊斷開，UI 必須「立即」回到沒配對。
    *  之前只清了 peerbox，綠色框（joined-note）還留著 → 誤以為還連著。 */
   function clearPairUI() {
+    _lz.joined = false;
     const jn = $('#joined-note'); if (jn) jn.hidden = true;
     const cb = $('#codebox'); if (cb) cb.hidden = true;
     const sd = $('#tr-send'); if (sd) sd.disabled = true;
@@ -311,7 +333,7 @@
     forgetLast();
     $('#tr-send').disabled = true;
     clearPairUI();                           // 自己按斷開：綠框／配對碼區一起清
-    renderPeers(t('tr_none_yet'));
+    renderPeers('tr_none_yet');
   }
 
   /** 關掉網頁（不是重新整理）→ 帶寬限通知伺服器；重新整理會在幾秒內回來，所以不算離開。 */
@@ -334,9 +356,9 @@
       if (!S.code || !S.peer) return;
       if (S.sending || S.receiving) return;                  // 正在傳＝有動作
       if (Date.now() - S.lastAct < IDLE_MS) return;
-      status(t('tr_idle_off'), 'err');
+      status('tr_idle_off', 'err');
       leavePair(0);
-      renderPeers(t('tr_idle_off'));
+      renderPeers('tr_idle_off');
       renderKnown();
     }, 30000);
   }
@@ -382,9 +404,9 @@
   // ── WebRTC ───────────────────────────────────────
   async function onPeerFound() {
     stopPoll();
-    status(t('tr_found'));
+    status('tr_found');
     startPoll();
-    renderPeers(t('tr_pairing'));
+    renderPeers('tr_pairing');
     if (S.peerId < S.peer) { if (!S.pc) await createPeer(true); }
     else if (!S.pc) await createPeer(false);
   }
@@ -400,21 +422,21 @@
       clearTimeout(S.connectTimer);
       touch();
       // 讓「誰要做什麼」一目了然：送方按開始傳送，收方什麼都不用按
-      status(S.files.length ? t('tr_connected_send') : t('tr_connected_recv'), 'ok');
-      renderPeers(t('tr_connected'));
+      status(S.files.length ? 'tr_connected_send' : 'tr_connected_recv', 'ok');
+      renderPeers('tr_connected');
       $('#tr-send').disabled = !S.files.length;
     } else if (st === 'failed') {
       clearTimeout(S.connectTimer);
-      status(t('tr_failed_hint'), 'err');
+      status('tr_failed_hint', 'err');
     } else if (st === 'disconnected') {
-      status(t('tr_broken'), 'err');
+      status('tr_broken', 'err');
     }
     };
     S.pc.ondatachannel = (e) => bindChannel(e.channel);
     // 逾時提示：兩台裝置若不在同一個網路，或防火牆擋住，就不會連上
     clearTimeout(S.connectTimer);
     S.connectTimer = setTimeout(() => {
-      if (S.pc && S.pc.connectionState !== 'connected') status(t('tr_timeout_hint'), 'err');
+      if (S.pc && S.pc.connectionState !== 'connected') status('tr_timeout_hint', 'err');
     }, 20000);
     if (offerer) {
       bindChannel(S.pc.createDataChannel('ferry', { ordered: true }));
@@ -430,11 +452,11 @@
     dc.bufferedAmountLowThreshold = LOW_WATER;
     dc.onopen = () => {
       touch();
-      if (S.pc?.connectionState === 'connected') status(t('tr_connected'), 'ok');
+      if (S.pc?.connectionState === 'connected') status('tr_connected', 'ok');
       $('#tr-send').disabled = !S.files.length;
     };
     dc.onclose = () => {
-      status(t('tr_closed'), 'err'); $('#tr-send').disabled = true;
+      status('tr_closed', 'err'); $('#tr-send').disabled = true;
       clearPairUI();                         // 連線關閉：綠框立即消失
     };
     dc.onmessage = (e) => onData(e.data);
@@ -509,9 +531,9 @@
         dcSend(JSON.stringify({ t: 'end', id }));
         updateRow('send', i, 1, t('tr_waitack'));
       }
-      status(t('tr_sent'));
+      status('tr_sent');
     } catch (err) {
-      status(t('tr_interrupted') + err.message, 'err');
+      status('tr_interrupted', 'err', err.message);
     } finally {
       S.sending = false; stopSpeed();
       $('#tr-send').disabled = !S.files.length || S.dc?.readyState !== 'open';
@@ -555,7 +577,7 @@
       S.receiving = { id: m.id, name: m.name, size: m.size, sha: m.sha,
                       chunks: [], got: 0, hasher: new SHA256(), index: idx };
       addRow('recv', m.name, m.size);
-      status(t('tr_receiving') + m.name);
+      status('tr_receiving', '', m.name);
     } else if (m.t === 'cancel') {
       // 對方按了 ✕（或他取消傳送）→ 把這一個丟掉、顯示已取消
       const r = S.receiving;
@@ -563,13 +585,13 @@
       if (r && (!m.id || r.id === m.id)) {
         S.receiving = null;
         updateRow('recv', r.index, 0, t('tr_cancelled_peer'), 'err');
-        status(t('tr_cancelled_peer') + '：' + r.name, 'err');
+        status('tr_cancelled_peer', 'err', '：' + r.name);
       }
       if (m.id) S.cancelIdx.add(m.id);
     } else if (m.t === 'end') {
       finishReceive();
     } else if (m.t === 'ack') {
-      status(m.ok ? t('tr_acked_ok') : t('tr_acked_bad'), m.ok ? 'ok' : 'err');
+      status(m.ok ? 'tr_acked_ok' : 'tr_acked_bad', m.ok ? 'ok' : 'err');
     }
   }
 
@@ -641,7 +663,7 @@
     if (kind === 'send') {
       S.cancelIdx.add(i);                       // 傳送迴圈會在下一塊之前停下來
       updateRow('send', i, 0, t('tr_cancelled'), 'err');
-      status(t('tr_cancelled'), 'err');
+      status('tr_cancelled', 'err');
       const id = S.sendIds[i];
       if (id) { S.cancelledIds.add(id); dcSend(JSON.stringify({ t: 'cancel', id })); }
       return;
@@ -653,7 +675,7 @@
       S.receiving = null;
       dcSend(JSON.stringify({ t: 'cancel', id: r.id }));
       updateRow('recv', i, 0, t('tr_cancelled'), 'err');
-      status(t('tr_cancelled') + '：' + r.name, 'err');
+      status('tr_cancelled', 'err', '：' + r.name);
     }
   }
   for (const sel of ['#send-list', '#recv-list']) {

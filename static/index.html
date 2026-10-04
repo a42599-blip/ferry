@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=68">
+<link rel="stylesheet" href="/style.css?v=69">
 <style>
 /* ⚠️ 手機導覽的「關鍵樣式」內嵌在這裡（小羅 2026-09-27）。
    原因：他的手機卡在舊的 style.css 快取（舊版 .tabs 是 display:none），
@@ -143,7 +143,7 @@
         <div class="inbar" style="margin-top:8px">
           <input id="rp-contact" data-i18n-ph="report_contact" placeholder="聯絡方式（選填）">
         </div>
-        <button class="big gh sm" id="rp-send" style="margin-top:10px" data-i18n="btn_submit">送出</button>
+        <button class="big soft sm" id="rp-send" style="margin-top:10px" data-i18n="btn_submit">送出</button>
         <div class="msg" id="rp-status" hidden></div>
       </details>
     </div>
@@ -204,7 +204,7 @@
         <div class="c num" id="mycode">------</div>
         <div class="e" data-i18n="tr_code_valid">2 分鐘內有效</div>
       </div>
-      <button class="big t-send" id="tr-send" disabled data-i18n="btn_send">開始傳送</button>
+      <button class="big solid t-send" id="tr-send" disabled data-i18n="btn_send">開始傳送</button>
     </div>
 
     <div class="col">
@@ -230,14 +230,14 @@
         <input id="join-code" inputmode="numeric" maxlength="6" data-i18n-ph="tr_code_ph" placeholder="輸入對方的 6 位配對碼">
         <button class="go" id="tr-join" data-i18n="btn_pair">配對</button>
       </div>
-      <button class="big gh sm t-gen" id="tr-gen" data-i18n="btn_gen">產生我的配對碼</button>
+      <button class="big solid sm t-gen" id="tr-gen" data-i18n="btn_gen">產生我的配對碼</button>
       <div class="joinednote" id="joined-note" hidden></div>
       <div class="peerbox" id="peerbox" hidden>
         <div class="pv-line"><span data-i18n="tr_this_device">這台裝置</span>：<b id="pv-me">–</b></div>
         <div class="pv-line"><span data-i18n="tr_other_device">對方裝置</span>：<b id="pv-other">–</b>
           <span class="dot" id="pv-dot"></span><span id="pv-state" class="dim"></span></div>
         <!-- 小羅 2026-10-05：配對後要能「手動斷開」（不用關網頁） -->
-        <button class="big gh sm" id="tr-leave" type="button" data-i18n="btn_leave">斷開配對</button>
+        <button class="big warn sm" id="tr-leave" type="button" data-i18n="btn_leave">斷開配對</button>
       </div>
       <div class="dvlist t-known" id="known"></div>
       <div class="msg t-msg" id="tr-status" hidden></div>
@@ -516,10 +516,10 @@
 
 <!-- 底部導航已移除（小羅 2026-09-27：手機版也把選項提到上面那一行） -->
 
-<script src="/sha256.js?v=30"></script>
-<script src="/save.js?v=31"></script>
-<script src="/app.js?v=80"></script>
-<script src="/transfer.js?v=36"></script>
+<script src="/sha256.js?v=31"></script>
+<script src="/save.js?v=32"></script>
+<script src="/app.js?v=81"></script>
+<script src="/transfer.js?v=37"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）
 (function () {
