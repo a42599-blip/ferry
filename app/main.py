@@ -12,6 +12,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.gzip import GZipMiddleware  # 小羅 2026-10-05：手機下載加速
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
@@ -28,6 +29,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 app = FastAPI(title="ferry · 轉運站", version="0.1.0")
+
+# 小羅 2026-10-05：手機刷新比電腦慢 → 加 gzip 壓縮（JS/CSS/JSON 約縮小 70%）
+app.add_middleware(GZipMiddleware, minimum_size=600)
 
 app.add_middleware(
     CORSMiddleware,
@@ -537,7 +541,7 @@ if os.path.isdir(STATIC_DIR):
 
 
 # ── 防快取：程式碼與頁面一律「重新驗證」，避免使用者卡在舊版 ──
-_NO_CACHE_EXT = (".html", ".js", ".css", ".json", ".webmanifest")
+_NO_CACHE_EXT = (".html", ".json", ".webmanifest")
 
 
 @app.middleware("http")
@@ -547,6 +551,11 @@ async def _cache_control(request: Request, call_next):
         path = request.url.path
         if path in ("/", "/admin", "/admin/") or path.endswith(_NO_CACHE_EXT):
             response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        elif path.endswith((".js", ".css")):
+            # 小羅 2026-10-05：手機刷新比電腦慢 → 因為 JS/CSS 以前也是 no-cache，
+            # 每次都要重抓。它們網址都帶 ?v=N 版號（改版就會換），
+            # 所以可以放心長期快取 → 第二次以後完全不重新下載。
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         elif path.startswith(("/logos/", "/favicon", "/icon")):
             response.headers["Cache-Control"] = "public, max-age=604800"
     except Exception:  # noqa: BLE001
