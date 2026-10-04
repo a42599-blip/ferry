@@ -295,6 +295,8 @@ def create_checkout(subject: str, plan: str, provider: str,
     """
     if not str(subject or "").startswith("user:"):
         raise LoginRequired("請先登入會員再付款（付款後會開通到你的帳號）")
+    if not enabled():
+        raise BadRequest("付費功能目前未開啟", code="BILLING_DISABLED")
     if plan not in PLANS or plan == PLAN_FREE:
         raise BadRequest("方案不正確")
     if provider not in PROVIDERS:

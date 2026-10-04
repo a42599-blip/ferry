@@ -324,7 +324,7 @@ async def pay_providers() -> dict:
 async def checkout(request: Request, body: dict = Body(...)) -> dict:
     subject = auth.current_subject(request)
     plan = body.get("plan", "")
-    provider = body.get("provider", "ecpay")
+    provider = body.get("provider", "newebpay")
     # 小羅 2026-10-04：下單時把時區更新成他「當下所在」的時區
     #   → 之後「到期日」與提醒信才會用他買的時候那個時區（不是舊的）
     if str(subject).startswith("user:"):

@@ -1,12 +1,8 @@
-"""會員登入（🔧 預留接口 — 現在不實作，只定型）。
+"""身分判定（全站唯一取得「這是誰」的地方）。
 
-小羅 2026-09-26：會員「先放著，最後才組合上來」，但**接口要先預留好**，
-之後接上時不必動其他模組。
-
-設計原則：
-- 全站只透過這裡的 `current_subject()` 取得「這是誰」，
-  所以未登入＝裝置ID；之後接會員＝回傳會員ID。**呼叫端不用改**。
-- 開關：feature.auth（開發期 False → 一律當未登入）
+- 全站只透過這裡的 `current_subject()` 取得身份 → 呼叫端不用改。
+- 未登入＝裝置 ID；已登入＝`user:<會員ID>`（會員實作在 `members.py`）。
+- 開關：`feature.auth`（關掉＝一律當未登入裝置）。
 """
 from __future__ import annotations
 
@@ -21,12 +17,6 @@ class AuthRequired(AppError):
 
 def enabled() -> bool:
     return flags.feature_enabled("feature.auth")
-
-
-def login(*_args, **_kwargs) -> dict:
-    """🔧 TODO(P5)：帳號密碼／OAuth 登入。現在未實作。"""
-    raise NotImplementedError("登入功能尚未實作（P5 階段）")
-
 
 
 def current_subject(request=None) -> str:
