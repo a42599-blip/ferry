@@ -299,6 +299,10 @@
     S.receiving = null; S.cancelIdx.clear(); S.sendIds = {};
     forgetLast();
     $('#tr-send').disabled = true;
+    // 小羅 2026-10-05：斷開後「已連上」絲框（joined-note）與我的配對碼區
+    // 必須一起清掉 —— 不然綠色框還在，會讓人誤會「還連著」。
+    const jn = $('#joined-note'); if (jn) jn.hidden = true;
+    const cb = $('#codebox'); if (cb) cb.hidden = true;
     renderPeers(t('tr_none_yet'));
   }
 
