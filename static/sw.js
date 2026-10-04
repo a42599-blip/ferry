@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v46';  // v46：2026-10-04 修正廣告聯動（實際有廣告才算）
+const CACHE = 'ferry-img-v47';  // v47：2026-10-04 公測說明長句可換行（電腦版不再溢出）
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

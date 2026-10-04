@@ -279,7 +279,8 @@ input:focus{outline:none;border-color:var(--acc)}
 
 /* ── 公測徽章（今日次數旁）── */
 .beta{display:inline-block;margin-top:7px;font-size:11px;color:var(--acc);
-  border:1px solid var(--acc-line);padding:2px 8px;white-space:nowrap}
+  border:1px solid var(--acc-line);padding:2px 8px;white-space:normal;
+  max-width:100%;word-break:break-word;line-height:1.5}
 
 /* ── 解析結果的站內播放器（不下載也能看）──────
    跟 v8i8 一樣：解析完直接播，使用者確認是這支再下載。 */
