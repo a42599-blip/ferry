@@ -164,22 +164,20 @@ async def railway_status(force: bool = False) -> dict:
 
 # ── 本機系統 ─────────────────────────────────────────
 def disk_info() -> list[dict]:
-    targets = [("資料磁碟（網站資料庫）", settings.data_dir or db.data_dir()),
-               ("系統磁碟", "/")]
-    out: list[dict] = []
-    seen: set[str] = set()
-    for label, path in targets:
-        try:
-            real = os.path.realpath(path)
-            if real in seen:
-                continue
-            seen.add(real)
-            u = shutil.disk_usage(real)
-            out.append({"label": label, "total": u.total, "used": u.used, "free": u.free,
-                        "percent": round(u.used / u.total * 100, 1) if u.total else 0})
-        except Exception:  # noqa: BLE001
-            continue
-    return out
+    """網站資料磁碟（Railway Volume `/data`）的容量與剩餘。
+
+    ⚠️ 只看我們的 Volume —— **不看「系統磁碟」也不看 CPU 負載**：
+    那兩個在容器裡讀到的是 **Railway 主機**的數字（幾 TB、共用、不是我們的），
+    顯示出來只會嚇到自己（小羅 2026-10-04 實際被 0.1%／39% 嚇到）。
+    """
+    path = settings.data_dir or db.data_dir()
+    try:
+        u = shutil.disk_usage(os.path.realpath(path))
+    except Exception:  # noqa: BLE001
+        return []
+    return [{"label": "網站資料磁碟（資料庫／cookies／快取）",
+             "total": u.total, "used": u.used, "free": u.free,
+             "percent": round(u.used / u.total * 100, 1) if u.total else 0}]
 
 
 def db_latency_ms(rounds: int = 3) -> float | None:
@@ -194,16 +192,6 @@ def db_latency_ms(rounds: int = 3) -> float | None:
             return None
         best = ms if best is None else min(best, ms)
     return round(best, 1) if best is not None else None
-
-
-def cpu_load() -> dict:
-    """CPU 負載（讀不到就回 None，本機 Windows 可能沒有）。"""
-    try:
-        la1, la5, la15 = os.getloadavg()
-        return {"1m": round(la1, 2), "5m": round(la5, 2), "15m": round(la15, 2),
-                "cpus": os.cpu_count() or 0}
-    except Exception:  # noqa: BLE001
-        return {}
 
 
 def region_info() -> dict:
@@ -253,7 +241,6 @@ async def snapshot(force: bool = False) -> dict:
         "memory_mb": proc.get("memory_mb"),
         "uptime_seconds": proc.get("uptime_seconds"),
         "check_interval": proc.get("check_interval"),
-        "cpu": cpu_load(),
         "disks": disks,
         "diagnosis": _diagnose(rail, latency, disks),
     }

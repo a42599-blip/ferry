@@ -1305,7 +1305,6 @@ async function renderVitals(force) {
       <div class="sub">${esc(d.detail || '')}</div></div>` + inc;
 
   const r = v.region || {};
-  const cpu = v.cpu || {};
   const rows = [
     ['本站機房', `${r.zh || '–'}（${r.id || '–'}）`],
     ['記憶體', v.memory_mb ? v.memory_mb + ' MB' : '–'],
@@ -1315,8 +1314,7 @@ async function renderVitals(force) {
     ['量測時間', v.at ? fmtTime(v.at) : '–'],
   ];
   (v.disks || []).forEach((dk) => rows.push([dk.label,
-    `已用 ${fmtBytes(dk.used)}／共 ${fmtBytes(dk.total)}（剩 ${fmtBytes(dk.free)}，${dk.percent}%）`]));
-  if (cpu.cpus) rows.push(['CPU 負載', `${cpu['1m']}（1 分）／${cpu.cpus} 核`]);
+    `已用 ${fmtBytes(dk.used)}／共 ${fmtBytes(dk.total)}（剩 ${fmtBytes(dk.free)}；已用 ${dk.percent}%）${dk.percent >= 85 ? ' ⚠️ 快滿' : ' ✅ 充足'}`]));
   const rep = $('#v-report');
   if (rep) rep.innerHTML = rows.map(([k, val]) =>
     `<div class="metric"><span>${k}</span><span>${esc(val)}</span></div>`).join('');

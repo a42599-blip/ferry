@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v35';  // v35：2026-10-04 後台即時監控（圖未變，僅依鐵律升版）
+const CACHE = 'ferry-img-v36';  // v36：2026-10-04 後台即時監控顯示修正（只看自己的磁碟）
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',
