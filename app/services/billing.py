@@ -457,16 +457,48 @@ def activate(order_id: str, *, raw_amount: float | None = None, txn: str = "",
                          reason="renew" if expires else "first_pay",
                          note="付款成功（續約累加）" if expires else "付款成功（終身）")
 
+    plan_name = PLANS.get(plan, {}).get("name", plan)
+    currency = row["currency"] or "TWD"
+    money = ("NT$ %.0f" % price) if currency in ("TWD", "NTD") else ("US$ %.2f" % price)
+
     notify_task = notify.notify(
         "pay_success", "新付款成功",
-        f"訂單：{order_id}\n方案：{PLANS.get(plan, {}).get('name', plan)}\n"
-        f"金額：US$ {price:.2f}\n會員：{mid or '(未登入裝置)'}",
+        f"訂單：{order_id}\n方案：{plan_name}\n"
+        f"金額：{money}\n會員：{mid or '(未登入裝置)'}",
         force=True,
+    )
+
+    # ── 給「客人」的付款確認信（小羅 2026-10-04）────────────────
+    #   「你寄給客人這封信的內容是什麼？必須要有訂單編號，讓他能跟我們對帳；
+    #     而且後台要用這個訂單號就能搜尋這筆交易。」
+    #   → 信裡一定帶「訂單編號」，客服用編號就能在後台以 /order/lookup 查到。
+    if expires:
+        expiry = time.strftime("%Y-%m-%d %H:%M", time.localtime(expires)) + "（月會員 31 天）"
+    else:
+        expiry = "終身會員（永久有效）"
+    cust_body = (
+        "您好，\n\n"
+        "我們已收到您的付款，會員方案已自動開通 🎉\n\n"
+        f"訂單編號：{order_id}\n"
+        f"方案：{plan_name}\n"
+        f"金額：{money}\n"
+        f"開通效期：{expiry}\n"
+        + (f"付款方式：{method}\n" if method else "")
+        + (f"金流商交易序號：{txn}\n" if txn else "")
+        + "\n請保留「訂單編號」，若有付款、開通或退款問題，"
+        "來信客服並附上訂單編號，我們會盡快為你處理。\n\n"
+        "轉運站 scefo.com\n"
+        "客服信箱：a42599@gmail.com\n"
+        "客服電話：0980-222196\n"
     )
     try:
         import asyncio
 
-        asyncio.get_event_loop().create_task(notify_task)
+        loop = asyncio.get_event_loop()
+        loop.create_task(notify_task)
+        if bm["email"]:
+            loop.create_task(notify.send_to(
+                bm["email"], f"【轉運站】付款成功通知（訂單 {order_id}）", cust_body))
     except Exception:  # noqa: BLE001
         pass
 
