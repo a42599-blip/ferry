@@ -153,6 +153,17 @@ CREATE TABLE IF NOT EXISTS plan_history (
 CREATE INDEX IF NOT EXISTS idx_planh_member ON plan_history(member_id);
 CREATE INDEX IF NOT EXISTS idx_planh_at ON plan_history(at);
 
+-- 後台「操作紀錄」（小羅 2026-10-04：我在後台按的每一個動作都要留底、可回溯）
+--   開通／關閉會員、加天數、加次數、停權／復權、重設密碼、改昵稱、註銷／復原…
+CREATE TABLE IF NOT EXISTS member_actions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id   TEXT    NOT NULL,
+    ts          REAL    NOT NULL,
+    action      TEXT    NOT NULL,          -- grant / revoke / days / quota / suspend / resume / password / nickname / delete / restore
+    detail      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_mactions_member ON member_actions(member_id);
+
 -- 撥款紀錄（小羅 2026-09-30：真實撥款在「金流商後台」操作，這裡只登記「已到帳」的紀錄）
 CREATE TABLE IF NOT EXISTS payouts (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

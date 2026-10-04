@@ -347,6 +347,7 @@ async def member_card(member_id: str, _: dict = Depends(require_admin)) -> dict:
         raise HTTPException(status_code=404, detail="找不到這個會員")
     subj = f"user:{member_id}"
     card["orders"] = [o for o in events.orders(500) if (o.get("member_id") or "") == subj]
+    card["actions"] = members.actions(member_id)      # 後台操作紀錄（小羅 2026-10-04）
     return {"ok": True, "card": card}
 
 
@@ -440,6 +441,7 @@ async def delete_member(member_id: str, confirm: str = Query(""),
     if not m:
         raise HTTPException(status_code=404, detail="找不到這個會員")
     members.delete(member_id, hard=False)
+    members.log_action(member_id, "delete", f"註銷帳號（軟刪除）｜{reason or '後台註銷'}")
     return {"ok": True, "deleted": m.get("email") or member_id, "soft": True,
             "reason": reason or "後台註銷",
             "hint": "已註銷（登入會被擋）；可用 /members/{id}/restore 救回"}
@@ -480,6 +482,7 @@ async def restore_one(member_id: str, _: dict = Depends(require_admin)) -> dict:
 
     if not members.restore(member_id):
         raise HTTPException(status_code=404, detail="找不到這個會員")
+    members.log_action(member_id, "restore", "復原帳號（取消註銷）")
     return {"ok": True, "member": members.get(member_id) or {}}
 
 
@@ -534,11 +537,13 @@ async def set_member_status(member_id: str, body: dict = Body(...),
 async def add_member_quota(member_id: str, body: dict = Body(...),
                            _: dict = Depends(require_admin)) -> dict:
     """臨時加免費次數（補償；kind = download / transfer）。"""
-    from ..services import quota
+    from ..services import members, quota
 
     kind = body.get("kind") or "download"
     n = int(body.get("n") or 1)
     r = quota.adjust(kind, f"user:{member_id}", n)
+    members.log_action(member_id, "quota",
+                       f"{'下載' if kind == 'download' else '傳輸'}次數 {n:+d}")
     return {"ok": True, "result": r}
 
 
@@ -564,6 +569,7 @@ async def reset_member_password(member_id: str, body: dict = Body(...),
     elif len(pw) < 6:
         raise HTTPException(status_code=400, detail="密碼至少 6 個字")
     members.set_password(member_id, pw)
+    members.log_action(member_id, "password", "後台重設密碼（客服）")
     return {"ok": True, "password": pw,
             "hint": "請把這組新密碼告給客人（他登入後可以自己在會員頁改）"}
 
@@ -580,6 +586,8 @@ async def set_member_nickname(member_id: str, body: dict = Body(...),
         raise HTTPException(status_code=400, detail=str(exc))
     if not m:
         raise HTTPException(status_code=404, detail="找不到這個會員")
+    members.log_action(member_id, "nickname",
+                       f"暱稱 → {m.get('nickname') or '（清除）'}")
     return {"ok": True, "member": m}
 
 

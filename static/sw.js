@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v39';  // v39：2026-10-04 方案卡片目前使用中／續訂按鈕
+const CACHE = 'ferry-img-v40';  // v40：2026-10-04 後台操作紀錄
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

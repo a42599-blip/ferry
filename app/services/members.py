@@ -222,6 +222,30 @@ def plan_history(member_id: str, limit: int = 50) -> list[dict]:
         (member_id, limit))]
 
 
+def log_action(member_id: str, action: str, detail: str = "") -> None:
+    """寫一筆「後台操作紀錄」。
+
+    小羅 2026-10-04：「我在後台按的每一個動作都要留底、可回溯
+    （哪時開通、哪時刪除、哪時復權、哪時加次數）。」
+    """
+    if not member_id:
+        return
+    db.execute("INSERT INTO member_actions(member_id, ts, action, detail) VALUES(?,?,?,?)",
+               (member_id, time.time(), action, (detail or "")[:300]))
+
+
+def actions(member_id: str, limit: int = 50) -> list[dict]:
+    """某位會員的後台操作紀錄（新→舊）。"""
+    out = []
+    for r in db.query(
+            "SELECT * FROM member_actions WHERE member_id=? ORDER BY ts DESC LIMIT ?",
+            (member_id, limit)):
+        d = dict(r)
+        d["when"] = tz_util.fmt(d["ts"], None, "%Y-%m-%d %H:%M")
+        out.append(d)
+    return out
+
+
 def set_plan(member_id: str, plan: str, expires_at: float | None = None, *,
              amount: float = 0.0, reason: str = "admin", note: str = "",
              force_log: bool = False) -> None:
@@ -286,17 +310,20 @@ def stats(tz_name: str = "Asia/Taipei") -> dict:
     """會員統計（後台首頁／會員頁用）。"""
     from . import billing
 
-    total = int(db.scalar("SELECT COUNT(*) FROM members") or 0)
+    # ⚠️ 小羅 2026-10-04：統計要排除「已註銷（軟刪除）」的帳號，不然刪了數字還不變
+    live = "COALESCE(status,'')<>'deleted'"
+    total = int(db.scalar("SELECT COUNT(*) FROM members WHERE " + live) or 0)
     # 「今天」＝該時區的當天 00:00 起算
     day_start = _day_start(tz_name)
     today_new = int(db.scalar(
-        "SELECT COUNT(*) FROM members WHERE created_at>=?", (day_start,)) or 0)
+        "SELECT COUNT(*) FROM members WHERE " + live + " AND created_at>=?", (day_start,)) or 0)
     week_new = int(db.scalar(
-        "SELECT COUNT(*) FROM members WHERE created_at>=?", (day_start - 6 * 86400,)) or 0)
+        "SELECT COUNT(*) FROM members WHERE " + live + " AND created_at>=?",
+        (day_start - 6 * 86400,)) or 0)
 
     # 各方案分佈（付費等級不同要分別列出來）
     rows = {r["plan"]: int(r["c"]) for r in db.query(
-        "SELECT plan, COUNT(*) AS c FROM members GROUP BY plan")}
+        "SELECT plan, COUNT(*) AS c FROM members WHERE " + live + " GROUP BY plan")}
     plans = []
     for pid, meta in billing.PLANS.items():
         n = rows.get(pid, 0)
@@ -315,10 +342,10 @@ def stats(tz_name: str = "Asia/Taipei") -> dict:
     #    國家代碼來自 Cloudflare 的 cf-ipcountry（註冊當下寫入 members.country）
     regions = [dict(r) for r in db.query(
         "SELECT COALESCE(NULLIF(country,''),'??') AS code, COUNT(*) AS n"
-        " FROM members GROUP BY code ORDER BY n DESC")]
+        " FROM members WHERE " + live + " GROUP BY code ORDER BY n DESC")]
     paid_regions = {r["code"]: int(r["n"]) for r in db.query(
         "SELECT COALESCE(NULLIF(country,''),'??') AS code, COUNT(*) AS n"
-        " FROM members WHERE plan<>? GROUP BY code", (billing.PLAN_FREE,))}
+        " FROM members WHERE " + live + " AND plan<>? GROUP BY code", (billing.PLAN_FREE,))}
     for r in regions:
         r["paid"] = paid_regions.get(r["code"], 0)
         r["name"] = COUNTRY_NAMES.get(r["code"], r["code"])
@@ -346,7 +373,8 @@ def list_full(limit: int = 300) -> list[dict]:
     for r in db.query(
             "SELECT id, email, COALESCE(nickname,'') AS nickname, plan, device_id,"
             " tz, created_at, expires_at"
-            " FROM members ORDER BY created_at DESC LIMIT ?", (limit,)):
+            " FROM members WHERE COALESCE(status,'')<>'deleted'"
+            " ORDER BY created_at DESC LIMIT ?", (limit,)):
         row = dict(r)
         row["plan_name"] = (plans.get(row["plan"]) or {}).get("name", row["plan"])
         row["paid"] = row["plan"] not in ("", None, billing.PLAN_FREE)
@@ -399,7 +427,13 @@ def restore_from_history() -> dict:
         " WHERE member_id IS NOT NULL GROUP BY member_id")
     for r in rows:
         mid = r["member_id"]
-        if db.one("SELECT id FROM members WHERE id=?", (mid,)):
+        cur = db.one("SELECT COALESCE(status,'') AS status FROM members WHERE id=?", (mid,))
+        if cur:
+            # 軟刪除（status=deleted）→ 一起復原（小羅 2026-10-04：復原按鈕要能救軟刪除的）
+            if cur["status"] == "deleted":
+                db.execute("UPDATE members SET status='active', deleted_at=NULL WHERE id=?", (mid,))
+                log_action(mid, "restore", "復原已註銷帳號（批次復原）")
+                rebuilt.append({"id": mid, "email": r["email"], "plan": "restored"})
             continue                      # 還在，不用重建
         _l = db.one(
             "SELECT to_plan, expires_at FROM plan_history WHERE member_id=?"
@@ -454,17 +488,15 @@ def emails(only: str = "all") -> list[str]:
     """
     from . import billing
 
+    # ⚠️ 已註銷（軟刪除）的不列入名單（不要寄信給已註銷帳號）—— 小羅 2026-10-04
+    base = ("SELECT email FROM members WHERE email IS NOT NULL AND email<>''"
+            " AND COALESCE(status,'')<>'deleted'")
     if only == "paid":
-        sql = ("SELECT email FROM members WHERE email IS NOT NULL AND email<>''"
-               " AND plan<>? ORDER BY created_at DESC")
-        rows = db.query(sql, (billing.PLAN_FREE,))
+        rows = db.query(base + " AND plan<>? ORDER BY created_at DESC", (billing.PLAN_FREE,))
     elif only == "free":
-        sql = ("SELECT email FROM members WHERE email IS NOT NULL AND email<>''"
-               " AND plan=? ORDER BY created_at DESC")
-        rows = db.query(sql, (billing.PLAN_FREE,))
+        rows = db.query(base + " AND plan=? ORDER BY created_at DESC", (billing.PLAN_FREE,))
     else:
-        rows = db.query("SELECT email FROM members WHERE email IS NOT NULL AND email<>''"
-                        " ORDER BY created_at DESC")
+        rows = db.query(base + " ORDER BY created_at DESC")
     return [r["email"] for r in rows if r["email"]]
 
 
@@ -627,6 +659,10 @@ def grant_plan(member_id: str, plan: str, days: int = 0, *,
         base = float(cur_exp)          # 還沒到期 → 從原到期日往後加
     new_exp = (base + add_days * 86400) if add_days else None
     set_plan(member_id, plan, new_exp, reason=reason, note=note or f"後台補償 {add_days} 天")
+    log_action(member_id, "grant",
+               f"開通「{(billing.PLANS.get(plan) or {}).get('name', plan)}」"
+               + (f"（+{add_days} 天）" if add_days else "")
+               + (f"｜{note}" if note else ""))
     return get(member_id) or {}
 
 
@@ -638,6 +674,7 @@ def revoke_plan(member_id: str, *, note: str = "") -> dict:
     """
     set_plan(member_id, "free", None, reason="admin",
              note=note or "後台關閉會員（降回免費）", force_log=True)
+    log_action(member_id, "revoke", "關閉會員（降回免費）")
     return get(member_id) or {}
 
 
@@ -652,6 +689,7 @@ def extend_days(member_id: str, days: int, *, reason: str = "gift", note: str = 
     cur = float(m.get("expires_at") or time.time())
     base = max(time.time(), cur)
     new_exp = base + max(1, int(days)) * 86400
+    log_action(member_id, "days", f"到期日 +{max(1, int(days))} 天" + (f"｜{note}" if note else ""))
     set_plan(member_id, m["plan"], new_exp, reason=reason, note=note or f"加 {days} 天")
     return get(member_id) or {}
 
@@ -664,6 +702,8 @@ def set_status(member_id: str, status: str) -> bool:
     if status not in ("active", "suspended"):
         raise BadRequest("狀態不正確")
     db.execute("UPDATE members SET status=? WHERE id=?", (status, member_id))
+    log_action(member_id, "suspend" if status == "suspended" else "resume",
+               "停權" if status == "suspended" else "復權")
     return True
 
 

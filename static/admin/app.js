@@ -1672,6 +1672,14 @@ async function openMemberCard(mid) {
     + (h.reason ? `　<span class="dim">${esc(h.reason)}</span>` : '')
     + (h.note ? `　<span class="dim">${esc(h.note)}</span>` : '') + '</div>').join('')
     || '<div class="dim">尚無紀錄</div>';
+  // 後台操作紀錄（小羅 2026-10-04：我做過的每個動作都要留底、可回溯）
+  const ACT_LABEL = { grant: '開通方案', revoke: '關閉會員', days: '加天數', quota: '調整次數',
+                      suspend: '停權', resume: '復權', password: '重設密碼', nickname: '改昵稱',
+                      delete: '註銷帳號', restore: '復原帳號' };
+  const acts = (m.actions || []).map((a) => `<div class="hrow"><span class="dim">${fmtTime(a.ts)}</span>　`
+    + `<b>${esc(ACT_LABEL[a.action] || a.action)}</b>`
+    + (a.detail ? `　${esc(a.detail)}` : '') + '</div>').join('')
+    || '<div class="dim">尚無後台操作紀錄</div>';
   const recent = renderRecent(m.recent);
   // 付費訂單（小羅 2026-10-03：退款／爭議時要能追溯金流憑證）
   const PL_ORDER = { free: '免費', monthly: '月會員', lifetime: '終身會員' };
@@ -1760,6 +1768,9 @@ async function openMemberCard(mid) {
     <div class="rows" style="margin-top:14px">
       <div class="pnl"><div class="lbl">方案變更歷史</div>${hist}</div>
       <div class="pnl"><div class="lbl">最近活動（每 8 秒自動更新）</div><div id="mc-recent">${recent}</div></div>
+    </div>
+    <div class="pnl" style="margin-top:14px">
+      <div class="lbl">後台操作紀錄（我幫他做過什麼）</div>${acts}
     </div>
     <div class="pnl" style="margin-top:12px">
       <div class="lbl">付費訂單（供退款／爭議追溯）</div>
