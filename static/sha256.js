@@ -85,7 +85,12 @@ const SHA256 = (() => {
 
     hex() {
       const bitLen = this.total * 8;
-      const pad = new Uint8Array(((this.blockLen < 56) ? 56 : 120) - this.blockLen);
+      // 小羅 2026-10-05：修正 padding 長度 —— 原本 `56 - blockLen` 沒有留
+      // 最後 8 bytes（長度欄）的空間，當 blockLen 落在 49~55 時
+      // pad.length-8 會變負數 → setUint32(負數) →
+      // 「Offset is outside the bounds of the DataView」（大檔必爆）。
+      const rem = this.blockLen;                        // 0~63（= total % 64）
+      const pad = new Uint8Array(((rem < 56) ? 56 : 120) - rem + 8);
       pad[0] = 0x80;
       // 長度（64-bit big-endian；JS 檔案大小遠小於 2^53，故高位用除法補）
       const hi = Math.floor(bitLen / 0x100000000);

@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v55';  // v49：2026-10-04 公測說明依「次數限制／廣告」顯示（訪客3/會員5）
+const CACHE = 'ferry-img-v56';  // v49：2026-10-04 公測說明依「次數限制／廣告」顯示（訪客3/會員5）
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',
