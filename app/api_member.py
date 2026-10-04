@@ -407,14 +407,20 @@ async def report(request: Request, body: dict = Body(...)) -> dict:
     msg = (body.get("message") or "").strip()[:1500]
     if len(msg) < 4:
         raise HTTPException(status_code=400, detail="請多描述一點")
+
+    # 小羅 2026-10-05：聯動測試（tools/check_linkage.py）也會打這支 API。
+    #   1. 測試回報仍然要寫進 DB → 後台「客戶回報」看得到（驗證聯動）
+    #   2. 但開頭加「[測試]」，讓小羅一眼知道不是真客戶
+    #   3. 測試**不寄通知信**（只有真客戶才自動寄）
+    is_test = ("聯動測試" in msg
+               or str(body.get("contact") or "").endswith("@test")
+               or str(body.get("contact") or "") == "link@test")
+    if is_test and not msg.startswith("[測試]"):
+        msg = "[測試] " + msg
     feedback.add(message=msg, device_id=_device(request), contact=body.get("contact"),
                  platform=body.get("platform"), url=body.get("url"))
-
-    # 小羅 2026-10-05：聯動測試（tools/check_linkage.py）也會打這支 API，
-    # 以前會真的寄一封「使用者回報」給小羅 → 分不出是真是假。
-    # 現在：測試來源（標題有「聯動測試」或 @test 信箱）只寫 DB、不寄信。
-    if "聯動測試" in msg or str(body.get("contact") or "").endswith("@test"):
-        return {"ok": True, "message": "（測試資料，未發通知）"}
+    if is_test:
+        return {"ok": True, "message": "（測試資料已記錄，未發通知）"}
 
     try:
         since = float(db.get_setting("notify_last_report_ts") or 0)

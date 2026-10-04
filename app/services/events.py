@@ -271,6 +271,9 @@ def by_platform(days: int = 7) -> list[dict]:
         " FROM events"
         " WHERE kind IN ('resolve','download') AND platform IS NOT NULL"
         "   AND platform <> '' AND ts>=?"
+        # 小羅 2026-10-05：聯動測試的事件不列入平台表現統計
+        # （否則測試留下的失敗會讓某平台看起來很差）
+        "   AND COALESCE(device_id,'') <> 'linkage-test'"
         " GROUP BY platform, kind",
         (since,),
     )
