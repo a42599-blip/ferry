@@ -236,6 +236,15 @@
   });
   $('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#tr-join').click(); });
 
+  // 小羅 2026-10-05：手動「斷開配對」（不用關網頁、不用刷開）
+  $('#tr-leave').addEventListener('click', async () => {
+    if (S.sending || S.receiving) { status(t('tr_busy_stop'), 'err'); return; }
+    await leavePair(0);
+    renderPeers(t('tr_left_ok'));
+    renderKnown();
+    status(t('tr_left_ok'), 'ok');
+  });
+
   /** 顯示「這台裝置／對方裝置」與連線狀態（使用者才知道接對了沒） */
   function renderPeers(state) {
     const box = $('#peerbox');

@@ -313,6 +313,10 @@ input:focus{outline:none;border-color:var(--acc)}
 /* 手機網址欄固定 16px：iOS Safari 遇到字級 <16px 的輸入框，一聚焦就自動放大整頁
    （小羅 2026-09-28：「按貼上、解析時畫面會閃一下變大」）。只針對 #url，不影響其他輸入框。 */
 @media (max-width:899px){ #url{font-size:16px} }
+/* 小羅 2026-10-05：iOS 只要輸入框字級 <16px，點下去就會「自動放大整個畫面」。
+   首頁的 #url 已修，但無損傳輸的「6 位配對碼」漏了（.inbar input 只有 13.5px）
+   → 手機版把所有輸入元件一律 16px，以後不會再漏。 */
+@media (max-width:899px){ input,select,textarea{font-size:16px} }
 
 /* ── 付款方式（方案頁；金流接好才會出現按鈕）── */
 .paybox{margin-top:18px;border-top:1px solid var(--line-soft);padding-top:14px}

@@ -484,5 +484,8 @@
   "about_hours_val": "Daily 09:00–21:00 (GMT+8)",
   "beta_pub_free": "Free during public beta — no charges and no ads.",
   "beta_pub_limit": "Free during public beta — guests {g}/day, free members {m}/day (resets next day).",
-  "beta_pub_ads": "Free during public beta, but with ads — after your free quota runs out, watch a short ad to keep going."
+  "beta_pub_ads": "Free during public beta, but with ads — after your free quota runs out, watch a short ad to keep going.",
+  "btn_leave": "Disconnect",
+  "tr_left_ok": "Disconnected",
+  "tr_busy_stop": "Transfer in progress — please wait"
 }

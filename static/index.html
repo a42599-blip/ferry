@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Bricolage+Grotesque:wght@600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=65">
+<link rel="stylesheet" href="/style.css?v=66">
 <style>
 /* ⚠️ 手機導覽的「關鍵樣式」內嵌在這裡（小羅 2026-09-27）。
    原因：他的手機卡在舊的 style.css 快取（舊版 .tabs 是 display:none），
@@ -236,6 +236,8 @@
         <div class="pv-line"><span data-i18n="tr_this_device">這台裝置</span>：<b id="pv-me">–</b></div>
         <div class="pv-line"><span data-i18n="tr_other_device">對方裝置</span>：<b id="pv-other">–</b>
           <span class="dot" id="pv-dot"></span><span id="pv-state" class="dim"></span></div>
+        <!-- 小羅 2026-10-05：配對後要能「手動斷開」（不用關網頁） -->
+        <button class="big gh sm" id="tr-leave" type="button" data-i18n="btn_leave">斷開配對</button>
       </div>
       <div class="dvlist t-known" id="known"></div>
       <div class="msg t-msg" id="tr-status" hidden></div>
@@ -514,10 +516,10 @@
 
 <!-- 底部導航已移除（小羅 2026-09-27：手機版也把選項提到上面那一行） -->
 
-<script src="/sha256.js?v=27"></script>
-<script src="/save.js?v=28"></script>
-<script src="/app.js?v=77"></script>
-<script src="/transfer.js?v=33"></script>
+<script src="/sha256.js?v=28"></script>
+<script src="/save.js?v=29"></script>
+<script src="/app.js?v=78"></script>
+<script src="/transfer.js?v=34"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）
 (function () {
