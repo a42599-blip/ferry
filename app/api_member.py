@@ -325,6 +325,10 @@ async def checkout(request: Request, body: dict = Body(...)) -> dict:
     subject = auth.current_subject(request)
     plan = body.get("plan", "")
     provider = body.get("provider", "ecpay")
+    # 小羅 2026-10-04：下單時把時區更新成他「當下所在」的時區
+    #   → 之後「到期日」與提醒信才會用他買的時候那個時區（不是舊的）
+    if str(subject).startswith("user:"):
+        members.set_tz(subject[5:], tz_util.from_request(request))
     # 小羅 2026-10-04：Railway 在 Cloudflare 後面會偵測成 http → 一律用 https
     base = str(request.base_url).rstrip("/").replace("http://", "https://")
     return {"ok": True, **billing.create_checkout(subject, plan, provider, base_url=base)}

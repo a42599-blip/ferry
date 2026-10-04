@@ -469,6 +469,13 @@ def counts_by(only: str = "all") -> int:
     return len(emails(only))
 
 
+def set_tz(member_id: str, tz: str | None) -> None:
+    """更新會員時區（登入、下單時呼叫）—— 之後信件日期才用他「當下」的時區。"""
+    if not member_id or not tz:
+        return
+    db.execute("UPDATE members SET tz=? WHERE id=?", (tz, member_id))
+
+
 def plan_stats() -> dict:
     """會員統計（給每日摘要用）。
 
