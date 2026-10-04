@@ -197,9 +197,12 @@ def overview(days: int = 30) -> dict:
     member_devices = int(db.scalar(
         "SELECT COUNT(DISTINCT e.device_id) FROM events e"
         " JOIN members m ON m.device_id = e.device_id"
-        " WHERE e.ts>=? AND e.device_id IS NOT NULL", (since,)))
+        " WHERE e.ts>=? AND e.device_id IS NOT NULL"
+        "   AND COALESCE(m.status,'')<>'deleted'", (since,)))
+    # ⚠️ 軟刪除的會員（status='deleted'，資料保留可救援）不算會員數
     paid_devices = int(db.scalar(
-        "SELECT COUNT(*) FROM members WHERE plan<>'free'"))
+        "SELECT COUNT(*) FROM members WHERE plan<>'free'"
+        " AND COALESCE(status,'')<>'deleted'"))
 
     return {
         "days": days,
@@ -567,8 +570,13 @@ def growth(days: int = 90) -> dict:
 
     total_devices = int(db.scalar("SELECT COUNT(*) FROM devices"))
     returning = int(db.scalar("SELECT COUNT(*) FROM devices WHERE visits >= 2"))
-    members_n = int(db.scalar("SELECT COUNT(*) FROM members"))
-    paid = int(db.scalar("SELECT COUNT(*) FROM members WHERE plan<>'free'"))
+    # ⚠️ 一定要排除軟刪除的會員（status='deleted'，資料保留可救援）
+    #    否則「成長趨勢／回訪與存留」的註冊會員會比「會員資料」頁多（小羅 2026-10-05 抓到：7 vs 6）
+    members_n = int(db.scalar(
+        "SELECT COUNT(*) FROM members WHERE COALESCE(status,'')<>'deleted'"))
+    paid = int(db.scalar(
+        "SELECT COUNT(*) FROM members WHERE plan<>'free'"
+        " AND COALESCE(status,'')<>'deleted'"))
     orders_paid = int(db.scalar("SELECT COUNT(*) FROM orders WHERE status='paid'"))
     revenue_cur = float(db.scalar(
         "SELECT COALESCE(SUM(amount),0) FROM orders WHERE status='paid' AND created_at>=?",
