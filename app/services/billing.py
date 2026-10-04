@@ -485,7 +485,7 @@ def activate(order_id: str, *, raw_amount: float | None = None, txn: str = "",
         f"開通效期：{expiry}\n"
         + (f"付款方式：{method}\n" if method else "")
         + (f"金流商交易序號：{txn}\n" if txn else "")
-        + "\n請保留「訂單編號」，若有付款、開通或退款問題，"
+        + "\n請保留「訂單編號」，若有付款或開通問題，"
         "來信客服並附上訂單編號，我們會盡快為你處理。\n\n"
         "轉運站 scefo.com\n"
         "客服信箱：a42599@gmail.com\n"
