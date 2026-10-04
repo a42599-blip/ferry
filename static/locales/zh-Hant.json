@@ -381,6 +381,8 @@
   "quota_beta_ads": "、也完全不會有廣告",
   "billing_off_ads": "，也不會出現任何廣告。",
   "pay_beta_ads": "、也完全不會有廣告",
+  "beta_ads_only": "，但有廣告",
+  "beta_ads_limit": "；免費次數用完，看廣告即可繼續使用",
   "ads_body_live": "看完這段廣告就能繼續使用。",
   "err_AD_REQUIRED": "看完廣告就能繼續使用",
   "ads_loading": "廣告載入中…",

@@ -24,6 +24,13 @@ import asyncio
 import json
 import re
 import sys
+
+# Windows 中文主控台（cp950）不支援 emoji／部分中文 → 強制 UTF-8 輸出
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:  # noqa: BLE001
+    pass
 import time
 from pathlib import Path
 

@@ -84,7 +84,7 @@ function applyLang() {
 async function loadLang(code) {
   state.lang = code || localStorage.getItem('fy_lang') || 'zh-Hant';
   try {
-    const r = await fetch('/locales/' + state.lang + '.json?v=66');
+    const r = await fetch('/locales/' + state.lang + '.json?v=67');
     state.L = await r.json();
   } catch { state.L = {}; }
   localStorage.setItem('fy_lang', state.lang);
@@ -259,6 +259,8 @@ function applyFlags(cfg) {
   renderPlanButtons();
   if ($('#paybox')) $('#paybox').hidden = !billingOn(f);
   if ($('#pay-off')) $('#pay-off').hidden = billingOn(f);
+  // 正式收費（billing 開）→ 次數列的公測說明（.beta-open）收起來（小羅 2026-10-04）
+  $$('.beta-open').forEach((el) => { el.hidden = billingOn(f); });
 
   // ── 廣告開關聯動（小羅 2026-09-29）───────────────────────
   //   廣告開關一打開（任一等級要開始看廣告）→ 全站「完全不會有廣告／尚未啟用」那些字**自動消失**；
@@ -480,6 +482,15 @@ function applyAdsNotes() {
     ph.hidden = hasAd;
   }
   $$('.ads-off-note').forEach((el) => { el.hidden = _adsOn; });
+  // 有廣告時顯示的說明（小羅 2026-10-04）：
+  //   判斷「次數廣告」（ads_guest／ads_member）有沒有開，並看「次數限制」有沒有開：
+  //   ① 只開廣告（無次數限制）→「，但有廣告」
+  //   ② 廣告＋次數限制都開 →「；免費次數用完，看廣告即可繼續使用」
+  const _f = state.config?.features || {};
+  const gateOn = !!(_f['feature.ads_guest'] || _f['feature.ads_member']);
+  const limitOn = _f['feature.free_limit_download'] !== false || _f['feature.free_limit_transfer'] !== false;
+  const onText = (gateOn && limitOn) ? t('beta_ads_limit') : t('beta_ads_only');
+  $$('.ads-on-note').forEach((el) => { el.hidden = !gateOn; el.textContent = onText; });
   $$('[data-i18n="ads_body"]').forEach((el) => {
     el.textContent = _adsOn ? t('ads_body_live') : t('ads_body');
   });

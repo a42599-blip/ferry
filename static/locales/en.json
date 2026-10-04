@@ -381,6 +381,8 @@
   "quota_beta_ads": " — no charges and no ads at all",
   "billing_off_ads": " and no ads at all.",
   "pay_beta_ads": " — no charges and no ads at all",
+  "beta_ads_only": ", but with ads",
+  "beta_ads_limit": "; when your free quota runs out, watch a short ad to keep going",
   "ads_body_live": "Watch this ad to continue.",
   "err_AD_REQUIRED": "Watch a short ad to continue",
   "ads_loading": "Loading ad…",

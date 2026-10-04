@@ -120,7 +120,7 @@
         <span class="dim" id="q-reset"></span>
         </span>
         <span class="tierline" id="q-tier" hidden></span>
-        <span class="beta"><span data-i18n="quota_beta">目前為公測期間，暫不收費</span><span class="ads-off-note" data-i18n="quota_beta_ads">、也完全不會有廣告</span></span>
+        <span class="beta beta-open"><span data-i18n="quota_beta">目前為公測期間，暫不收費</span><span class="ads-off-note" data-i18n="quota_beta_ads">、也完全不會有廣告</span><span class="ads-on-note" hidden></span></span>
         <span class="beta" data-i18n="quota_vip">付費會員：不限次數</span>
       </div>
       <button class="big o-big" id="download" disabled data-i18n="btn_download">下載到這台裝置</button>
@@ -195,7 +195,7 @@
         <span data-i18n="quota_used">今日已使用</span> <b class="num" id="t-used">–</b>
         <span data-i18n="quota_times">次</span>　
         <span class="dim" id="t-reset"></span>
-        <span class="beta"><span data-i18n="quota_beta">目前為公測期間，暫不收費</span><span class="ads-off-note" data-i18n="quota_beta_ads">、也完全不會有廣告</span></span>
+        <span class="beta beta-open"><span data-i18n="quota_beta">目前為公測期間，暫不收費</span><span class="ads-off-note" data-i18n="quota_beta_ads">、也完全不會有廣告</span><span class="ads-on-note" hidden></span></span>
         <span class="beta" data-i18n="quota_vip">付費會員：不限次數</span>
       </div>
       <div class="rack t-rack" id="rack" data-i18n="tr_drop">拖曳檔案到這裡（電腦可拖整個資料夾）</div>
@@ -345,7 +345,7 @@
         <div class="note" data-i18n="pay_cards_note">支援 PayPal 付款、信用卡（Visa／Mastercard／JCB）；付款完成立即開通</div>
         <div class="payqr" id="pay-qr" hidden></div>
       </div>
-      <div class="offbox" id="pay-off" hidden><span data-i18n="billing_off">目前為公測期間，暫不收費，所有功能都可以免費使用</span><span class="ads-off-note" data-i18n="billing_off_ads">，也不會出現任何廣告。</span></div>
+      <div class="offbox" id="pay-off" hidden><span data-i18n="billing_off">目前為公測期間，暫不收費，所有功能都可以免費使用</span><span class="ads-off-note" data-i18n="billing_off_ads">，也不會出現任何廣告。</span><span class="ads-on-note" hidden></span></div>
       <div class="msg" id="pay-status" hidden></div>
       <!-- ── 匯率快查（小羅 2026-10-03：移到付款方式下方，太下面沒人看到）── -->
       <div class="payfx"><a href="https://www.xe.com/currencyconverter/convert/?Amount=100&From=TWD&To=USD" id="fx-open" rel="noopener" data-i18n="fx_link_one">查匯率換算</a></div>
@@ -516,7 +516,7 @@
 
 <script src="/sha256.js?v=27"></script>
 <script src="/save.js?v=28"></script>
-<script src="/app.js?v=73"></script>
+<script src="/app.js?v=74"></script>
 <script src="/transfer.js?v=33"></script>
 <script>
 // 自動更新：每次載入都檢查新版 Service Worker，接手後只重整一次（避免卡在舊版面）
