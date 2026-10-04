@@ -466,9 +466,11 @@ input:focus{outline:none;border-color:var(--acc)}
 /* 倒數（在廣告下面，不會蓋到廣告）＋ 繼續按鈕（獨立一列，永遠可點） */
 .adcard .ad-left{flex:0 0 auto;min-height:18px;font-size:13px;color:var(--acc)}
 .adcard #ads-continue{flex:0 0 auto;width:100%}
-@media (max-width:520px){
-  .adcard{width:min(96vw,430px);padding:12px;gap:9px}
-  .adcard .adslot{min-height:200px}
+/* 小羅 2026-10-04：手機版彈窗縮成「畫面正中間的小方塊」，不蓋到上下（尤其底部固定廣告），
+   確保 15 秒後的「繼續使用」一定看得到、按得到。限手機（≤899px），❌ 電腦版維持原樣。 */
+@media (max-width:899px){
+  .adcard{width:min(84vw,330px);padding:12px;gap:8px;max-height:72vh}
+  .adcard .adslot{min-height:150px}
   .adcard .adb{font-size:12px}
 }
 @media (max-height:640px){ .adcard .adslot{min-height:150px} }
