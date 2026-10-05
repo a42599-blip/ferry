@@ -18,7 +18,18 @@ import time
 from typing import Any, Optional
 
 from ..core import db
-from . import events, notify
+from . import notify
+
+# 測試裝置（不列入告警計算）：聯動測試、明顯測試／探測用
+_TEST_DEV_PAT = ("linkage-test", "dev_link_test", "probe", "audit", "example.com", "ferry.local")
+
+
+def _is_test_device(device_id: str | None) -> bool:
+    """回傳 True＝這是測試裝置（告警時排除；小羅 2026-10-06）。"""
+    d = (device_id or "").lower()
+    if not d:
+        return False
+    return any(t in d for t in _TEST_DEV_PAT)
 
 CHECK_INTERVAL = 300          # 5 分鐘檢查一次
 DIGEST_HOUR = 22              # 每天 22:00（台北時間，小羅 2026-10-04 指定）寄摘要
@@ -73,45 +84,61 @@ async def check_once(*, notify_on_start: bool = False) -> dict:
                                 f"原本：{last}\n現在：{ip}\n平台解析可能受影響。")
         db.set_setting("last_egress_ip", ip)
 
-    # ③ 解析失敗率（近 30 分）
-    # 小羅 2026-10-05：
-    #  1. 排除聯動測試事件（device_id='linkage-test'）→ 測試不能污染告警
-    #  2. 訊息要寫清楚是哪個平台失敗（以前只寫「10/11（91%）」，看不懂）
+    # ③ 解析失敗率（近 30 分）— 小羅 2026-10-06：平台要寫清楚、測試要標明
     since = time.time() - 1800
-    TEST = "linkage-test"
-    total = int(db.scalar(
-        "SELECT COUNT(*) FROM events WHERE kind='resolve' AND ts>=? AND COALESCE(device_id,'')<>?",
-        (since, TEST)))
-    fails = int(db.scalar(
-        "SELECT COUNT(*) FROM events WHERE kind='resolve' AND result='fail' AND ts>=? AND COALESCE(device_id,'')<>?",
-        (since, TEST)))
-    out["resolve_30m"] = {"total": total, "fail": fails}
-    if total >= 10 and fails >= 5:
-        rate = fails / total * 100
+    rows = [dict(r) for r in db.query(
+        "SELECT device_id, platform, error_code, result FROM events"
+        " WHERE kind='resolve' AND ts>=?", (since,))]
+    live = [r for r in rows if not _is_test_device(r.get("device_id"))]
+    tests = [r for r in rows if _is_test_device(r.get("device_id"))]
+    total = len(live)
+    fails = [r for r in live if r.get("result") == "fail"]
+    out["resolve_30m"] = {"total": total, "fail": len(fails), "test": len(tests)}
+    if total >= 10 and len(fails) >= 5:
+        rate = len(fails) / total * 100
         out["resolve_fail_rate"] = round(rate, 1)
         if rate > 50:
-            # 近 30 分失敗最多的平台（最多列 3 個）
-            rows = db.query(
-                "SELECT platform, COUNT(*) AS n FROM events"
-                " WHERE kind='resolve' AND result='fail' AND ts>=?"
-                "   AND COALESCE(device_id,'')<>? AND COALESCE(platform,'')<>''"
-                " GROUP BY platform ORDER BY n DESC LIMIT 3", (since, TEST)) or []
-            who = "、".join(f"{r['platform']}（{r['n']} 次）" for r in rows) or "（未標示平台）"
+            # 平台（含「未標示平台」— 前端上報的沒有平台）
+            pl: dict[str, int] = {}
+            for r in fails:
+                k = r.get("platform") or "（未標示平台／前端上報）"
+                pl[k] = pl.get(k, 0) + 1
+            who = "、".join(f"{k}（{v} 次）" for k, v in sorted(pl.items(), key=lambda x: -x[1])[:5])
+            # 失敗原因（錯誤碼）— 讓小羅知道是「內容未公開」還是「平台擋人」
+            ec: dict[str, int] = {}
+            for r in fails:
+                k = r.get("error_code") or "-"
+                ec[k] = ec.get(k, 0) + 1
+            why = "、".join(f"{k}（{v}）" for k, v in sorted(ec.items(), key=lambda x: -x[1])[:5])
+            tnote = f"\n（另有 {len(tests)} 次為測試，已排除）" if tests else ""
             await notify.notify("platform_fail", "解析失敗率過高",
-                                f"近 30 分鐘：解析失敗 {fails} 次／共 {total} 次（{rate:.0f}%）。\n"
-                                f"失敗最多的平台：{who}\n"
-                                f"→ 可在後台「功能與平台」關閉問題平台。")
+                                f"近 30 分鐘：解析失敗 {len(fails)} 次／共 {total} 次（{rate:.0f}%）。{tnote}\n"
+                                f"失敗平台：{who}\n"
+                                f"失敗原因：{why}\n"
+                                f"→ 可在後台「功能與平台」關閉問題平台；若為「內容未公開」屬正常。")
 
-    # ④ 各平台失敗率（近 1 小時）
-    bad = []
-    for p in events.by_platform(days=1):
-        if p["total"] >= 10 and p["success_rate"] is not None and p["success_rate"] < 60:
-            bad.append(p)
+    # ④ 各平台失敗率（近 24 小時；排除測試裝置）
+    rows24 = [dict(r) for r in db.query(
+        "SELECT device_id, platform, result FROM events"
+        " WHERE kind='resolve' AND ts>=?", (time.time() - 86400,))]
+    agg: dict[str, list[int]] = {}
+    for r in rows24:
+        if _is_test_device(r.get("device_id")):
+            continue
+        p = r.get("platform") or ""
+        a = agg.setdefault(p, [0, 0])          # [ok, total]
+        a[1] += 1
+        if r.get("result") == "ok":
+            a[0] += 1
+    bad = [{"platform": p, "ok": a[0], "total": a[1],
+            "success_rate": round(a[0] / a[1] * 100, 1) if a[1] else None}
+           for p, a in agg.items() if p and a[1] >= 10 and a[0] / a[1] < 0.6]
     out["weak_platforms"] = [b["platform"] for b in bad]
     if bad:
-        detail = "\n".join(f"  {b['platform']}: {b['success_rate']}%（{b['ok']}/{b['total']}）" for b in bad)
+        detail = "\n".join(f"  {b['platform']}：{b['success_rate']}%（成功 {b['ok']}／共 {b['total']}）" for b in bad)
         await notify.notify("platform_fail", "部分平台成功率偏低",
-                            f"以下平台近 24 小時成功率 < 60%：\n{detail}")
+                            f"以下平台近 24 小時成功率 < 60%：\n{detail}\n"
+                            f"（已排除測試裝置；請確認是否為「內容未公開／平台擋人」造成）")
 
     # ⑤ 資料庫用量
     size_mb = db.db_size_bytes() / 1024 / 1024
