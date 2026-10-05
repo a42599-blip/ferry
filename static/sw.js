@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v56';  // v49：2026-10-04 公測說明依「次數限制／廣告」顯示（訪客3/會員5）
+const CACHE = 'ferry-img-v57';  // v57：2026-10-06 解析失敗白話訊息（locale ?v=70／app.js v85）
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

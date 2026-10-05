@@ -94,7 +94,7 @@ function applyLang() {
 async function loadLang(code) {
   state.lang = code || localStorage.getItem('fy_lang') || 'zh-Hant';
   try {
-    const r = await fetch('/locales/' + state.lang + '.json?v=69');
+    const r = await fetch('/locales/' + state.lang + '.json?v=70');
     state.L = await r.json();
   } catch { state.L = {}; }
   localStorage.setItem('fy_lang', state.lang);

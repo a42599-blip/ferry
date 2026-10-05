@@ -13,7 +13,7 @@ import html as html_mod
 import json
 import re
 
-from ..core.errors import PlatformChanged
+from ..core.errors import PlatformChanged, PlatformError
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
 from ._ssr import meta_content, render_html
@@ -114,6 +114,16 @@ class ThreadsResolver(Resolver):
                 uniq.append(f)
 
         if not uniq:
+            # ① 先判斷「內容是否未公開／需登入」→ 給客人正確的白話訊息（小羅 2026-10-06）
+            low = page.lower()
+            if ("並非對所有人開放" in page or "并非对所有人开放" in page
+                    or "未開放所有人查看" in page or "未开放所有人查看" in page
+                    or "特定受眾" in page or "特定受众" in page
+                    or "部分受眾無法看到" in page or "部分受众无法看到" in page
+                    or "此內容並未開放" in page or "此内容并未开放" in page
+                    or "not available to everyone" in low):
+                raise PlatformError("Threads 這則貼文未開放所有人查看（特定受眾）",
+                                    platform=self.name, code="NOT_PUBLIC")
             # 可能是純文字／圖片貼文
             imgs = re.findall(r'"image_versions2"\s*:\s*\{\s*"candidates"\s*:\s*\[\s*\{(.*?)\}', page, re.S)
             for i, blob in enumerate(imgs[:10], 1):

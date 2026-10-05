@@ -18,6 +18,7 @@ from starlette.background import BackgroundTask
 from .admin.routes import router as admin_router
 from .api_member import router as member_router
 from .core import db
+from .core import fail_reason
 from .core.errors import AppError
 from .core.http import HttpClient
 from .core import timezone as tz_util
@@ -405,8 +406,14 @@ async def post_resolve(body: ResolveIn, request: Request):
         info = await resolve_service.resolve(body.url)
         info_dict = info.to_dict()
     except AppError as exc:
+        # 依「失敗原因」給客人對應的白話訊息（小羅 2026-10-06）
+        # 例：未公開／有觀看限制／付費／地區／版權／已刪除／沒有影片／直播／暫時忙碌
+        situation = fail_reason.classify(getattr(exc, "platform", None), exc.code,
+                                         getattr(exc, "message", ""))
+        if situation != exc.code:
+            exc.code = situation            # 前端用 err_<情況> 顯示白話訊息
         events.track("resolve", device_id=device, platform=getattr(exc, "platform", None) or "",
-                     result="fail", error_code=exc.code, url=body.url,
+                     result="fail", error_code=situation, url=body.url,
                      country=request.headers.get("cf-ipcountry"))
         raise
 
