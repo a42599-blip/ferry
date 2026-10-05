@@ -393,7 +393,8 @@ def build_digest(days: int = 1) -> tuple[str, str]:
 
         m = _mon.last_state() or {}
         cs = m.get("cloud_status") or {}
-        cloud = "⚠️ 有異常" if cs.get("abnormal") else ("✅ 正常" if cs.get("ok") else "❓ 查不到")
+        rel = [i for i in (cs.get("items") or []) if i.get("vendor") == "Railway" or i.get("relevant")]
+        cloud = "⚠️ 有異常（與本站相關）" if rel else ("✅ 正常" if cs.get("ok") else "❓ 查不到")
         mem, dbm = m.get("memory_mb"), m.get("db_mb")
         lines += [
             "",
@@ -402,9 +403,10 @@ def build_digest(days: int = 1) -> tuple[str, str]:
             f"  出口 IP：{m.get('egress_ip') or '–'}",
             f"  雲端服務（Railway／Cloudflare）：{cloud}",
         ]
-        if cs.get("abnormal"):
-            for i in cs.get("items", [])[:4]:
-                lines.append(f"    · 【{i.get('vendor')}】{i.get('name')}（{i.get('status')}）")
+        for i in rel[:4]:
+            lines.append(f"    · 【{i.get('vendor')}】{i.get('zh') or i.get('name')}")
+        if not rel and cs.get("items"):
+            lines.append(f"    （服務商另有 {len(cs['items'])} 則公告，與本站無關，已忽略）")
     except Exception:  # noqa: BLE001
         pass
     return "【轉運站】每日摘要", "\n".join(lines)

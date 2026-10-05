@@ -20,6 +20,17 @@ from typing import Any, Optional
 from ..core import db
 from . import notify
 
+# 我們「真的有用到」的雲端元件（只用這些才告警；小羅 2026-10-06：跟本站無關的不要吵）
+# 例：只用 Cloudflare 的 CDN／DNS；不用 API Shield／Cloudflare One／WARP／Durable Objects
+_USED_COMPONENTS = ("cdn", "dns", "cloudflare network", "authoritative dns",
+                    "ssl", "waf", "cache", "cloudflare sites", "website")
+
+
+def _relevant(component_names: list[str]) -> bool:
+    """事件影響的元件是否包含我們用到的（判斷『跟本站有沒有關』）。"""
+    return any(any(u in (n or "").lower() for u in _USED_COMPONENTS) for n in component_names)
+
+
 # 常見雲端事件的中文對照（英文原名 → 中文）；沒有對照就只留原文＋中文説明
 _INCIDENT_ZH = {
     "api shield jwt validation errors": "API Shield 的 JWT 驗證發生錯誤",
@@ -108,12 +119,16 @@ async def cloud_status() -> dict[str, Any]:
                 ind = ((d.get("status") or {}).get("indicator") or "none").lower()
                 if ind != "none":
                     abnormal = True
+                comps = {c.get("id"): c.get("name") for c in (d.get("components") or [])}
                 for inc in (d.get("incidents") or []):
                     if (inc.get("status") or "") in ("resolved", "postmortem"):
                         continue
+                    names = [comps.get(c.get("id") if isinstance(c, dict) else c, "")
+                             for c in (inc.get("components") or [])]
                     items.append({"vendor": "Cloudflare", "status": inc.get("status"),
                                   "name": inc.get("name"), "impact": inc.get("impact"),
-                                  "zh": _zh(inc.get("name"))})
+                                  "zh": _zh(inc.get("name")), "components": names,
+                                  "relevant": _relevant(names)})
             except Exception as exc:  # noqa: BLE001
                 items.append({"vendor": "Cloudflare", "status": "unknown",
                               "name": f"狀態頁查詢失敗：{exc}", "impact": "unknown"})
@@ -212,8 +227,8 @@ async def check_once(*, notify_on_start: bool = False) -> dict:
     out["cloud_status"] = cs
     try:
         items = cs.get("items", []) if cs.get("ok") else []
-        major = [i for i in items if i.get("vendor") == "Railway"
-                 or (i.get("impact") or "").lower() in ("major", "critical")]
+        # 只告警「跟本站有關」的：Railway 異常，或 Cloudflare 事件影響到我們用到的元件（CDN／DNS…）
+        major = [i for i in items if i.get("vendor") == "Railway" or i.get("relevant")]
         if major:
             sig = "|".join(sorted(f"{i['vendor']}:{i['name']}" for i in major))[:500]
             if db.get_setting("cloud_alert_sig") != sig:      # 同一事件不重複寄
