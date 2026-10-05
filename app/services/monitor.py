@@ -45,6 +45,17 @@ def _zh(name: str | None) -> str:
     return _INCIDENT_ZH.get((name or "").strip().lower(), "")
 
 
+# 內容限制類錯誤碼（不算「我們的失敗」；不影響平台成功率告警）
+# 小羅 2026-10-06：內容未公開／付費／地區…是「正常」，不該一直告警
+_CONTENT_CODES = {"NOT_PUBLIC", "RESTRICTED", "PAID", "REGION", "COPYRIGHT",
+                  "DELETED", "NO_VIDEO", "LIVE"}
+
+
+def _is_content_issue(r: dict) -> bool:
+    """True＝這筆失敗是「內容本身」問題（不是我們平台壞）。"""
+    return (r.get("result") == "fail") and ((r.get("error_code") or "").upper() in _CONTENT_CODES)
+
+
 # 測試裝置（不列入告警計算）：聯動測試、明顯測試／探測用
 _TEST_DEV_PAT = ("linkage-test", "dev_link_test", "probe", "audit", "example.com", "ferry.local")
 
@@ -165,6 +176,7 @@ async def check_once(*, notify_on_start: bool = False) -> dict:
         " WHERE kind='resolve' AND ts>=?", (since,))]
     live = [r for r in rows if not _is_test_device(r.get("device_id"))]
     tests = [r for r in rows if _is_test_device(r.get("device_id"))]
+    live = [r for r in live if not _is_content_issue(r)]      # 內容限制不算我們的失敗
     total = len(live)
     fails = [r for r in live if r.get("result") == "fail"]
     out["resolve_30m"] = {"total": total, "fail": len(fails), "test": len(tests)}
@@ -198,6 +210,8 @@ async def check_once(*, notify_on_start: bool = False) -> dict:
     agg: dict[str, list[int]] = {}
     for r in rows24:
         if _is_test_device(r.get("device_id")):
+            continue
+        if _is_content_issue(r):      # 內容限制不算失敗（小羅 2026-10-06）
             continue
         p = r.get("platform") or ""
         a = agg.setdefault(p, [0, 0])          # [ok, total]
