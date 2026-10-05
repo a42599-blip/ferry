@@ -20,6 +20,20 @@ from typing import Any, Optional
 from ..core import db
 from . import notify
 
+# 常見雲端事件的中文對照（英文原名 → 中文）；沒有對照就只留原文＋中文説明
+_INCIDENT_ZH = {
+    "api shield jwt validation errors": "API Shield 的 JWT 驗證發生錯誤",
+    "cloudflare one clients are incorrectly challenged on some sites":
+        "Cloudflare One 用戶端在某些網站被錯誤要求驗證",
+    "incorrect geo location for some cloudflare warp users":
+        "部分 Cloudflare WARP 使用者的地理位置顯示錯誤",
+}
+
+
+def _zh(name: str | None) -> str:
+    return _INCIDENT_ZH.get((name or "").strip().lower(), "")
+
+
 # 測試裝置（不列入告警計算）：聯動測試、明顯測試／探測用
 _TEST_DEV_PAT = ("linkage-test", "dev_link_test", "probe", "audit", "example.com", "ferry.local")
 
@@ -83,8 +97,8 @@ async def cloud_status() -> dict[str, Any]:
                 st = ((d.get("page") or {}).get("status") or "UP").upper()
                 if st not in ("UP", ""):
                     abnormal = True
-                    items.append({"vendor": "Railway", "status": st,
-                                  "name": "Railway 平台服務異常", "impact": st})
+                    items.append({"vendor": "Railway", "status": st, "impact": "major",
+                                  "name": "Railway 平台服務異常", "zh": "Railway 平台服務異常"})
             except Exception as exc:  # noqa: BLE001
                 items.append({"vendor": "Railway", "status": "unknown",
                               "name": f"狀態頁查詢失敗：{exc}", "impact": "unknown"})
@@ -98,7 +112,8 @@ async def cloud_status() -> dict[str, Any]:
                     if (inc.get("status") or "") in ("resolved", "postmortem"):
                         continue
                     items.append({"vendor": "Cloudflare", "status": inc.get("status"),
-                                  "name": inc.get("name"), "impact": inc.get("impact")})
+                                  "name": inc.get("name"), "impact": inc.get("impact"),
+                                  "zh": _zh(inc.get("name"))})
             except Exception as exc:  # noqa: BLE001
                 items.append({"vendor": "Cloudflare", "status": "unknown",
                               "name": f"狀態頁查詢失敗：{exc}", "impact": "unknown"})
@@ -192,17 +207,27 @@ async def check_once(*, notify_on_start: bool = False) -> dict:
                             f"目前 {size_mb:.0f} MB。可在後台「資料管理」刪除舊事件。")
 
     # ⑥ 雲端/機房狀態（Railway／Cloudflare）— 小羅 2026-10-06（官方狀態頁真實資料）
+    #   只在「嚴重（major／critical）或 Railway 異常」才告警；minor 不吵（只進每日摘要）
     cs = await cloud_status()
     out["cloud_status"] = cs
     try:
-        if cs.get("ok") and cs.get("abnormal"):
-            sig = "|".join(sorted(f"{i['vendor']}:{i['name']}" for i in cs["items"]))[:500]
+        items = cs.get("items", []) if cs.get("ok") else []
+        major = [i for i in items if i.get("vendor") == "Railway"
+                 or (i.get("impact") or "").lower() in ("major", "critical")]
+        if major:
+            sig = "|".join(sorted(f"{i['vendor']}:{i['name']}" for i in major))[:500]
             if db.get_setting("cloud_alert_sig") != sig:      # 同一事件不重複寄
                 db.set_setting("cloud_alert_sig", sig)
-                detail = "\n".join(f"  · 【{i['vendor']}】{i['name']}（狀態：{i['status']}）" for i in cs["items"])
+                lines = []
+                for i in major:
+                    zh = i.get("zh") or ""
+                    lines.append(f"  · 【{i['vendor']}】{zh or i.get('name')}"
+                                 + (f"（英文原文：{i.get('name')}）" if zh else ""))
                 await notify.notify("cloud_incident", "雲端服務異常",
-                                    f"偵測到雲端服務（Railway／Cloudflare）異常（官方狀態頁即時資料）：\n{detail}\n\n"
-                                    f"→ 若影響本站解析／連線，請稍後再試；我們持續追蹤。")
+                                    "偵測到雲端服務（Railway／Cloudflare）官方狀態頁有**較嚴重**異常：\n"
+                                    + "\n".join(lines) +
+                                    "\n\n【白話說明】這是指『雲端服務商本身』公告的異常，**不一定影響本站**；"
+                                    "你能收到這封信，代表本站目前仍在運作。若你發現本站變慢或解析失敗變多，再告訴我們。")
         elif cs.get("ok"):
             db.set_setting("cloud_alert_sig", "")
     except Exception:  # noqa: BLE001
