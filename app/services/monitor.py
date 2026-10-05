@@ -56,6 +56,21 @@ def _is_content_issue(r: dict) -> bool:
     return (r.get("result") == "fail") and ((r.get("error_code") or "").upper() in _CONTENT_CODES)
 
 
+def _edge(key: str, bad: bool) -> bool:
+    """★邊緣觸發（小羅 2026-10-06）：
+    - 只在「由好轉壞」的第一次回 True（寄一封）
+    - 持續壞 → 不再重寄（除非已恢復又再度變壞）
+    - 恢復正常 → 重置狀態
+    目的：不要條件持續就一直重寄（原冷卻 30 分＝每 30 分一封，小羅嫌吵）。"""
+    was = db.get_setting("edge_" + key) == "1"
+    if bad and not was:
+        db.set_setting("edge_" + key, "1")
+        return True
+    if not bad and was:
+        db.set_setting("edge_" + key, "")
+    return False
+
+
 # 測試裝置（不列入告警計算）：聯動測試、明顯測試／探測用
 _TEST_DEV_PAT = ("linkage-test", "dev_link_test", "probe", "audit", "example.com", "ferry.local")
 
@@ -155,7 +170,7 @@ async def check_once(*, notify_on_start: bool = False) -> dict:
     # ① 記憶體
     mem = memory_mb()
     out["memory_mb"] = mem
-    if mem and mem > 400:
+    if mem and mem > 400 and _edge("memory_high", True):
         await notify.notify("memory_high", "記憶體用量偏高",
                             f"目前 RSS = {mem} MB。若持續成長可能被平台 OOM 下架。")
 
@@ -183,7 +198,7 @@ async def check_once(*, notify_on_start: bool = False) -> dict:
     if total >= 10 and len(fails) >= 5:
         rate = len(fails) / total * 100
         out["resolve_fail_rate"] = round(rate, 1)
-        if rate > 50:
+        if _edge("platform_fail_30m", rate > 50):
             # 平台（含「未標示平台」— 前端上報的沒有平台）
             pl: dict[str, int] = {}
             for r in fails:
@@ -222,7 +237,7 @@ async def check_once(*, notify_on_start: bool = False) -> dict:
             "success_rate": round(a[0] / a[1] * 100, 1) if a[1] else None}
            for p, a in agg.items() if p and a[1] >= 10 and a[0] / a[1] < 0.6]
     out["weak_platforms"] = [b["platform"] for b in bad]
-    if bad:
+    if _edge("platform_fail_24h", bool(bad)):
         detail = "\n".join(f"  {b['platform']}：{b['success_rate']}%（成功 {b['ok']}／共 {b['total']}）" for b in bad)
         await notify.notify("platform_fail", "部分平台成功率偏低",
                             f"以下平台近 24 小時成功率 < 60%：\n{detail}\n"
@@ -231,7 +246,7 @@ async def check_once(*, notify_on_start: bool = False) -> dict:
     # ⑤ 資料庫用量
     size_mb = db.db_size_bytes() / 1024 / 1024
     out["db_mb"] = round(size_mb, 1)
-    if size_mb > 400:
+    if size_mb > 400 and _edge("db_usage_high", True):
         await notify.notify("db_usage_high", "資料庫用量偏高",
                             f"目前 {size_mb:.0f} MB。可在後台「資料管理」刪除舊事件。")
 
