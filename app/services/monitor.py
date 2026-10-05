@@ -63,6 +63,50 @@ async def egress_ip() -> Optional[str]:
         return None
 
 
+async def cloud_status() -> dict[str, Any]:
+    """查 Railway／Cloudflare 官方狀態頁（**真實資料**，非模擬）。
+
+    小羅 2026-10-06：「雲端機房異常這些你去自己改，而且要能真的偵測到數據。」
+    → Railway 用 Instatus（`railway.instatus.com/summary.json`）；
+      Cloudflare 用 Statuspage（`cloudflarestatus.com/api/v2/summary.json`）。
+    回傳 {ok, abnormal, items:[{vendor,status,name,impact}]}
+    """
+    from ..core.http import HttpClient
+
+    items: list[dict[str, Any]] = []
+    abnormal = False
+    try:
+        async with HttpClient(timeout=12) as http:
+            # Railway（Instatus）：page.status = UP / HASISSUES / UNDERMAINTENANCE / DOWN
+            try:
+                d = await http.get_json("https://railway.instatus.com/summary.json")
+                st = ((d.get("page") or {}).get("status") or "UP").upper()
+                if st not in ("UP", ""):
+                    abnormal = True
+                    items.append({"vendor": "Railway", "status": st,
+                                  "name": "Railway 平台服務異常", "impact": st})
+            except Exception as exc:  # noqa: BLE001
+                items.append({"vendor": "Railway", "status": "unknown",
+                              "name": f"狀態頁查詢失敗：{exc}", "impact": "unknown"})
+            # Cloudflare（Statuspage）：status.indicator = none / minor / major / critical
+            try:
+                d = await http.get_json("https://www.cloudflarestatus.com/api/v2/summary.json")
+                ind = ((d.get("status") or {}).get("indicator") or "none").lower()
+                if ind != "none":
+                    abnormal = True
+                for inc in (d.get("incidents") or []):
+                    if (inc.get("status") or "") in ("resolved", "postmortem"):
+                        continue
+                    items.append({"vendor": "Cloudflare", "status": inc.get("status"),
+                                  "name": inc.get("name"), "impact": inc.get("impact")})
+            except Exception as exc:  # noqa: BLE001
+                items.append({"vendor": "Cloudflare", "status": "unknown",
+                              "name": f"狀態頁查詢失敗：{exc}", "impact": "unknown"})
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "abnormal": False, "items": [], "error": str(exc)}
+    return {"ok": True, "abnormal": abnormal, "items": items}
+
+
 async def check_once(*, notify_on_start: bool = False) -> dict:
     """跑一輪檢查，回傳狀態（後台系統頁也會顯示）。"""
     out: dict[str, Any] = {"at": time.time()}
@@ -146,6 +190,23 @@ async def check_once(*, notify_on_start: bool = False) -> dict:
     if size_mb > 400:
         await notify.notify("db_usage_high", "資料庫用量偏高",
                             f"目前 {size_mb:.0f} MB。可在後台「資料管理」刪除舊事件。")
+
+    # ⑥ 雲端/機房狀態（Railway／Cloudflare）— 小羅 2026-10-06（官方狀態頁真實資料）
+    cs = await cloud_status()
+    out["cloud_status"] = cs
+    try:
+        if cs.get("ok") and cs.get("abnormal"):
+            sig = "|".join(sorted(f"{i['vendor']}:{i['name']}" for i in cs["items"]))[:500]
+            if db.get_setting("cloud_alert_sig") != sig:      # 同一事件不重複寄
+                db.set_setting("cloud_alert_sig", sig)
+                detail = "\n".join(f"  · 【{i['vendor']}】{i['name']}（狀態：{i['status']}）" for i in cs["items"])
+                await notify.notify("cloud_incident", "雲端服務異常",
+                                    f"偵測到雲端服務（Railway／Cloudflare）異常（官方狀態頁即時資料）：\n{detail}\n\n"
+                                    f"→ 若影響本站解析／連線，請稍後再試；我們持續追蹤。")
+        elif cs.get("ok"):
+            db.set_setting("cloud_alert_sig", "")
+    except Exception:  # noqa: BLE001
+        pass
 
     db.set_setting("monitor_last", out)
     return out

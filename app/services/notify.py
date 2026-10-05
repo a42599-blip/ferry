@@ -35,6 +35,7 @@ EVENTS: dict[str, dict[str, Any]] = {
     "admin_login":      {"title": "後台登入（新裝置或新 IP）", "severity": "info", "can_disable": True},
     "admin_login_fail": {"title": "後台連續登入失敗", "severity": "warn",     "can_disable": False},
     "db_usage_high":    {"title": "資料庫／儲存用量偏高", "severity": "warn", "can_disable": True},
+    "cloud_incident":   {"title": "雲端服務異常（Railway／Cloudflare）", "severity": "warn", "can_disable": True},
     "cert_expiring":    {"title": "SSL 憑證／網域即將到期", "severity": "critical", "can_disable": False},
     "copyright_notice": {"title": "版權檢舉／侵權投訴", "severity": "critical", "can_disable": False},
     "payout_request":   {"title": "提現申請",       "severity": "info",     "can_disable": True},
@@ -385,6 +386,27 @@ def build_digest(days: int = 1) -> tuple[str, str]:
         lines += ["", "失敗 Top 3："]
         for e in errs[:3]:
             lines.append(f"  {e['platform']} · {e['error_code']} × {e['count']}")
+
+    # 系統狀態（小羅 2026-10-06：每日摘要要有「正常／異常」）
+    try:
+        from . import monitor as _mon
+
+        m = _mon.last_state() or {}
+        cs = m.get("cloud_status") or {}
+        cloud = "⚠️ 有異常" if cs.get("abnormal") else ("✅ 正常" if cs.get("ok") else "❓ 查不到")
+        mem, dbm = m.get("memory_mb"), m.get("db_mb")
+        lines += [
+            "",
+            "系統狀態：",
+            f"  記憶體：{mem if mem is not None else '–'} MB　資料庫：{dbm if dbm is not None else '–'} MB",
+            f"  出口 IP：{m.get('egress_ip') or '–'}",
+            f"  雲端服務（Railway／Cloudflare）：{cloud}",
+        ]
+        if cs.get("abnormal"):
+            for i in cs.get("items", [])[:4]:
+                lines.append(f"    · 【{i.get('vendor')}】{i.get('name')}（{i.get('status')}）")
+    except Exception:  # noqa: BLE001
+        pass
     return "【轉運站】每日摘要", "\n".join(lines)
 
 
