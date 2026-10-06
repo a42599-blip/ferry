@@ -26,8 +26,20 @@ _USED_COMPONENTS = ("cdn", "dns", "cloudflare network", "authoritative dns",
                     "ssl", "waf", "cache", "cloudflare sites", "website")
 
 
-def _relevant(component_names: list[str]) -> bool:
-    """事件影響的元件是否包含我們用到的（判斷『跟本站有沒有關』）。"""
+#: 我們「一定沒用到」的雲端產品（出現＝跟本站無關，不吵；小羅 2026-10-06）
+#  例：Cloudflare 的 Keyless SSL 是企業功能，我們只用一般邊緣憑證
+#  觸發背景：2026-10-06 誤寄「RSA Keyless SSL handshake issues」（事件名含 ssl 被誤判）
+_UNUSED_KEYWORDS = ("keyless ssl", "api shield", "cloudflare one", "warp", "zero trust",
+                    "durable objects", "cloudflare stream", "cloudflare images",
+                    "magic transit", "spectrum", "argo", "load balancing",
+                    "browser isolation", "cloudflare gateway", "r2 storage")
+
+
+def _relevant(component_names: list[str], incident_name: str = "") -> bool:
+    """事件是否跟本站有關：影響元件命中我們用的、且不是我們沒用的產品。"""
+    blob = " ".join([(n or "").lower() for n in component_names] + [(incident_name or "").lower()])
+    if any(u in blob for u in _UNUSED_KEYWORDS):
+        return False
     return any(any(u in (n or "").lower() for u in _USED_COMPONENTS) for n in component_names)
 
 
@@ -154,7 +166,7 @@ async def cloud_status() -> dict[str, Any]:
                     items.append({"vendor": "Cloudflare", "status": inc.get("status"),
                                   "name": inc.get("name"), "impact": inc.get("impact"),
                                   "zh": _zh(inc.get("name")), "components": names,
-                                  "relevant": _relevant(names)})
+                                  "relevant": _relevant(names, inc.get("name") or "")})
             except Exception as exc:  # noqa: BLE001
                 items.append({"vendor": "Cloudflare", "status": "unknown",
                               "name": f"狀態頁查詢失敗：{exc}", "impact": "unknown"})
