@@ -7,3 +7,6 @@ __pycache__/
 
 # 本機資料庫（Railway 上用 Volume，不進版控）
 data/
+
+# 專案文件（本機歸檔，不進版控/不部署）
+docs/專案文件/

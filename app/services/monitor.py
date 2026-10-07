@@ -267,24 +267,12 @@ async def check_once(*, notify_on_start: bool = False) -> dict:
     cs = await cloud_status()
     out["cloud_status"] = cs
     try:
-        items = cs.get("items", []) if cs.get("ok") else []
-        # 只告警「跟本站有關」的：Railway 異常，或 Cloudflare 事件影響到我們用到的元件（CDN／DNS…）
-        major = [i for i in items if i.get("vendor") == "Railway" or i.get("relevant")]
-        if major:
-            sig = "|".join(sorted(f"{i['vendor']}:{i['name']}" for i in major))[:500]
-            if db.get_setting("cloud_alert_sig") != sig:      # 同一事件不重複寄
-                db.set_setting("cloud_alert_sig", sig)
-                lines = []
-                for i in major:
-                    zh = i.get("zh") or ""
-                    lines.append(f"  · 【{i['vendor']}】{zh or i.get('name')}"
-                                 + (f"（英文原文：{i.get('name')}）" if zh else ""))
-                await notify.notify("cloud_incident", "雲端服務異常",
-                                    "偵測到雲端服務（Railway／Cloudflare）官方狀態頁有**較嚴重**異常：\n"
-                                    + "\n".join(lines) +
-                                    "\n\n【白話說明】這是指『雲端服務商本身』公告的異常，**不一定影響本站**；"
-                                    "你能收到這封信，代表本站目前仍在運作。若你發現本站變慢或解析失敗變多，再告訴我們。")
-        elif cs.get("ok"):
+        # 小羅 2026-10-08 定案：雲端異常**不再即時寄信**（合併進每日 22:00 摘要即可）；
+        # 只有「真的影響到本站」（解析失敗率異常、伺服器異常…見 ③）才即時告警。
+        # 雲端狀態仍寫進 out["cloud_status"] → 每日摘要會顯示（✅正常／⚠️異常／❓查不到）＋記憶體/DB。
+        # （原本的 immediate notify("cloud_incident", ...) 已移除）
+        _ = cs.get("items", []) if cs.get("ok") else []
+        if cs.get("ok"):
             db.set_setting("cloud_alert_sig", "")
     except Exception:  # noqa: BLE001
         pass
