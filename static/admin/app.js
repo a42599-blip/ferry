@@ -1393,6 +1393,7 @@ async function pgErrors() {
   const n = await api('/notify');
   const m = n.monitor || {}, p = n.process || {};
   $('#n-monitor').innerHTML = `<div class="metric"><span>寄送方式</span><span>${n.transport === 'none' ? '未設定（只記錄在後台）' : n.transport}</span></div>
+    <div class="metric"><span>LINE 發送對象</span><span>${n.line && n.line.to ? esc(n.line.to) : '未設定（為防群發，不發）'}</span></div>
     <div class="metric"><span>收件人</span><span>${(n.recipients || []).join(', ') || '–'}</span></div>
     <div class="metric"><span>記憶體</span><span>${p.memory_mb ? p.memory_mb + ' MB' : '–'}</span></div>
     <div class="metric"><span>開機時間</span><span>${p.uptime_seconds ? Math.round(p.uptime_seconds / 60) + ' 分' : '–'}</span></div>
