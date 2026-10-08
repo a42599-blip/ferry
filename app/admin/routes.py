@@ -690,10 +690,13 @@ async def get_mail(_: dict = Depends(require_admin)) -> dict:
     from ..services import notify
 
     c = notify.mail_conf()
+    lc = notify.line_conf()
     return {"ok": True, "transport": notify.transport(),
             "host": c["host"], "port": c["port"], "user": c["user"],
             "from": c["from"], "tls": c["tls"],
             "has_pass": bool(c["pass"]),
+            "has_line_token": bool(lc["token"]),
+            "line_only": lc["only"],
             "smtp_in_db": bool(db.get_setting("mail.host"))}
 
 
@@ -710,6 +713,11 @@ async def set_mail(body: dict = Body(...), _: dict = Depends(require_admin)) -> 
         db.set_setting("mail.pass", str(body["pass"]).strip())
     if body.get("resend_key"):
         db.set_setting("mail.resend_key", str(body["resend_key"]).strip())
+    # 小羅 2026-10-08：LINE 通知（給自己的通知改走 LINE）
+    if body.get("line_token") is not None:
+        db.set_setting("line.token", str(body["line_token"] or "").strip())
+    if body.get("line_only") is not None:
+        db.set_setting("line.only", bool(body["line_only"]))
     return {"ok": True, "transport": notify.transport()}
 
 
@@ -723,7 +731,13 @@ async def test_mail(body: dict = Body(default={}), _: dict = Depends(require_adm
         "[轉運站] 寄信測試",
         "這是一封測試信。\n\n如果你收到這封，代表網站的寄信功能正常。\n\n轉運站  https://scefo.com",
         to=to)
-    return {"ok": r.get("ok"), "info": r.get("note"), "to": r.get("to")}
+    lc = notify.line_conf()
+    line_note = "（未設定 LINE token）"
+    if lc["token"]:
+        ok2, line_note = await asyncio.to_thread(
+            notify._line_sync, "✅ 轉運站 LINE 測試\n\n如果你看到這則，代表 LINE 通知已接通。")
+        line_note = ("成功" if ok2 else "失敗") + f" / {line_note}"
+    return {"ok": r.get("ok"), "info": r.get("note"), "to": r.get("to"), "line": line_note}
 
 
 @router.get("/mail/quota")

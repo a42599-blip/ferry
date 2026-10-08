@@ -305,6 +305,36 @@ def _log(subject: str, body: str, ok: bool, note: str, event: str | None = None)
 
 
 # ── 對外主入口 ───────────────────────────────────────
+def line_conf() -> dict:
+    """LINE 通知設定（後台資料庫優先、其次環境變數 LINE_TOKEN）。
+
+    小羅 2026-10-08：「給我自己的那一半通知用 LINE 取代。」
+      token：Channel access token (long-lived)
+      only：True → 管理者通知**只發 LINE**（省 email 額度）；False → email ＋ LINE 都發
+    """
+    tok = (db.get_setting("line.token") or "").strip() or (os.getenv("LINE_TOKEN") or "").strip()
+    return {"token": tok, "only": bool(db.get_setting("line.only"))}
+
+
+def _line_sync(text: str) -> tuple[bool, str]:
+    """用 LINE Messaging API broadcast 發一則文字（同步；失敗不外抛）。"""
+    tok = line_conf().get("token")
+    if not tok:
+        return False, "未設定 LINE token"
+    try:
+        import httpx
+
+        r = httpx.post(
+            "https://api.line.me/v2/bot/message/broadcast",
+            headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"},
+            json={"messages": [{"type": "text", "text": text[:4900]}]},
+            timeout=15,
+        )
+        return (r.status_code == 200), f"HTTP {r.status_code}"
+    except Exception as exc:  # noqa: BLE001
+        return False, str(exc)[:80]
+
+
 async def notify(event: str, title: str, body: str, *, force: bool = False) -> dict:
     """發送一個事件通知（自動處理開關與冷卻）。"""
     meta = EVENTS.get(event, {"severity": "info", "can_disable": True})
@@ -320,16 +350,29 @@ async def notify(event: str, title: str, body: str, *, force: bool = False) -> d
     text = (f"{prefix} {title}\n\n{body}\n\n"
             f"時間：{tz_util.fmt(time.time(), None, '%Y-%m-%d %H:%M:%S')}\n事件：{event}")
 
+    # ① LINE（小羅 2026-10-08：給自己的通知用 LINE）
+    lc = line_conf()
+    line_ok, line_note = None, ""
+    if lc["token"]:
+        line_ok, line_note = await asyncio.to_thread(
+            _line_sync, f"{prefix} {title}\n\n{body}")
+        _log(subject, text, line_ok, f"LINE:{line_note}", event)
+    if lc["only"] and lc["token"]:
+        if line_ok:
+            db.set_setting(f"notify_last:{event}", time.time())
+        return {"sent": bool(line_ok), "note": f"LINE {line_note}"}
+
     if transport() == "none":
-        _log(subject, text, False, "未設定寄送方式", event)
-        db.set_setting(f"notify_last:{event}", time.time())
-        return {"sent": False, "reason": "未設定寄送方式（已記錄在後台）"}
+        _log(subject, text, bool(line_ok), "未設定寄送方式", event)
+        if line_ok:
+            db.set_setting(f"notify_last:{event}", time.time())
+        return {"sent": bool(line_ok), "reason": "未設定寄送方式（已記錄在後台）", "line": line_note}
 
     ok, note = await asyncio.to_thread(_send_sync, subject, text)
     _log(subject, text, ok, note, event)
-    if ok:
+    if ok or line_ok:
         db.set_setting(f"notify_last:{event}", time.time())
-    return {"sent": ok, "note": note}
+    return {"sent": ok or bool(line_ok), "note": note, "line": line_note}
 
 
 def recent(limit: int = 50) -> list[dict]:
@@ -419,6 +462,13 @@ async def send_digest(days: int = 1) -> dict:
     if q.get("ok"):
         body += (f"\n\n寄信額度：今天 {q['today']}/{q['daily_limit']} 封（剩 {q['daily_left']}）"
                  f"　本月 {q['month']}/{q['monthly_limit']} 封（剩 {q['monthly_left']}）")
+    # 小羅 2026-10-08：每日摘要也發 LINE（若有設定）
+    lc = line_conf()
+    if lc["token"]:
+        await asyncio.to_thread(_line_sync, f"📊 {subject}\n\n{body}")
+        if lc["only"]:
+            _log(subject, body, True, "LINE only", "digest")
+            return {"ok": True, "note": "LINE only", "to": "LINE"}
     ok, note = await asyncio.to_thread(_send_sync, subject, body)
     _log(subject, body, ok, note, "digest")
     return {"ok": ok, "note": note, "to": _recipients(), "transport": transport()}
