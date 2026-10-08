@@ -497,5 +497,9 @@
   "btn_leave": "Disconnect",
   "tr_left_ok": "Disconnected",
   "tr_busy_stop": "Transfer in progress — please wait",
-  "tr_slow_net": "Slow connection: the two devices may be on different networks. Try the same Wi-Fi first."
+  "tr_slow_net": "Slow connection: the two devices may be on different networks. Try the same Wi-Fi first.",
+  "pay_ok_title_monthly": "Congrats — Monthly membership activated!",
+  "pay_ok_title_lifetime": "Congrats — Lifetime membership activated!",
+  "pay_ok_desc_monthly": "Payment complete. Monthly membership is active: unlimited for 30 days, no ads. We'll email you before it expires.",
+  "pay_ok_desc_lifetime": "Payment complete. Lifetime membership is active: unlimited forever, no ads, no further charges."
 }

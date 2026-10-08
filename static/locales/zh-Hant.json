@@ -497,5 +497,9 @@
   "btn_leave": "斷開配對",
   "tr_left_ok": "已斷開配對",
   "tr_busy_stop": "傳輸中，請等傳完再斷開",
-  "tr_slow_net": "連線較慢：可能兩台在不同網路（例如手機 4G ↔ 電腦）。建議先連同一個 WiFi。"
+  "tr_slow_net": "連線較慢：可能兩台在不同網路（例如手機 4G ↔ 電腦）。建議先連同一個 WiFi。",
+  "pay_ok_title_monthly": "恭喜你，已開通【月會員】！",
+  "pay_ok_title_lifetime": "恭喜你，已開通【終身會員】！",
+  "pay_ok_desc_monthly": "付款完成，【月會員】已生效：30 天內不限次數、不看廣告。到期前我們會寄信提醒你。",
+  "pay_ok_desc_lifetime": "付款完成，【終身會員】已生效：永久不限次數、不看廣告，不會再扣款。"
 }

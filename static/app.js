@@ -1432,15 +1432,16 @@ async function chooseProvider() {
 
 
 // ── 付款成功提示（可關閉；手機／電腦都對應）───────────────
-function showPaySuccess() {
+function showPaySuccess(plan) {
   const old = document.querySelector('.payok');
   if (old) old.remove();
+  const isLife = plan === 'lifetime';
   const el = document.createElement('div');
   el.className = 'payok';
   el.innerHTML = '<div class="payok-card">'
     + '<div class="payok-emoji">🎉</div>'
-    + '<h3>' + esc(t('pay_ok_title')) + '</h3>'
-    + '<p>' + esc(t('pay_ok_desc')) + '</p>'
+    + '<h3>' + esc(t(isLife ? 'pay_ok_title_lifetime' : 'pay_ok_title_monthly')) + '</h3>'
+    + '<p>' + esc(t(isLife ? 'pay_ok_desc_lifetime' : 'pay_ok_desc_monthly')) + '</p>'
     + '<button type="button" id="payok-close">' + esc(t('pay_ok_btn')) + '</button>'
     + '</div>';
   document.body.appendChild(el);
@@ -1470,7 +1471,7 @@ async function openPayPal(plan) {
           clearInterval(timer);
           msg('#pay-status', t('pay_activated_to'), 'ok');
           try { w.close(); } catch (e) { /* 忽略 */ }
-          showPaySuccess();
+          showPaySuccess(me.member.plan);
           loadMe();
         }
       } catch (e) { /* 繼續等 */ }
