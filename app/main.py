@@ -209,9 +209,30 @@ async def line_webhook(request: Request):
     got = []
     for ev in (data.get("events") or []):
         uid = ((ev.get("source") or {}).get("userId") or "").strip()
+        _txt = ((ev.get("message") or {}).get("text") or "")
         if uid:
+            old = (db.get_setting("line.user_id") or "").strip()
             db.set_setting("line.user_id", uid)
             got.append(uid)
+            # 小羅 2026-10-08：第一次抓到（或換人）→ 寄一封信把 userId 給管理者，
+            #   這樣就能登記到資產表（LINE 後台看不到這個值、API 也被鎖）。
+            # 首次抓到、或你主動傳「取得ID」→ 就寄一封信把 userId 給你
+            if old != uid or "取得ID" in _txt:
+
+                try:
+                    from .services import notify as _nt
+                    await _nt.send_now(
+                        "【轉運站】已抓到你的 LINE userId（請登記）",
+                        chr(10).join([
+                            "系統已抓到你的 LINE userId（用來「只發給你」的通知）：",
+                            "",
+                            uid,
+                            "",
+                            "已自動存成 line.user_id，之後管理者通知只會發給你一人。",
+                            "（這封信是為了讓你可以把這個值登記到資產表。）",
+                        ]))
+                except Exception:  # noqa: BLE001
+                    pass
     return {"ok": True, "saved": len(got)}
 
 
