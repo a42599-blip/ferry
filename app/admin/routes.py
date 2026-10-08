@@ -270,7 +270,7 @@ async def debug_threads(body: dict = Body(default={}), _: dict = Depends(require
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:160]}"}
     out = {"ok": True, "len": len(page)}
-    m = _re.search(r'"(?:video_)?dash_manifest"\s*:\s*"((?:[^"\]|\.)*)"', page)
+    m = _re.search(r'"(?:video_)?dash_manifest"\s*:\s*"((?:[^"\\]|\\.)*)"', page)
     if not m:
         out["manifest_found"] = False
         return out
