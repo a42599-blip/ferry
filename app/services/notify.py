@@ -324,28 +324,34 @@ def log_sent(subject: str, body: str, ok: bool, note: str, event: str,
 
 # ── 對外主入口 ───────────────────────────────────────
 def line_conf() -> dict:
-    """LINE 通知設定（後台資料庫優先、其次環境變數 LINE_TOKEN）。
+    """LINE 通知設定（後台資料庫優先、其次環境變數）。
 
-    小羅 2026-10-08：「給我自己的那一半通知用 LINE 取代。」
+    小羅 2026-10-08：「給我自己的那一半通知用 LINE 取代，而且**只能發給我一個人**。」
       token：Channel access token (long-lived)
-      only：True → 管理者通知**只發 LINE**（省 email 額度）；False → email ＋ LINE 都發
+      to   ：**小羅的 userId**（沒設 → 不發，避免群發）
+      secret：Channel secret（webhook 驗簽用）
+      only：True → 管理者通知**只發 LINE**（省 email 額度）
     """
     tok = (db.get_setting("line.token") or "").strip() or (os.getenv("LINE_TOKEN") or "").strip()
-    return {"token": tok, "only": bool(db.get_setting("line.only"))}
+    to = (db.get_setting("line.user_id") or "").strip() or (os.getenv("LINE_TO") or "").strip()
+    return {"token": tok, "to": to, "only": bool(db.get_setting("line.only"))}
 
 
 def _line_sync(text: str) -> tuple[bool, str]:
-    """用 LINE Messaging API broadcast 發一則文字（同步；失敗不外抛）。"""
-    tok = line_conf().get("token")
+    """用 LINE Messaging API **push**（只發小羅一人；沒設 userId 就不發）。"""
+    lc = line_conf()
+    tok, to = lc.get("token"), lc.get("to")
     if not tok:
         return False, "未設定 LINE token"
+    if not to:
+        return False, "未設定 LINE userId（為避免群發，已停發）"
     try:
         import httpx
 
         r = httpx.post(
-            "https://api.line.me/v2/bot/message/broadcast",
+            "https://api.line.me/v2/bot/message/push",
             headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"},
-            json={"messages": [{"type": "text", "text": text[:4900]}]},
+            json={"to": to, "messages": [{"type": "text", "text": text[:4900]}]},
             timeout=15,
         )
         return (r.status_code == 200), f"HTTP {r.status_code}"
