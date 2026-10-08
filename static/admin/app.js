@@ -1423,7 +1423,7 @@ async function pgErrors() {
     { t: '事件', v: 'event' },
     { t: '主旨', v: 'subject' },
     { t: '結果', v: (r) => r.ok ? '<span class="badge ok">已送出</span>' : `<span class="badge err">${esc(r.error || '失敗')}</span>`, html: true },
-    { t: '管道', v: (r) => esc(r.channel || r.transport) },
+    { t: '管道', v: (r) => esc(r.channel || (r.transport === 'none' ? '未設定' : 'Email')) },
   ], n.recent, '還沒有通知紀錄');
   queue(`失敗 ${fmtN(d.top_errors.reduce((a, x) => a + x.count, 0))} 次　監控每 ${(p.check_interval || 300) / 60} 分鐘　通知管道：${n.line && n.line.has_token ? ('LINE' + (n.line.only ? '（只走 LINE）' : '＋Email')) : n.transport}`);
 }
