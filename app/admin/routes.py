@@ -267,7 +267,22 @@ async def debug_threads(body: dict = Body(default={}), _: dict = Depends(require
                                       tries=22, user_agent=None)
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:160]}"}
+    import re as _re
+
+    _m = _re.search(r'"(?:video_)?dash_manifest"\s*:\s*"((?:[^"\]|\.)*)"', page)
+    _manifest = ""
+    if _m:
+        try:
+            _manifest = json.loads('"' + _m.group(1) + '"')
+        except Exception:  # noqa: BLE001
+            _manifest = _m.group(1)[:400]
+    _mimes = _re.findall(r'mimeType="([^"]+)"', _manifest)
+    _vids = _re.findall(r'"video_versions"\s*:\s*\[(.{0,400})', page)
     return {
+        "manifest_len": len(_manifest),
+        "manifest_mimes": _mimes[:6],
+        "manifest_head": _manifest[:600],
+        "video_versions_head": (_vids[0][:300] if _vids else ""),
         "ok": True,
         "len": len(page),
         "has_video_dash_manifest": "video_dash_manifest" in page,
