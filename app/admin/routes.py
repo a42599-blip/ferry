@@ -1129,7 +1129,8 @@ async def refund_status(rid: int, body: dict = Body(...),
             pass
     # 小羅 2026-10-08：退款結果也要通知「客人」（原本只有管理者收到）
     try:
-        _row = next((r for r in billing.refunds() if int(r.get("id") or 0) == rid), None)
+        # ⚠️ 稽核修正：原本掃「最近 200 筆」→ 舊退款會查不到 → 改直接查這一筆
+        _row = db.one("SELECT * FROM refunds WHERE id=?", (rid,))
         _to = (_row or {}).get("email") or ""
         if _to:
             _amt = (_row or {}).get("amount")
