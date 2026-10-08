@@ -404,11 +404,12 @@ async def notify(event: str, title: str, body: str, *, force: bool = False) -> d
         line_ok, line_note = await asyncio.to_thread(
             _line_sync, f"{prefix} {title}\n\n{body}")
 
-    if lc["only"] and lc["token"]:
-        _log(subject, text, bool(line_ok), f"LINE:{line_note}", event, channel="LINE")
-        if line_ok:
-            db.set_setting(f"notify_last:{event}", time.time())
-        return {"sent": bool(line_ok), "note": f"LINE {line_note}", "channel": "LINE"}
+    # 小羅 2026-10-08：若設定「只發 LINE」但 LINE 失敗（例：還沒設 userId）
+    #   → 不要讓通知「靜默消失」，自動退回寄 Email。
+    if lc["only"] and lc["token"] and line_ok:
+        _log(subject, text, True, f"LINE:{line_note}", event, channel="LINE")
+        db.set_setting(f"notify_last:{event}", time.time())
+        return {"sent": True, "note": f"LINE {line_note}", "channel": "LINE"}
 
     if transport() == "none":
         _log(subject, text, bool(line_ok), "未設定寄送方式", event,
