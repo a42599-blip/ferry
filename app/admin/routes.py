@@ -731,19 +731,22 @@ async def test_mail(body: dict = Body(default={}), _: dict = Depends(require_adm
 
     lc0 = notify.line_conf()
     to = [str(body.get("to") or "").strip()] if body.get("to") else None
+    subject = "[轉運站] 寄信測試"
+    txt = "這是一封測試信。\n\n如果你收到這封，代表網站的寄信功能正常。\n\n轉運站  https://scefo.com"
     if lc0["only"] and lc0["token"]:
         r = {"ok": True, "note": "只走 LINE（line_only）", "to": "LINE"}
     else:
-        r = await notify.send_now(
-            "[轉運站] 寄信測試",
-            "這是一封測試信。\n\n如果你收到這封，代表網站的寄信功能正常。\n\n轉運站  https://scefo.com",
-            to=to)
+        r = await notify.send_now(subject, txt, to=to,
+                                  audience="管理者" if not to else "客人")
     lc = notify.line_conf()
     line_note = "（未設定 LINE token）"
     if lc["token"]:
-        ok2, line_note = await asyncio.to_thread(
+        ok2, nt2 = await asyncio.to_thread(
             notify._line_sync, "✅ 轉運站 LINE 測試\n\n如果你看到這則，代表 LINE 通知已接通。")
-        line_note = ("成功" if ok2 else "失敗") + f" / {line_note}"
+        line_note = ("成功" if ok2 else "失敗") + f" / {nt2}"
+        if lc["only"]:
+            notify.log_sent(subject, "後台測試按鈕：LINE 測試", ok2, f"LINE:{nt2}", "line_test")
+            r = {"ok": ok2, "note": f"LINE {nt2}", "to": "LINE"}
     return {"ok": r.get("ok"), "info": r.get("note"), "to": r.get("to"), "line": line_note}
 
 

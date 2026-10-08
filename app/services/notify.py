@@ -316,6 +316,12 @@ def log_external(subject: str, body: str, ok: bool = True, note: str = "",
     _log(subject, body, ok, note, "external_uptime", channel=channel, source=source)
 
 
+def log_sent(subject: str, body: str, ok: bool, note: str, event: str,
+             channel: str = "LINE", audience: str = "管理者") -> None:
+    """記錄一筆「已發送」到後台通知紀錄（不重覆發送；手動測試用）。"""
+    _log(subject, body, ok, note, event, channel=channel, audience=audience)
+
+
 # ── 對外主入口 ───────────────────────────────────────
 def line_conf() -> dict:
     """LINE 通知設定（後台資料庫優先、其次環境變數 LINE_TOKEN）。
