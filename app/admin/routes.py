@@ -254,7 +254,10 @@ async def members_list(_: dict = Depends(require_admin)) -> dict:
 
 @router.post("/debug/threads")
 async def debug_threads(body: dict = Body(default={}), _: dict = Depends(require_admin)) -> dict:
-    """臨時除錯：看伺服器 render 後拿到什麼（測完移除）。"""
+    """臨時除錯：看伺服器 render 後、還原轉義後 manifest 裡的音軌（測完移除）。"""
+    import json as _json
+    import re as _re
+
     from ..platforms import _ssr
 
     url = str(body.get("url") or "").strip()
@@ -267,10 +270,20 @@ async def debug_threads(body: dict = Body(default={}), _: dict = Depends(require
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:160]}"}
     out = {"ok": True, "len": len(page)}
-    for kw in ("video_dash_manifest", "dash_manifest", "video_versions", 'mimeType="audio', 'video/mp4'):
-        out[kw] = page.count(kw)
-    i = page.find("dash_manifest")
-    out["around"] = page[i:i + 400] if i >= 0 else ""
+    m = _re.search(r'"(?:video_)?dash_manifest"\s*:\s*"((?:[^"\]|\.)*)"', page)
+    if not m:
+        out["manifest_found"] = False
+        return out
+    out["manifest_found"] = True
+    try:
+        xml = _json.loads('"' + m.group(1) + '"')
+    except Exception as exc:  # noqa: BLE001
+        out["unescape_error"] = str(exc)[:120]
+        return out
+    out["xml_len"] = len(xml)
+    out["mimetypes"] = _re.findall(r'mimeType="([^"]+)"', xml)[:8]
+    out["baseurls"] = _re.findall(r"<BaseURL>(.*?)</BaseURL>", xml, _re.S)[:6]
+    out["has_adaptationset"] = len(_re.findall(r"<AdaptationSet", xml))
     return out
 
 
