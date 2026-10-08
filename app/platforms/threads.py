@@ -41,8 +41,10 @@ class ThreadsResolver(Resolver):
             page = await render_html(
                 url,
                 context_key="threads",
-                wait_for=["video_versions", "og:video"],
-                tries=25,
+                # 等 `video_dash_manifest`（或純圖的 image_versions2）；❌ 不要放 video_versions：
+                # 它會先出現就返回 → 較晚載入的音軌永遠拿不到（小羅 2026-10-09）。
+                wait_for=["video_dash_manifest", "image_versions2"],
+                tries=22,
                 user_agent=_UA,
             )
         except Exception:  # noqa: BLE001 — 退回純 HTTP
@@ -105,7 +107,29 @@ class ThreadsResolver(Resolver):
                     )
                 )
 
-        # ③ 去重
+        # ③ ★DASH 純音軌（小羅 2026-10-09）★
+        #   Threads／IG 的 `video_versions` 只有「影像軌」→ 不填 audio_url 就會下載到**無聲影片**。
+        #   音訊在貼文頁的 `video_dash_manifest`（DASH XML）→ 找 mimeType="audio..." 的 <BaseURL>。
+        #   共用層看到 audio_url 會「自動改 relay ＋ 伺服器 ffmpeg 合併」（B 站同一套，已驗證）。
+        try:
+            _dm = re.search(r'"(?:video_)?dash_manifest"\s*:\s*"((?:[^"\\]|\\.)*)"', page)
+            if _dm:
+                _xml = json.loads('"' + _dm.group(1) + '"')
+                for _blk in re.findall(r"<AdaptationSet.*?</AdaptationSet>", _xml, re.S):
+                    if 'mimeType="audio' not in _blk:
+                        continue
+                    _b = re.search(r"<BaseURL>(.*?)</BaseURL>", _blk, re.S)
+                    if not _b:
+                        continue
+                    _au = _b.group(1).strip().replace("\\/", "/")
+                    if _au.startswith("http"):
+                        for _f in fmts:
+                            _f.audio_url = _au
+                    break
+        except Exception:  # noqa: BLE001 — 找不到音軌就照舊（至少影像能下）
+            pass
+
+        # ④ 去重
         seen: set[str] = set()
         uniq: list[Format] = []
         for f in sorted(fmts, key=lambda x: -(x.quality_score or 0)):
