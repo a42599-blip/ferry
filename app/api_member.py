@@ -39,6 +39,25 @@ async def register(request: Request, body: dict = Body(...)) -> dict:
     m = members.register(body.get("email", ""), body.get("password", ""),
                          device_id=_device(request), tz=tz_util.from_request(request),
                          country=request.headers.get("cf-ipcountry"))
+    # 小羅 2026-10-08：註冊後寄「歡迎信」（怎麼用、免費次數、客服）
+    try:
+        if (m or {}).get("email"):
+            await notify.send_to(m["email"], "【轉運站】歡迎加入！", chr(10).join([
+                "歡迎加入轉運站 🎉",
+                "",
+                "你可以做什麼：",
+                "• 免登入就能解析／下載各大平台影片（抖音、TikTok、YouTube、小紅書…）",
+                "• 註冊會員每天有免費次數；次數用完，看一次 15 秒廣告可再解鎖",
+                "• 付費會員：不限次數、無廣告、全功能",
+                "",
+                "怎麼開始：到轉運站首頁貼上影片連結就可以了。",
+                "網站：https://scefo.com/（首頁上方有「教學」與「方案」）",
+                "",
+                "有任何問題，直接回信客服即可。",
+                "祝使用愉快！",
+            ]))
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True, "member": m, "token": members.issue_token(m["id"])}
 
 
@@ -175,6 +194,23 @@ async def change_password(request: Request, body: dict = Body(...)) -> dict:
     if len(new) < 6:
         raise BadRequest("新密碼至少 6 個字")
     members.set_password(mid, new)
+    # 小羅 2026-10-08：密碼變更要通知本人（安全；若不是他改的才知道）
+    try:
+        _m = members.get(mid) or {}
+        if _m.get("email"):
+            await notify.send_to(_m["email"], "【轉運站】你的密碼已變更", chr(10).join([
+                "你的轉運站帳號密碼剛剛被修改了。",
+                "",
+                "如果是你本人操作，可以忽略這封信。",
+                "如果不是你，請立刻用「忘記密碼」重設，並回信客服告知。",
+                "",
+                "轉運站 scefo.com",
+                "客服信箱：a42599@gmail.com",
+                "",
+                "（這是系統自動通知，不用回覆）",
+            ]))
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True, "message": "密碼已更新，下次請用新密碼登入"}
 
 
@@ -303,7 +339,24 @@ async def delete_me(request: Request) -> dict:
     mid = auth.current_member_id(request)
     if not mid:
         raise HTTPException(status_code=401, detail="尚未登入")
-    members.delete(mid)
+    _m = members.get(mid) or {}
+    members.delete(mid, by="self")
+    # 小羅 2026-10-08：刪除後也要寄一封確認信（用戶知情權）
+    try:
+        if _m.get("email"):
+            await notify.send_to(_m["email"], "【轉運站】你的帳號已註銷", chr(10).join([
+                "你的轉運站帳號已註銷，資料已進入待刪除狀態。",
+                "",
+                "如果你改變心意，可以回信客服，我們可以協助復原。",
+                "如果日後想再使用，請重新註冊一個新帳號（請重新註冊）。",
+                "",
+                "轉運站 scefo.com",
+                "客服信箱：a42599@gmail.com",
+                "",
+                "（這是系統自動通知，不用回覆）",
+            ]))
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True, "message": "帳號已註銷，謝謝你曾經使用。"}
 
 

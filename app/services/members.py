@@ -140,7 +140,7 @@ def get(member_id: str) -> dict | None:
     row = db.one(
         "SELECT id, email, COALESCE(nickname,'') AS nickname, plan, tz, device_id,"
         " created_at, expires_at, country,"
-        " plan_started_at, COALESCE(status,'active') AS status, deleted_at,"
+        " plan_started_at, COALESCE(status,'active') AS status, deleted_at, COALESCE(deleted_by,'') AS deleted_by,"
         " last_login_at, last_seen_at, COALESCE(login_count,0) AS login_count,"
         " COALESCE(marketing_opt_in,0) AS marketing_opt_in"
         " FROM members WHERE id=?", (member_id,))
@@ -306,6 +306,26 @@ def _day_start(tz_name: str = "Asia/Taipei") -> float:
     return midnight.timestamp()
 
 
+def deleted_stats(days: int = 0, tz_name: str = "Asia/Taipei") -> dict:
+    """帳號刪除統計（小羅 2026-10-08：要「累積」＋可選時間範圍）。
+
+    days=0 → 從開站到現在（全部）；>0 → 最近 N 天。
+    回傳統計＋清單（誰刪的：self=他自己／admin=後台）。
+    """
+    cutoff = 0.0 if days <= 0 else (time.time() - days * 86400)
+    w = "COALESCE(status,'')='deleted' AND deleted_at IS NOT NULL AND deleted_at>=?"
+    rows = [dict(r) for r in db.query(
+        "SELECT id, email, plan, deleted_at, COALESCE(deleted_by,'self') AS deleted_by"
+        " FROM members WHERE " + w + " ORDER BY deleted_at DESC LIMIT 500", (cutoff,))]
+    for r in rows:
+        r["when"] = tz_util.fmt(r["deleted_at"], tz_name, "%Y-%m-%d %H:%M")
+        r["who"] = "他自己刪的" if r["deleted_by"] != "admin" else "後台刪的"
+    self_n = sum(1 for r in rows if r["deleted_by"] != "admin")
+    admin_n = len(rows) - self_n
+    return {"days": days, "total": len(rows), "self": self_n, "admin": admin_n,
+            "items": rows}
+
+
 def stats(tz_name: str = "Asia/Taipei") -> dict:
     """會員統計（後台首頁／會員頁用）。"""
     from . import billing
@@ -351,9 +371,19 @@ def stats(tz_name: str = "Asia/Taipei") -> dict:
         r["name"] = COUNTRY_NAMES.get(r["code"], r["code"])
         r["pct"] = round(r["n"] / total * 100, 1) if total else 0.0
 
+    # 小羅 2026-10-08：今天有幾個客人自己刪帳號（後台要看數字）
+    deleted_today_self = int(db.scalar(
+        "SELECT COUNT(*) FROM members WHERE COALESCE(status,'')='deleted'"
+        " AND COALESCE(deleted_by,'self')='self' AND deleted_at>=?", (day_start,)) or 0)
+    deleted_today_admin = int(db.scalar(
+        "SELECT COUNT(*) FROM members WHERE COALESCE(status,'')='deleted'"
+        " AND COALESCE(deleted_by,'')='admin' AND deleted_at>=?", (day_start,)) or 0)
+
     return {
         "total": total,
         "today_new": today_new,
+        "deleted_today_self": deleted_today_self,
+        "deleted_today_admin": deleted_today_admin,
         "week_new": week_new,
         "free": free_n,
         "paid": paid_n,
@@ -382,7 +412,7 @@ def list_full(limit: int = 300) -> list[dict]:
     return out
 
 
-def delete(member_id: str, *, hard: bool = False) -> bool:
+def delete(member_id: str, *, hard: bool = False, by: str = "self") -> bool:
     """註銷帳號。
 
     ⚠️ 預設是**軟刪除**（小羅 2026-09-27 的教訓）：
@@ -398,9 +428,10 @@ def delete(member_id: str, *, hard: bool = False) -> bool:
     if hard:
         db.execute("DELETE FROM members WHERE id=?", (member_id,))
         return True
+    # 小羅 2026-10-08：要分得出「他自己刪的」還是「我刪的」
     db.execute(
-        "UPDATE members SET status='deleted', deleted_at=?"
-        " WHERE id=?", (time.time(), member_id))
+        "UPDATE members SET status='deleted', deleted_at=?, deleted_by=?"
+        " WHERE id=?", (time.time(), (by or "self")[:20], member_id))
     return True
 
 

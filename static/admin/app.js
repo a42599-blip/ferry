@@ -662,10 +662,31 @@ async function pgDevices() {
       `今天新增 <b>${fmtN(st.today_new)}</b>　近 7 天 ${fmtN(st.week_new)}`),
     kpi('付費會員', fmtN(st.paid),
       `轉換率 ${st.conversion}%　免費會員 ${fmtN(st.free)}`),
+    kpi('今天刪除帳號', fmtN((st.deleted_today_self || 0) + (st.deleted_today_admin || 0)),
+      `他自己刪 ${fmtN(st.deleted_today_self || 0)}　後台刪 ${fmtN(st.deleted_today_admin || 0)}`),
     kpi('訪客（未註冊裝置）', fmtN(st.visitor_devices), '有活動紀錄但沒有帳號'),
     kpi('付費方案數', fmtN((st.plans || []).filter((p) => p.count > 0).length),
       (st.plans || []).map((p) => `${p.name} ${p.count}`).join('　') || '尚無'),
   ].join('');
+  // ── 帳號刪除統計（小羅 2026-10-08：可選時間範圍；累積非只有今天）──
+  const RANGES = [[0, '開站至今'], [1, '今天'], [7, '前 7 天'], [30, '前一個月'], [180, '前半年']];
+  $('#mem-deleted-range').innerHTML = RANGES
+    .map(([d, n]) => `<option value="${d}">${n}</option>`).join('');
+  const loadDeleted = async () => {
+    const d = Number($('#mem-deleted-range').value || 0);
+    const r = await api('/members/deleted?days=' + d);
+    $('#mem-deleted-kpis').innerHTML = [
+      kpi('刪除總數', fmtN(r.total), `${(RANGES.find((x) => x[0] === d) || [0, ''])[1]}`),
+      kpi('他自己刪的', fmtN(r.self), '客人自己在會員頁刪除'),
+      kpi('後台刪的', fmtN(r.admin), '我們在後台註銷'),
+    ].join('');
+    $('#mem-deleted-list').innerHTML = (r.items || []).length
+      ? (r.items || []).map((x) => `<div class="row"><span>${esc(x.email || x.id)}</span>`
+        + `<span class="dim">${esc(x.when)}　${esc(x.who)}　${esc(x.plan || '')}</span></div>`).join('')
+      : '<div class="dim">這個範圍內沒有刪除紀錄</div>';
+  };
+  $('#mem-deleted-range').addEventListener('change', loadDeleted);
+  await loadDeleted();
   // ── 會員地區分佈（圓餅圖 ＋ 列表；純 CSS，不引入外部圖表庫）──
   const REG_COLOR = ['#d9c08c', '#6ea8dc', '#6ee7a8', '#e8d28a', '#f0a0a0', '#b48ce0',
                      '#7fd8d8', '#e0a06e', '#9ad86e', '#d88cb4'];
@@ -742,7 +763,7 @@ async function pgDevices() {
           <div class="mhead">
             <b>${esc(m.email || m.id)}</b>
             <span class="badge ${m.plan !== 'free' ? 'ok' : ''}">${esc(PL[m.plan] || m.plan)}</span>
-            ${m.status === 'deleted' ? '<span class="badge err">已註銷</span>'
+            ${m.status === 'deleted' ? `<span class="badge err">已註銷（${m.deleted_by === 'admin' ? '後台刪的' : '他自己刪的'}）</span>`
               : m.status === 'suspended' ? '<span class="badge err">已停權</span>' : ''}
           </div>
           <div class="mgrid">
@@ -843,6 +864,26 @@ async function pgDevices() {
   const me = await api('/members/emails');
   $('#mem-mailcount').textContent =
     `全部 ${me.all} 人　付費 ${me.paid}　免費 ${me.free}`;
+  // 小羅 2026-10-08：服務條款／隱私權變更 → 一鍵帶入範本（附變更摘要＋連結）
+  $('#mb-terms').onclick = () => {
+    $('#mb-subject').value = '【轉運站】服務條款／隱私權政策更新通知';
+    $('#mb-body').value = [
+      '我們更新了轉運站的服務條款與隱私權政策。',
+      '',
+      '主要調整：（請依實際情況修改這幾行）',
+      '• ＿＿＿＿＿＿',
+      '• ＿＿＿＿＿＿',
+      '',
+      '新版內容：',
+      '• 服務條款：https://scefo.com/terms.html',
+      '• 隱私權政策：https://scefo.com/privacy.html',
+      '',
+      '我們會持續改善服務，如果你不同意更新後的條款，',
+      '可以選擇停止使用並刪除帳號（會員頁可用）。',
+      '若有任何疑問，歡迎回信客服。',
+    ].join(chr(10));
+    $('#mb-subject').focus();
+  };
   $('#mb-send').onclick = async () => {
     const subject = $('#mb-subject').value.trim();
     const content = $('#mb-body').value.trim();

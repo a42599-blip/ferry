@@ -379,7 +379,8 @@ def connect() -> sqlite3.Connection:
         _conn.execute("PRAGMA synchronous=NORMAL")
         _conn.executescript(SCHEMA)
         # 舊資料庫升級：新增欄位時要 ALTER（沒有的話會拋錯，吞掉即可）
-        for _sql in ("ALTER TABLE ad_views ADD COLUMN ad_network TEXT",):
+        for _sql in ("ALTER TABLE ad_views ADD COLUMN ad_network TEXT",
+             "ALTER TABLE members ADD COLUMN deleted_by TEXT"):
             try:
                 _conn.execute(_sql)
             except Exception:  # noqa: BLE001

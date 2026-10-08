@@ -8,7 +8,7 @@
 */
 'use strict';
 
-const CACHE = 'ferry-img-v58';  // v57：2026-10-06 解析失敗白話訊息（locale ?v=70／app.js v85）
+const CACHE = 'ferry-img-v59';  // v57：2026-10-06 解析失敗白話訊息（locale ?v=70／app.js v85）
 const IMAGES = [
   '/icon.svg', '/favicon.ico',
   '/logos/douyin.png', '/logos/bilibili.png', '/logos/xiaohongshu.png',

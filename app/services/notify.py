@@ -287,10 +287,33 @@ def _send_sync(subject: str, body: str, to: list[str] | None = None) -> tuple[bo
     return False, "尚未設定寄送方式（Resend／SMTP／Webhook）"
 
 
+# ── 客人信的「固定頁尾」（小羅 2026-10-08）─────────────────────────
+#    做法：不塞整份隱私權全文（太長），改成「固定一句＋可點連結」；
+#    所有客人信自動附加，且不重複既有行（網站／客服若已寫過就不再加）。
+MAIL_FOOTER_LINKS = (
+    "隱私權政策：https://scefo.com/privacy.html" + chr(10)
+    + "服務條款：https://scefo.com/terms.html"
+)
+
+
+def with_footer(body: str) -> str:
+    """在客人信尾端加上固定頁尾（網站／客服／隱私權／條款）；已有則不重複。"""
+    b = (body or "").rstrip()
+    if "隱私權政策" in b:
+        return b
+    rows = []
+    if "轉運站 scefo.com" not in b:
+        rows.append("轉運站 scefo.com")
+    if "客服信箱" not in b:
+        rows.append("客服信箱：a42599@gmail.com")
+    rows.extend(MAIL_FOOTER_LINKS.split(chr(10)))
+    return b + chr(10) + chr(10) + chr(10).join(rows)
+
+
 async def send_now(subject: str, body: str, to: list[str] | None = None,
                    audience: str = "") -> dict:
     """立刻寄（管理員測試按鈕／會員重設信都用這個）。"""
-    ok, note = await asyncio.to_thread(_send_sync, subject, body, to)
+    ok, note = await asyncio.to_thread(_send_sync, subject, with_footer(body), to)
     _log(subject, body, ok, note, "direct", channel="Email",
          audience=audience or ("客人" if to else "管理者"))
     return {"ok": ok, "transport": transport(), "note": note,
@@ -572,7 +595,7 @@ async def send_to(to: str, subject: str, body: str) -> dict:
     """寄給單一收件人（會員到期提醒這類一對一通知用）。"""
     if not to:
         return {"ok": False, "reason": "沒有收件人"}
-    ok, note = await asyncio.to_thread(_send_one, to, subject, body)
+    ok, note = await asyncio.to_thread(_send_one, to, subject, with_footer(body))
     _log(subject, f"→ {to}", ok, note, "one", channel="Email", audience="客人")
     return {"ok": ok, "note": note}
 
@@ -587,7 +610,7 @@ async def broadcast(subject: str, body: str, *, only: str = "all") -> dict:
     sent = failed = 0
     failures: list[str] = []
     for i, to in enumerate(targets):
-        ok, note = await asyncio.to_thread(_send_one, to, subject, body)
+        ok, note = await asyncio.to_thread(_send_one, to, subject, with_footer(body))
         if ok:
             sent += 1
         else:

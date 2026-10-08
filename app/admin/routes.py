@@ -252,6 +252,15 @@ async def members_list(_: dict = Depends(require_admin)) -> dict:
     return {"ok": True, "stats": members.stats(), "members": members.list_full()}
 
 
+@router.get("/members/deleted")
+async def members_deleted(days: int = Query(0, ge=0, le=3650),
+                          _: dict = Depends(require_admin)) -> dict:
+    """帳號刪除統計（小羅 2026-10-08）：days=0 全部／1 今天／7 前七天／30 前一個月／180 前半年。"""
+    from ..services import members
+
+    return {"ok": True, **members.deleted_stats(days)}
+
+
 # ── 公告管理（小羅 2026-09-27：前台要留一個公告區塊）──────
 @router.get("/announcements")
 async def list_announcements(_: dict = Depends(require_admin)) -> dict:
@@ -440,7 +449,7 @@ async def delete_member(member_id: str, confirm: str = Query(""),
     m = members.get(member_id)
     if not m:
         raise HTTPException(status_code=404, detail="找不到這個會員")
-    members.delete(member_id, hard=False)
+    members.delete(member_id, hard=False, by="admin")
     members.log_action(member_id, "delete", f"註銷帳號（軟刪除）｜{reason or '後台註銷'}")
     return {"ok": True, "deleted": m.get("email") or member_id, "soft": True,
             "reason": reason or "後台註銷",
@@ -506,6 +515,27 @@ async def grant_member(member_id: str, body: dict = Body(...),
     m = members.grant_plan(member_id, body.get("plan") or "monthly",
                           int(body.get("days") or 0),
                           reason="gift", note=body.get("note") or "")
+    # 小羅 2026-10-08：後台開通／補償要通知本人
+    try:
+        from ..services import notify as _nt
+        from ..core import timezone as tz_util
+        if (m or {}).get("email"):
+            _exp = m.get("expires_at")
+            await _nt.send_to(m["email"], "【轉運站】你的會員資格已開通", chr(10).join([
+                "我們已為你開通／延長會員資格 ✅",
+                "",
+                f"方案：{m.get('plan') or ''}",
+                (f"到期日：{tz_util.fmt(_exp, m.get('tz'))}" if _exp else "（無到期日）"),
+                "",
+                "如有任何問題，歡迎回信客服。",
+                "",
+                "轉運站 scefo.com",
+                "客服信箱：a42599@gmail.com",
+                "",
+                "（這是系統自動通知，不用回覆）",
+            ]))
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True, "member": m}  
 
 
@@ -517,6 +547,26 @@ async def add_member_days(member_id: str, body: dict = Body(...),
 
     m = members.extend_days(member_id, int(body.get("days") or 1),
                             reason="gift", note=body.get("note") or "")
+    # 小羅 2026-10-08：補償天數要通知本人
+    try:
+        from ..services import notify as _nt
+        from ..core import timezone as _tzu
+        if (m or {}).get("email"):
+            _e = m.get("expires_at")
+            await _nt.send_to(m["email"], "【轉運站】已為你延長會員時間", chr(10).join([
+                f"我們已為你延長 {int(body.get('days') or 1)} 天。",
+                "",
+                (f"新的到期日：{_tzu.fmt(_e, m.get('tz'))}" if _e else ""),
+                "",
+                "造成不便，敬請見諒。",
+                "",
+                "轉運站 scefo.com",
+                "客服信箱：a42599@gmail.com",
+                "",
+                "（這是系統自動通知，不用回覆）",
+            ]))
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True, "member": m}
 
 
@@ -530,6 +580,36 @@ async def set_member_status(member_id: str, body: dict = Body(...),
     members.set_status(member_id, status)
     if status == "suspended":
         members.set_plan(member_id, "free", None, reason="suspend", note="後台停權")
+    # 小羅 2026-10-08：停權／復權都要通知本人（用戶知情權）
+    try:
+        from ..services import notify as _nt
+        _m = members.get(member_id) or {}
+        if _m.get("email"):
+            if status == "suspended":
+                await _nt.send_to(_m["email"], "【轉運站】你的帳號已被暫停", chr(10).join([
+                    "你的轉運站帳號已被暫停使用。",
+                    "",
+                    "如果你不清楚原因，或想了解後續處理方式，",
+                    "請直接回信客服，我們會盡快為你說明。",
+                    "",
+                    "轉運站 scefo.com",
+                    "客服信箱：a42599@gmail.com",
+                    "",
+                    "（這是系統自動通知，不用回覆）",
+                ]))
+            else:
+                await _nt.send_to(_m["email"], "【轉運站】你的帳號已恢復", chr(10).join([
+                    "你的轉運站帳號已恢復正常使用 ✅",
+                    "",
+                    "可以登入繼續使用，謝謝你。",
+                    "",
+                    "轉運站 scefo.com",
+                    "客服信箱：a42599@gmail.com",
+                    "",
+                    "（這是系統自動通知，不用回覆）",
+                ]))
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True, "member": members.get(member_id) or {}}
 
 
@@ -544,6 +624,24 @@ async def add_member_quota(member_id: str, body: dict = Body(...),
     r = quota.adjust(kind, f"user:{member_id}", n)
     members.log_action(member_id, "quota",
                        f"{'下載' if kind == 'download' else '傳輸'}次數 {n:+d}")
+    # 小羅 2026-10-08：補償次數要通知本人
+    try:
+        from ..services import notify as _nt
+        _m = members.get(member_id) or {}
+        if _m.get("email") and n > 0:
+            await _nt.send_to(_m["email"], "【轉運站】已為你補充使用次數", chr(10).join([
+                f"我們已為你補充 {n} 次（{'下載' if kind == 'download' else '傳輸'}）。",
+                "",
+                "請重新整理頁面，次數就會更新。",
+                "造成不便，敬請見諒。",
+                "",
+                "轉運站 scefo.com",
+                "客服信箱：a42599@gmail.com",
+                "",
+                "（這是系統自動通知，不用回覆）",
+            ]))
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True, "result": r}
 
 
@@ -1027,6 +1125,49 @@ async def refund_status(rid: int, body: dict = Body(...),
                                 force=True)
         except Exception:  # noqa: BLE001
             pass
+    # 小羅 2026-10-08：退款結果也要通知「客人」（原本只有管理者收到）
+    try:
+        _row = next((r for r in billing.refunds() if int(r.get("id") or 0) == rid), None)
+        _to = (_row or {}).get("email") or ""
+        if _to:
+            _amt = (_row or {}).get("amount")
+            _cur = (_row or {}).get("currency") or "TWD"
+            if new_status == "done":
+                _subj = "【轉運站】退款已完成"
+                _body = chr(10).join([
+                    "你的退款已完成 ✅",
+                    "",
+                    f"退款編號：{rid}",
+                    f"退款金額：{_amt if _amt is not None else '－'} {_cur}",
+                    "退款方式：依原付款方式退回",
+                    "入帳時間：信用卡約 7~14 個工作日；其他方式依金流商作業時間",
+                    "",
+                    "如果超過時間仍未收到，請回信客服，我們會協助查詢。",
+                    "",
+                    "轉運站 scefo.com",
+                    "客服信箱：a42599@gmail.com",
+                    "",
+                    "（這是系統自動通知，不用回覆）",
+                ])
+            else:
+                _subj = "【轉運站】退款申請未通過"
+                _body = chr(10).join([
+                    "你的退款申請未通過",
+                    "",
+                    f"退款編號：{rid}",
+                    f"原因：{(body or {}).get('note') or '未提供'}",
+                    "",
+                    "如果你認為這是誤判，或想進一步說明，",
+                    "請直接回信客服，我們會重新為你處理。",
+                    "",
+                    "轉運站 scefo.com",
+                    "客服信箱：a42599@gmail.com",
+                    "",
+                    "（這是系統自動通知，不用回覆）",
+                ])
+            await notify.send_to(_to, _subj, _body)
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True, "refunds": billing.refunds()}
 
 
@@ -1190,6 +1331,24 @@ async def handle_feedback(fid: int, body: dict = Body(...),
         msg = msg.rstrip() + chr(10) + chr(10) + TIP_REFRESH
     out = fb.reply(fid, msg, action="、".join(actions),
                    mark_handled=bool(body.get("handled", True)))
+    # 小羅 2026-10-08：客服回覆要通知本人（他才知道我們回他了）
+    try:
+        from ..services import notify as _nt
+        if (m or {}).get("email"):
+            await _nt.send_to(m["email"], "【轉運站】我們回覆你的問題了", chr(10).join([
+                "我們已回覆你的問題：",
+                "",
+                msg,
+                "",
+                "如果想補充說明，可以直接回信客服。",
+                "",
+                "轉運站 scefo.com",
+                "客服信箱：a42599@gmail.com",
+                "",
+                "（這是系統自動通知，不用回覆）",
+            ]))
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True, "actions": actions, "row": out,
             "subject": subject, "member": mid or "", "email": m.get("email") or ""}
 

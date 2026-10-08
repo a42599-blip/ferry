@@ -172,6 +172,10 @@
 
       <section class="pg" id="pg-devices">
         <!-- 會員統計（小羅 2026-09-27：這些數字都要留）-->
+        <div class="pnl"><div class="lbl">帳號刪除統計（可選時間範圍）
+          <select id="mem-deleted-range" class="inp sm"></select></div>
+          <div class="kpis" id="mem-deleted-kpis"></div>
+          <div class="scroll" id="mem-deleted-list"></div></div>
         <div class="kpis" id="mem-kpis"></div>
         <div class="rows">
           <div class="pnl">
@@ -248,6 +252,7 @@
           </div>
           <textarea id="mb-body" rows="5" placeholder="內容（例：今晚 02:00-03:00 會進行維護，期間可能無法解析影片，造成不便請見諒。）"></textarea>
           <div class="inrow">
+            <button class="gh sm" id="mb-terms">帶入「服務條款／隱私權變更」範本</button>
             <button class="big sm" id="mb-send">寄送給會員</button>
             <span class="dim" id="mb-status" style="font-size:11.5px"></span>
           </div>
@@ -594,6 +599,6 @@
   <footer class="queue" id="queue"></footer>
 </div>
 
-<script src="/admin/app.js?v=63"></script>
+<script src="/admin/app.js?v=66"></script>
 </body>
 </html>
