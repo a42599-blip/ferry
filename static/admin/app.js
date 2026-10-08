@@ -332,7 +332,7 @@ async function pgReports() {
     const acts = [];
     if (dl) acts.push('下載次數 ' + (dl > 0 ? '+' : '') + dl);
     if (tr) acts.push('傳輸次數 ' + (tr > 0 ? '+' : '') + tr);
-    if (dy) acts.push('加 ' + Math.abs(dy) + ' 天');
+    if (dy) acts.push((dy > 0 ? '加 ' : '減 ') + Math.abs(dy) + ' 天');
     const done = acts.length ? '，已協助你 ' + acts.join('、') : '';
     // 有補償（加/減次數）→ 多提醒一句去刷新看次數
     const tip = acts.length ? '\n\n請重新刷新網頁檢視次數。' : '';
@@ -1797,12 +1797,12 @@ async function openMemberCard(mid) {
       </div>
       <div class="lbl2" style="margin-top:10px">手動調整（賠償機制 —— 數字自己填，不限固定值）</div>
       <div class="inrow">
-        <label class="tinylabel">加天數</label>
-        <input id="adj-days" type="number" min="0" step="1" placeholder="1 / 2 / 5 / 8 / 30">
-        <label class="tinylabel">下載次數 +</label>
-        <input id="adj-dl" type="number" min="0" step="1" placeholder="1 / 10 / 100 / 1000">
-        <label class="tinylabel">傳輸次數 +</label>
-        <input id="adj-tr" type="number" min="0" step="1" placeholder="1 / 10 / 100">
+        <label class="tinylabel">加／減天數</label>
+        <input id="adj-days" type="number" min="-3650" step="1" placeholder="1 / 30　（-7 = 減 7 天）">
+        <label class="tinylabel">下載次數 +／−</label>
+        <input id="adj-dl" type="number" min="-100000" step="1" placeholder="1 / 100　（-5 = 減 5 次）">
+        <label class="tinylabel">傳輸次數 +／−</label>
+        <input id="adj-tr" type="number" min="-100000" step="1" placeholder="1 / 100　（-5 = 減 5 次）">
       </div>
       <div class="inrow">
         <input id="adj-note" placeholder="原因備註（例：客戶反映下載失敗，補償 3 天）">

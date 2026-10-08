@@ -386,13 +386,13 @@ async def adjust_member(member_id: str, body: dict = Body(...),
         done.append(f"方案→{plan}" + (f'(+{days}天)' if days else ""))
     elif days:
         members.extend_days(member_id, days, reason="gift", note=note)
-        done.append(f"加 {days} 天")
+        done.append(('加 ' if days > 0 else '減 ') + f"{abs(days)} 天")
     if q_dl:
         quota.adjust("download", f"user:{member_id}", q_dl)
-        done.append(f"下載次數 +{q_dl}")
+        done.append(f"下載次數 {'+' if q_dl > 0 else '-'}{abs(q_dl)}")
     if q_tr:
         quota.adjust("transfer", f"user:{member_id}", q_tr)
-        done.append(f"傳輸次數 +{q_tr}")
+        done.append(f"傳輸次數 {'+' if q_tr > 0 else '-'}{abs(q_tr)}")
 
     return {"ok": True, "done": done, "card": members.card(member_id)}
 
@@ -547,24 +547,25 @@ async def add_member_days(member_id: str, body: dict = Body(...),
 
     m = members.extend_days(member_id, int(body.get("days") or 1),
                             reason="gift", note=body.get("note") or "")
-    # 小羅 2026-10-08：補償天數要通知本人
+    # 小羅 2026-10-08：補償「加」與「減」天數都要通知本人
     try:
         from ..services import notify as _nt
         from ..core import timezone as _tzu
-        if (m or {}).get("email"):
+        _d = int(body.get("days") or 1)
+        _note = (body.get("note") or "").strip()
+        if (m or {}).get("email") and _d != 0:
             _e = m.get("expires_at")
-            await _nt.send_to(m["email"], "【轉運站】已為你延長會員時間", chr(10).join([
-                f"我們已為你延長 {int(body.get('days') or 1)} 天。",
-                "",
-                (f"新的到期日：{_tzu.fmt(_e, m.get('tz'))}" if _e else ""),
-                "",
-                "造成不便，敬請見諒。",
-                "",
-                "轉運站 scefo.com",
-                "客服信箱：a42599@gmail.com",
-                "",
-                "（這是系統自動通知，不用回覆）",
-            ]))
+            if _d > 0:
+                _subj = "【轉運站】已為你延長會員時間"
+                _head = f"我們已為你延長 {_d} 天。"
+                _tail = ["造成不便，敬請見諒。"]
+            else:
+                _subj = "【轉運站】你的會員時間已調整"
+                _head = f"我們已調整你的會員時間（減少 {abs(_d)} 天）。"
+                _tail = ["如果這是誤判或有疑問，請直接回信客服，我們會盡快協助。"]
+            await _nt.send_to(m["email"], _subj, chr(10).join(
+                [_head, ""] + ([_note] if _note else [])
+                + ([f"新的到期日：{_tzu.fmt(_e, m.get('tz'))}", ""] if _e else []) + _tail))
     except Exception:  # noqa: BLE001
         pass
     return {"ok": True, "member": m}
@@ -624,22 +625,23 @@ async def add_member_quota(member_id: str, body: dict = Body(...),
     r = quota.adjust(kind, f"user:{member_id}", n)
     members.log_action(member_id, "quota",
                        f"{'下載' if kind == 'download' else '傳輸'}次數 {n:+d}")
-    # 小羅 2026-10-08：補償次數要通知本人
+    # 小羅 2026-10-08：補償「加」與「減」都要通知本人（減也要讓他知道）
     try:
         from ..services import notify as _nt
         _m = members.get(member_id) or {}
-        if _m.get("email") and n > 0:
-            await _nt.send_to(_m["email"], "【轉運站】已為你補充使用次數", chr(10).join([
-                f"我們已為你補充 {n} 次（{'下載' if kind == 'download' else '傳輸'}）。",
-                "",
-                "請重新整理頁面，次數就會更新。",
-                "造成不便，敬請見諒。",
-                "",
-                "轉運站 scefo.com",
-                "客服信箱：a42599@gmail.com",
-                "",
-                "（這是系統自動通知，不用回覆）",
-            ]))
+        _unit = "下載" if kind == "download" else "傳輸"
+        _note = (body.get("note") or "").strip()
+        if _m.get("email") and n != 0:
+            if n > 0:
+                _subj = "【轉運站】已為你補充使用次數"
+                _head = f"我們已為你補充 {n} 次（{_unit}）。"
+                _tail = ["請重新整理頁面，次數就會更新。", "造成不便，敬請見諒。"]
+            else:
+                _subj = "【轉運站】你的使用次數已調整"
+                _head = f"我們已調整你的{_unit}次數（減少 {abs(n)} 次）。"
+                _tail = ["如果這是誤判或有疑問，請直接回信客服，我們會盡快協助。"]
+            await _nt.send_to(_m["email"], _subj, chr(10).join(
+                [_head, ""] + ([_note] if _note else []) + _tail))
     except Exception:  # noqa: BLE001
         pass
     return {"ok": True, "result": r}

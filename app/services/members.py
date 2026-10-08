@@ -714,14 +714,25 @@ def extend_days(member_id: str, days: int, *, reason: str = "gift", note: str = 
     m = get(member_id)
     if not m:
         raise BadRequest("找不到這個會員")
+    delta = int(days)
+    if delta == 0:
+        delta = 1
     if (m.get("plan") or "free") == "free":
+        # 免費會員沒有可扣的會員時間；要「減」就直接擋掉
+        if delta < 0:
+            raise BadRequest("這位是免費會員，沒有會員時間可以扣減")
         # 免費會員要加時間 → 先給月會員（臨時開通）
-        return grant_plan(member_id, "monthly", days, reason=reason, note=note)
+        return grant_plan(member_id, "monthly", delta, reason=reason, note=note)
     cur = float(m.get("expires_at") or time.time())
     base = max(time.time(), cur)
-    new_exp = base + max(1, int(days)) * 86400
-    log_action(member_id, "days", f"到期日 +{max(1, int(days))} 天" + (f"｜{note}" if note else ""))
-    set_plan(member_id, m["plan"], new_exp, reason=reason, note=note or f"加 {days} 天")
+    # 小羅 2026-10-08：支援「減天數」（原本 max(1,days) → 負數會被變成 +1 天，減不了）
+    new_exp = base + delta * 86400
+    if new_exp < time.time():            # 扣到見底 → 最多扣到「現在」
+        new_exp = time.time()
+    log_action(member_id, "days",
+               f"到期日 {delta:+d} 天" + (f"｜{note}" if note else ""))
+    set_plan(member_id, m["plan"], new_exp, reason=reason,
+             note=note or f"{'加' if delta > 0 else '減'} {abs(delta)} 天")
     return get(member_id) or {}
 
 
