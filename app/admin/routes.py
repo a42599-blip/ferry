@@ -451,6 +451,18 @@ async def delete_member(member_id: str, confirm: str = Query(""),
         raise HTTPException(status_code=404, detail="找不到這個會員")
     members.delete(member_id, hard=False, by="admin")
     members.log_action(member_id, "delete", f"註銷帳號（軟刪除）｜{reason or '後台註銷'}")
+    # 小羅 2026-10-08：後台刪除也要通知本人（與自刪同一類「帳號狀態」信）
+    try:
+        from ..services import notify as _nt
+        if (m or {}).get("email"):
+            await _nt.send_to(m["email"], "【轉運站】你的帳號已被刪除", chr(10).join([
+                "你的轉運站帳號已被刪除。",
+                "",
+                "如果日後想再使用，請**重新註冊**一個新帳號。",
+                "如果這不是你預期的，或想進一步了解原因，請回信客服。",
+            ]))
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True, "deleted": m.get("email") or member_id, "soft": True,
             "reason": reason or "後台註銷",
             "hint": "已註銷（登入會被擋）；可用 /members/{id}/restore 救回"}
@@ -492,6 +504,18 @@ async def restore_one(member_id: str, _: dict = Depends(require_admin)) -> dict:
     if not members.restore(member_id):
         raise HTTPException(status_code=404, detail="找不到這個會員")
     members.log_action(member_id, "restore", "復原帳號（取消註銷）")
+    # 小羅 2026-10-08：還原也要通知本人（與停權/復權同一類「帳號狀態」信）
+    try:
+        from ..services import notify as _nt
+        _m2 = members.get(member_id) or {}
+        if _m2.get("email"):
+            await _nt.send_to(_m2["email"], "【轉運站】你的帳號已恢復", chr(10).join([
+                "你的轉運站帳號已恢復，可以正常登入使用 ✅",
+                "",
+                "如果還有任何問題，歡迎回信客服。",
+            ]))
+    except Exception:  # noqa: BLE001
+        pass
     return {"ok": True, "member": members.get(member_id) or {}}
 
 
@@ -1117,9 +1141,13 @@ async def refund_status(rid: int, body: dict = Body(...),
     from ..services import billing, notify
 
     new_status = (body or {}).get("status") or "processing"
+    # 小羅 2026-10-08：只在「狀態真的變更」時才通知（避免後台重複按導致重複寄信）
+    _b0 = db.one("SELECT COALESCE(status,'') AS s FROM refunds WHERE id=?", (rid,))
+    _old_s = ((_b0 or {}).get("s") or "").strip()
     billing.refund_set_status(rid, new_status, (body or {}).get("note") or "")
+    _changed = (new_status != _old_s)
     # 小羅 2026-10-04：「退款完成／被拒也要立刻通知」
-    if new_status in ("done", "rejected"):
+    if new_status in ("done", "rejected") and _changed:
         label = "退款已完成（已退款給客戶）" if new_status == "done" else "退款申請已駁回"
         try:
             await notify.notify("pay_failed", label,
@@ -1132,7 +1160,7 @@ async def refund_status(rid: int, body: dict = Body(...),
         # ⚠️ 稽核修正：原本掃「最近 200 筆」→ 舊退款會查不到 → 改直接查這一筆
         _row = db.one("SELECT * FROM refunds WHERE id=?", (rid,))
         _to = (_row or {}).get("email") or ""
-        if _to:
+        if _to and _changed:
             _amt = (_row or {}).get("amount")
             _cur = (_row or {}).get("currency") or "TWD"
             if new_status == "done":
