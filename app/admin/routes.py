@@ -697,6 +697,7 @@ async def get_mail(_: dict = Depends(require_admin)) -> dict:
             "has_pass": bool(c["pass"]),
             "has_line_token": bool(lc["token"]),
             "line_only": lc["only"],
+            "has_monitor_key": bool((db.get_setting("monitor.key") or "").strip()),
             "smtp_in_db": bool(db.get_setting("mail.host"))}
 
 
@@ -718,6 +719,8 @@ async def set_mail(body: dict = Body(...), _: dict = Depends(require_admin)) -> 
         db.set_setting("line.token", str(body["line_token"] or "").strip())
     if body.get("line_only") is not None:
         db.set_setting("line.only", bool(body["line_only"]))
+    if body.get("monitor_key") is not None:
+        db.set_setting("monitor.key", str(body["monitor_key"] or "").strip())
     return {"ok": True, "transport": notify.transport()}
 
 
@@ -849,6 +852,7 @@ async def get_notify(_: dict = Depends(require_admin)) -> dict:
         "events": nt.EVENTS,
         "toggles": nt._toggles(),
         "transport": nt.transport(),
+        "line": {"has_token": bool(nt.line_conf()["token"]), "only": nt.line_conf()["only"]},
         "recipients": nt._recipients(),
         "recent": nt.recent(40),
         "cooldown": {k: nt.cooldown_left(k) for k in nt.EVENTS},

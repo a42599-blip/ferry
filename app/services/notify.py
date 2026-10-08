@@ -287,21 +287,33 @@ def _send_sync(subject: str, body: str, to: list[str] | None = None) -> tuple[bo
     return False, "尚未設定寄送方式（Resend／SMTP／Webhook）"
 
 
-async def send_now(subject: str, body: str, to: list[str] | None = None) -> dict:
+async def send_now(subject: str, body: str, to: list[str] | None = None,
+                   audience: str = "") -> dict:
     """立刻寄（管理員測試按鈕／會員重設信都用這個）。"""
     ok, note = await asyncio.to_thread(_send_sync, subject, body, to)
-    _log(subject, body, ok, note)
+    _log(subject, body, ok, note, "direct", channel="Email",
+         audience=audience or ("客人" if to else "管理者"))
     return {"ok": ok, "transport": transport(), "note": note,
             "to": to or _recipients()}
 
 
-def _log(subject: str, body: str, ok: bool, note: str, event: str | None = None) -> None:
+def _log(subject: str, body: str, ok: bool, note: str, event: str | None = None,
+         channel: str = "", source: str = "轉運站（伺服器）",
+         audience: str = "管理者") -> None:
     from . import events as ev
 
     ev.track("notify", result="ok" if ok else "fail",
              error_code=None if ok else note[:80],
              meta={"event": event, "subject": subject[:120], "body": body[:400],
-                   "transport": transport(), "to": _recipients()})
+                   "transport": transport(), "to": _recipients(),
+                   "channel": channel or transport(), "source": source,
+                   "audience": audience})
+
+
+def log_external(subject: str, body: str, ok: bool = True, note: str = "",
+                 source: str = "GitHub 監測", channel: str = "LINE") -> None:
+    """外部（如 GitHub 監測）回報一筆通知，只記錄在後台（不再重覆發 LINE）。"""
+    _log(subject, body, ok, note, "external_uptime", channel=channel, source=source)
 
 
 # ── 對外主入口 ───────────────────────────────────────
@@ -350,29 +362,32 @@ async def notify(event: str, title: str, body: str, *, force: bool = False) -> d
     text = (f"{prefix} {title}\n\n{body}\n\n"
             f"時間：{tz_util.fmt(time.time(), None, '%Y-%m-%d %H:%M:%S')}\n事件：{event}")
 
-    # ① LINE（小羅 2026-10-08：給自己的通知用 LINE）
+    # LINE（小羅 2026-10-08：給自己的通知用 LINE）
     lc = line_conf()
     line_ok, line_note = None, ""
     if lc["token"]:
         line_ok, line_note = await asyncio.to_thread(
             _line_sync, f"{prefix} {title}\n\n{body}")
-        _log(subject, text, line_ok, f"LINE:{line_note}", event)
+
     if lc["only"] and lc["token"]:
+        _log(subject, text, bool(line_ok), f"LINE:{line_note}", event, channel="LINE")
         if line_ok:
             db.set_setting(f"notify_last:{event}", time.time())
-        return {"sent": bool(line_ok), "note": f"LINE {line_note}"}
+        return {"sent": bool(line_ok), "note": f"LINE {line_note}", "channel": "LINE"}
 
     if transport() == "none":
-        _log(subject, text, bool(line_ok), "未設定寄送方式", event)
+        _log(subject, text, bool(line_ok), "未設定寄送方式", event,
+             channel="LINE" if line_ok else "未設定")
         if line_ok:
             db.set_setting(f"notify_last:{event}", time.time())
         return {"sent": bool(line_ok), "reason": "未設定寄送方式（已記錄在後台）", "line": line_note}
 
     ok, note = await asyncio.to_thread(_send_sync, subject, text)
-    _log(subject, text, ok, note, event)
+    ch = "LINE+Email" if line_ok else "Email"
+    _log(subject, text, ok, note, event, channel=ch)
     if ok or line_ok:
         db.set_setting(f"notify_last:{event}", time.time())
-    return {"sent": ok or bool(line_ok), "note": note, "line": line_note}
+    return {"sent": ok or bool(line_ok), "note": note, "line": line_note, "channel": ch}
 
 
 def recent(limit: int = 50) -> list[dict]:
@@ -390,7 +405,9 @@ def recent(limit: int = 50) -> list[dict]:
             meta = {}
         out.append({"ts": r["ts"], "ok": r["result"] == "ok",
                     "error": r["error_code"], "subject": meta.get("subject"),
-                    "event": meta.get("event"), "transport": meta.get("transport")})
+                    "event": meta.get("event"), "transport": meta.get("transport"),
+                    "channel": meta.get("channel"), "source": meta.get("source"),
+                    "audience": meta.get("audience")})
     return out
 
 
@@ -464,13 +481,15 @@ async def send_digest(days: int = 1) -> dict:
                  f"　本月 {q['month']}/{q['monthly_limit']} 封（剩 {q['monthly_left']}）")
     # 小羅 2026-10-08：每日摘要也發 LINE（若有設定）
     lc = line_conf()
+    line_sent = False
     if lc["token"]:
-        await asyncio.to_thread(_line_sync, f"📊 {subject}\n\n{body}")
+        ok2, _n = await asyncio.to_thread(_line_sync, f"📊 {subject}\n\n{body}")
+        line_sent = bool(ok2)
         if lc["only"]:
-            _log(subject, body, True, "LINE only", "digest")
-            return {"ok": True, "note": "LINE only", "to": "LINE"}
+            _log(subject, body, line_sent, "LINE only", "digest", channel="LINE")
+            return {"ok": line_sent, "note": "LINE only", "to": "LINE"}
     ok, note = await asyncio.to_thread(_send_sync, subject, body)
-    _log(subject, body, ok, note, "digest")
+    _log(subject, body, ok, note, "digest", channel="LINE+Email" if line_sent else "Email")
     return {"ok": ok, "note": note, "to": _recipients(), "transport": transport()}
 
 
@@ -542,7 +561,7 @@ async def send_to(to: str, subject: str, body: str) -> dict:
     if not to:
         return {"ok": False, "reason": "沒有收件人"}
     ok, note = await asyncio.to_thread(_send_one, to, subject, body)
-    _log(subject, f"→ {to}", ok, note, "one")
+    _log(subject, f"→ {to}", ok, note, "one", channel="Email", audience="客人")
     return {"ok": ok, "note": note}
 
 
@@ -565,6 +584,7 @@ async def broadcast(subject: str, body: str, *, only: str = "all") -> dict:
                 failures.append(f"{to}: {note}")
         if i < len(targets) - 1:
             await asyncio.sleep(0.4)      # 避免被限流
-    _log(subject, f"廣播給 {len(targets)} 人", sent > 0, f"成功 {sent}／失敗 {failed}", "broadcast")
+    _log(subject, f"廣播給 {len(targets)} 人", sent > 0, f"成功 {sent}／失敗 {failed}", "broadcast",
+         channel="Email", audience="客人")
     return {"ok": True, "sent": sent, "failed": failed, "total": len(targets),
             "transport": transport(), "failures": failures}

@@ -1417,12 +1417,15 @@ async function pgErrors() {
   }));
 
   $('#n-recent').innerHTML = table([
-    { t: '時間', v: (r) => fmtTime(r.ts) }, { t: '事件', v: 'event' },
+    { t: '時間', v: (r) => fmtTime(r.ts) },
+    { t: '來源', v: (r) => esc(r.source || '轉運站（伺服器）') },
+    { t: '對象', v: (r) => esc(r.audience || '管理者') },
+    { t: '事件', v: 'event' },
     { t: '主旨', v: 'subject' },
-    { t: '結果', v: (r) => r.ok ? '<span class="badge ok">已寄出</span>' : `<span class="badge err">${esc(r.error || '失敗')}</span>`, html: true },
-    { t: '管道', v: 'transport' },
+    { t: '結果', v: (r) => r.ok ? '<span class="badge ok">已送出</span>' : `<span class="badge err">${esc(r.error || '失敗')}</span>`, html: true },
+    { t: '管道', v: (r) => esc(r.channel || r.transport) },
   ], n.recent, '還沒有通知紀錄');
-  queue(`失敗 ${fmtN(d.top_errors.reduce((a, x) => a + x.count, 0))} 次　監控每 ${(p.check_interval || 300) / 60} 分鐘　通知管道：${n.transport}`);
+  queue(`失敗 ${fmtN(d.top_errors.reduce((a, x) => a + x.count, 0))} 次　監控每 ${(p.check_interval || 300) / 60} 分鐘　通知管道：${n.line && n.line.has_token ? ('LINE' + (n.line.only ? '（只走 LINE）' : '＋Email')) : n.transport}`);
 }
 
 // ── 系統 ─────────────────────────────────────────

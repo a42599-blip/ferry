@@ -185,6 +185,30 @@ async def health():
     return {"ok": True, "service": "ferry"}
 
 
+@app.post("/api/monitor/external")
+async def monitor_external(request: Request):
+    """外部監測（GitHub Actions）回報一筆通知 → 只記錄在後台（不再重發 LINE）。
+
+    需帶 X-Monitor-Key（後台設定的 monitor.key）；金鑰未設 = 不開放。
+    """
+    from .services import notify
+
+    key = (db.get_setting("monitor.key") or "").strip()
+    if not key:
+        return JSONResponse({"ok": False, "reason": "未開放"}, status_code=404)
+    if (request.headers.get("x-monitor-key") or "").strip() != key:
+        return JSONResponse({"ok": False, "reason": "金鑰錯誤"}, status_code=403)
+    try:
+        data = await request.json()
+    except Exception:  # noqa: BLE001
+        data = {}
+    title = str(data.get("title") or "外部監測告警")[:120]
+    body = str(data.get("body") or "")[:1000]
+    ok = bool(data.get("ok", False))
+    notify.log_external(title, body, ok=ok, note=str(data.get("note") or "")[:80])
+    return {"ok": True}
+
+
 @app.get("/api/debug/ip")
 async def debug_ip():
     """出口 IP（維運用）：判斷平台是不是因為 IP 而被擋。"""
