@@ -252,41 +252,6 @@ async def members_list(_: dict = Depends(require_admin)) -> dict:
     return {"ok": True, "stats": members.stats(), "members": members.list_full()}
 
 
-@router.post("/debug/threads")
-async def debug_threads(body: dict = Body(default={}), _: dict = Depends(require_admin)) -> dict:
-    """臨時除錯：看伺服器 render 後、還原轉義後 manifest 裡的音軌（測完移除）。"""
-    import json as _json
-    import re as _re
-
-    from ..platforms import _ssr
-
-    url = str(body.get("url") or "").strip()
-    if not url:
-        return {"ok": False, "reason": "no url"}
-    try:
-        page = await _ssr.render_html(url, context_key="threads",
-                                      wait_for=["video_dash_manifest", "video_versions", "image_versions2"],
-                                      tries=22)
-    except Exception as exc:  # noqa: BLE001
-        return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:160]}"}
-    out = {"ok": True, "len": len(page)}
-    m = _re.search(r'"(?:video_)?dash_manifest"\s*:\s*"((?:[^"\\]|\\.)*)"', page)
-    if not m:
-        out["manifest_found"] = False
-        return out
-    out["manifest_found"] = True
-    try:
-        xml = _json.loads('"' + m.group(1) + '"')
-    except Exception as exc:  # noqa: BLE001
-        out["unescape_error"] = str(exc)[:120]
-        return out
-    out["xml_len"] = len(xml)
-    out["mimetypes"] = _re.findall(r'mimeType="([^"]+)"', xml)[:8]
-    out["baseurls"] = _re.findall(r"<BaseURL>(.*?)</BaseURL>", xml, _re.S)[:6]
-    out["has_adaptationset"] = len(_re.findall(r"<AdaptationSet", xml))
-    return out
-
-
 @router.get("/members/deleted")
 async def members_deleted(days: int = Query(0, ge=0, le=3650),
                           _: dict = Depends(require_admin)) -> dict:
