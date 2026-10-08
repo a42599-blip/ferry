@@ -252,6 +252,32 @@ async def members_list(_: dict = Depends(require_admin)) -> dict:
     return {"ok": True, "stats": members.stats(), "members": members.list_full()}
 
 
+@router.post("/debug/threads")
+async def debug_threads(body: dict = Body(default={}), _: dict = Depends(require_admin)) -> dict:
+    """臨時除錯：看伺服器 render 後拿到什麼（測完移除）。"""
+    from ..core import db  # noqa: F401
+    from ..platforms import _ssr
+
+    url = str(body.get("url") or "").strip()
+    if not url:
+        return {"ok": False, "reason": "no url"}
+    try:
+        page = await _ssr.render_html(url, context_key="threads",
+                                      wait_for=["video_dash_manifest", "video_versions", "image_versions2"],
+                                      tries=22, user_agent=None)
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:160]}"}
+    return {
+        "ok": True,
+        "len": len(page),
+        "has_video_dash_manifest": "video_dash_manifest" in page,
+        "has_dash_manifest": "dash_manifest" in page,
+        "has_video_versions": "video_versions" in page,
+        "has_audio_mime": 'mimeType=\"audio' in page or 'mimeType="audio' in page,
+        "counts": {k: page.count(k) for k in ("video_dash_manifest", "video_versions", "dash_manifest")},
+    }
+
+
 @router.get("/members/deleted")
 async def members_deleted(days: int = Query(0, ge=0, le=3650),
                           _: dict = Depends(require_admin)) -> dict:
