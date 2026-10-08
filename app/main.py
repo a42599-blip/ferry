@@ -185,6 +185,35 @@ async def health():
     return {"ok": True, "service": "ferry"}
 
 
+@app.post("/api/line/webhook")
+async def line_webhook(request: Request):
+    """LINE Webhook：抓「加好友／傳訊息」的來源 userId → 存成 line.user_id（只發小羅用）。
+
+    驗簽用 Channel secret（line.secret）；沒設 secret 則不驗（仍可收，但會提醒）。
+    """
+    import base64
+    import hashlib
+    import hmac
+
+    body = await request.body()
+    secret = (db.get_setting("line.secret") or os.getenv("LINE_CHANNEL_SECRET") or "").strip()
+    if secret:
+        want = base64.b64encode(hmac.new(secret.encode(), body, hashlib.sha256).digest()).decode()
+        if not hmac.compare_digest(want, request.headers.get("X-Line-Signature", "")):
+            return JSONResponse({"ok": False, "reason": "bad signature"}, status_code=400)
+    try:
+        data = json.loads(body or b"{}")
+    except Exception:  # noqa: BLE001
+        data = {}
+    got = []
+    for ev in (data.get("events") or []):
+        uid = ((ev.get("source") or {}).get("userId") or "").strip()
+        if uid:
+            db.set_setting("line.user_id", uid)
+            got.append(uid)
+    return {"ok": True, "saved": len(got)}
+
+
 @app.post("/api/monitor/external")
 async def monitor_external(request: Request):
     """外部監測（GitHub Actions）回報一筆通知 → 只記錄在後台（不再重發 LINE）。

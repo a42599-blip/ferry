@@ -698,6 +698,8 @@ async def get_mail(_: dict = Depends(require_admin)) -> dict:
             "has_line_token": bool(lc["token"]),
             "line_only": lc["only"],
             "has_monitor_key": bool((db.get_setting("monitor.key") or "").strip()),
+            "line_user_id": (db.get_setting("line.user_id") or "").strip(),
+            "has_line_secret": bool((db.get_setting("line.secret") or "").strip()),
             "smtp_in_db": bool(db.get_setting("mail.host"))}
 
 
@@ -721,6 +723,10 @@ async def set_mail(body: dict = Body(...), _: dict = Depends(require_admin)) -> 
         db.set_setting("line.only", bool(body["line_only"]))
     if body.get("monitor_key") is not None:
         db.set_setting("monitor.key", str(body["monitor_key"] or "").strip())
+    if body.get("line_secret") is not None:
+        db.set_setting("line.secret", str(body["line_secret"] or "").strip())
+    if body.get("line_user_id") is not None:
+        db.set_setting("line.user_id", str(body["line_user_id"] or "").strip())
     return {"ok": True, "transport": notify.transport()}
 
 
