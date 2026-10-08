@@ -726,11 +726,15 @@ async def test_mail(body: dict = Body(default={}), _: dict = Depends(require_adm
     """寄一封測試信（預設寄給後台設定的管理員信箱）。"""
     from ..services import notify
 
+    lc0 = notify.line_conf()
     to = [str(body.get("to") or "").strip()] if body.get("to") else None
-    r = await notify.send_now(
-        "[轉運站] 寄信測試",
-        "這是一封測試信。\n\n如果你收到這封，代表網站的寄信功能正常。\n\n轉運站  https://scefo.com",
-        to=to)
+    if lc0["only"] and lc0["token"]:
+        r = {"ok": True, "note": "只走 LINE（line_only）", "to": "LINE"}
+    else:
+        r = await notify.send_now(
+            "[轉運站] 寄信測試",
+            "這是一封測試信。\n\n如果你收到這封，代表網站的寄信功能正常。\n\n轉運站  https://scefo.com",
+            to=to)
     lc = notify.line_conf()
     line_note = "（未設定 LINE token）"
     if lc["token"]:
