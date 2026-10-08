@@ -255,7 +255,6 @@ async def members_list(_: dict = Depends(require_admin)) -> dict:
 @router.post("/debug/threads")
 async def debug_threads(body: dict = Body(default={}), _: dict = Depends(require_admin)) -> dict:
     """臨時除錯：看伺服器 render 後拿到什麼（測完移除）。"""
-    from ..core import db  # noqa: F401
     from ..platforms import _ssr
 
     url = str(body.get("url") or "").strip()
@@ -264,33 +263,15 @@ async def debug_threads(body: dict = Body(default={}), _: dict = Depends(require
     try:
         page = await _ssr.render_html(url, context_key="threads",
                                       wait_for=["video_dash_manifest", "video_versions", "image_versions2"],
-                                      tries=22, user_agent=None)
+                                      tries=22)
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:160]}"}
-    import re as _re
-
-    _m = _re.search(r'"(?:video_)?dash_manifest"\s*:\s*"((?:[^"\]|\.)*)"', page)
-    _manifest = ""
-    if _m:
-        try:
-            _manifest = json.loads('"' + _m.group(1) + '"')
-        except Exception:  # noqa: BLE001
-            _manifest = _m.group(1)[:400]
-    _mimes = _re.findall(r'mimeType="([^"]+)"', _manifest)
-    _vids = _re.findall(r'"video_versions"\s*:\s*\[(.{0,400})', page)
-    return {
-        "manifest_len": len(_manifest),
-        "manifest_mimes": _mimes[:6],
-        "manifest_head": _manifest[:600],
-        "video_versions_head": (_vids[0][:300] if _vids else ""),
-        "ok": True,
-        "len": len(page),
-        "has_video_dash_manifest": "video_dash_manifest" in page,
-        "has_dash_manifest": "dash_manifest" in page,
-        "has_video_versions": "video_versions" in page,
-        "has_audio_mime": 'mimeType=\"audio' in page or 'mimeType="audio' in page,
-        "counts": {k: page.count(k) for k in ("video_dash_manifest", "video_versions", "dash_manifest")},
-    }
+    out = {"ok": True, "len": len(page)}
+    for kw in ("video_dash_manifest", "dash_manifest", "video_versions", 'mimeType="audio', 'video/mp4'):
+        out[kw] = page.count(kw)
+    i = page.find("dash_manifest")
+    out["around"] = page[i:i + 400] if i >= 0 else ""
+    return out
 
 
 @router.get("/members/deleted")
