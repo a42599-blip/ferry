@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 
 from ..core.errors import PlatformChanged, PlatformError, PlatformTimeout
 from ..core.http import HttpClient
@@ -64,6 +65,56 @@ _DOUYIN_HDR = {
 #: tikwm 免費版限「每秒 1 次」→ 用一個鎖 + 上次呼叫時間做節流
 _tikwm_lock = asyncio.Lock()
 _tikwm_last = 0.0
+
+# ── 真瀏覽器反偵測＋暖機（2026-10-10 照 v8i8「沒壞的那一個」補齊）──────
+#  v8i8 的抖音會成功、ferry 不成功 → 逐項比對後差在這兩件事：
+#    ① 它有 playwright-stealth（ferry 只有 3 行 init script）
+#    ② 它會先「暖機」開一次首頁，讓常駐 context 有 __ac_nonce／ttwid／UIFID_TEMP
+#       （沒有 cookies 的訪客，抖音根本不發 aweme/detail → 只能拿到推薦影片）
+try:
+    from playwright_stealth import Stealth as _Stealth
+
+    _stealth_obj = _Stealth()
+except Exception:  # noqa: BLE001 — 套件不在也要能跑
+    _stealth_obj = None
+
+_warm_lock = asyncio.Lock()
+_warmed = False
+
+
+async def _stealth(page) -> None:
+    """對單一頁面套用反偵測（照 v8i8；套件不在就跳過）。"""
+    if _stealth_obj is None:
+        return
+    try:
+        await _stealth_obj.apply_stealth_async(page)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+async def _warmup(ctx) -> None:
+    """暖機：整個 process 只做一次（照 v8i8）。"""
+    global _warmed
+    if _warmed:
+        return
+    async with _warm_lock:
+        if _warmed:
+            return
+        _warmed = True
+        page = None
+        try:
+            page = await ctx.new_page()
+            await _stealth(page)
+            await page.goto("https://www.douyin.com/", wait_until="commit", timeout=20000)
+            await asyncio.sleep(3)
+        except Exception as exc:  # noqa: BLE001 — 暖機失敗不影響後續
+            print(f"[douyin] 暖機失敗（不影響後續）：{exc}")
+        finally:
+            if page is not None:
+                try:
+                    await page.close()
+                except Exception:  # noqa: BLE001
+                    pass
 
 
 async def _tikwm_get(http, params: dict) -> dict:
@@ -188,7 +239,9 @@ class DouyinResolver(YtDlpResolver):
         target = f"https://www.douyin.com/video/{aweme_id}" if aweme_id else url
 
         ctx = await get_context("douyin")
+        await _warmup(ctx)
         page = await ctx.new_page()
+        await _stealth(page)
         try:
             try:
                 # `commit`：導覽一送出就回來（不等 domcontentloaded，抖音腳本很重）
@@ -214,11 +267,13 @@ class DouyinResolver(YtDlpResolver):
                 pass
 
         if not html or ("bitRateList" not in html and "playAddr" not in html):
+            print("[douyin] 真瀏覽器讀 SSR：頁面沒有影片資料")
             return None
 
         # ⚠️ 再確認一次：頁面資料真的屬於「我們要的那一支」。
         #    抖音對無效 ID 會直接顯示推薦影片（會拿到錯的影片），必須擋掉。
         if aweme_id and f'"awemeId":"{aweme_id}"' not in html:
+            print("[douyin] 真瀏覽器讀 SSR：頁面資料不是要的那一支")
             return None
 
         return self._parse_ssr(url, html)
@@ -226,60 +281,73 @@ class DouyinResolver(YtDlpResolver):
     async def _via_api_watch(self, url: str) -> VideoInfo | None:
         """用真瀏覽器開抖音頁面，**監聽 `aweme/v1/web/aweme/detail` 的回應**。
 
-        ⚠️ 為什麼要這樣做（2026-09-28 從 v8i8 學到的關鍵）：
-            抖音現在不給 SSR 資料（HTML 是空殼），官方 API 又會回
-            `Blocked by ArgusSecurityPlugin Uifid Not Found`，yt-dlp 也要「新鮮 cookies」。
-            但**讓真瀏覽器自己開頁面**時，它會自己帶正確的 cookies 與簽章去打 API，
-            我們只要「聽」那個回應就好 —— v8i8 就是靠這招成功解析抖音的。
-
-        小羅：「同一個連結 v8i8 可以解析，你的不行。」
+        ⚠️ 2026-10-10 照 v8i8 補齊（小羅：「去參考沒壞的那個」）：
+            抖音對「訪客」很常先回推薦影片、或根本不打 API → 三個關鍵不可省：
+            ① **多目標重試**（第 2 次換 `iesdouyin.com/share/video/<id>`，不同前端）
+            ② **每次用新頁面**（同頁重載不會再打 API）
+            ③ **適時按播放**（按下播放才會觸發 API）
+            ④ 攔到後**驗證 aweme_id**（否則會拿到別人的影片）
         """
         from ..services.browser import get_context
 
         aweme_id = await self._aweme_id(url)
-        target = f"https://www.douyin.com/video/{aweme_id}" if aweme_id else url
-
+        targets = (
+            [f"https://www.douyin.com/video/{aweme_id}",
+             f"https://www.iesdouyin.com/share/video/{aweme_id}",
+             f"https://www.douyin.com/video/{aweme_id}"]
+            if aweme_id else [url]
+        )
         ctx = await get_context("douyin")
-        page = await ctx.new_page()
-        holder: dict = {}
+        await _warmup(ctx)
 
-        async def on_response(resp) -> None:
-            if "aweme/v1/web/aweme/detail" not in resp.url or holder.get("detail"):
-                return
-            try:
-                body = await resp.json()
-            except Exception:  # noqa: BLE001
-                return
-            detail = (body or {}).get("aweme_detail")
-            if detail:
-                holder["detail"] = detail
+        for target in targets:
+            page = await ctx.new_page()
+            await _stealth(page)
+            holder: dict = {}
 
-        page.on("response", on_response)
-        try:
-            try:
-                await page.goto(target, wait_until="commit", timeout=15000)
-            except Exception:  # noqa: BLE001 — 沒載完也可能已攔到 API
-                pass
-            for _ in range(50):                 # 最多等 20 秒
-                if holder.get("detail"):
-                    break
-                await asyncio.sleep(0.4)
-                # 有時候頁面不會自己打 API（例如需要點一下播放）
-                if _ == 3:
-                    try:
-                        await page.evaluate("() => { document.querySelector('video')?.play?.(); }")
-                    except Exception:  # noqa: BLE001
-                        pass
-        finally:
-            try:
-                await page.close()
-            except Exception:  # noqa: BLE001
-                pass
+            async def on_response(resp, _h: dict = holder) -> None:
+                if "aweme/v1/web/aweme/detail" not in resp.url or _h.get("detail"):
+                    return
+                try:
+                    body = await resp.json()
+                except Exception:  # noqa: BLE001
+                    return
+                detail = (body or {}).get("aweme_detail")
+                if detail:
+                    _h["detail"] = detail
 
-        detail = holder.get("detail")
-        if not detail:
-            return None
-        return self._build_official(url, detail)
+            page.on("response", lambda r: asyncio.ensure_future(on_response(r)))
+            try:
+                try:
+                    await page.goto(target, wait_until="commit", timeout=15000)
+                except Exception:  # noqa: BLE001 — 沒載完也可能已攔到 API
+                    pass
+                for i in range(30):                 # 每次最多等 12 秒
+                    if holder.get("detail"):
+                        break
+                    await asyncio.sleep(0.4)
+                    if i in (3, 8):                 # 「按下播放」才會打 API
+                        try:
+                            await page.evaluate(
+                                "() => { const v=document.querySelector('video');"
+                                " if(v){ v.muted=true; v.play?.(); } }")
+                        except Exception:  # noqa: BLE001
+                            pass
+            finally:
+                try:
+                    await page.close()
+                except Exception:  # noqa: BLE001
+                    pass
+
+            detail = holder.get("detail")
+            if not detail:
+                continue
+            got = str(detail.get("aweme_id") or detail.get("awemeId") or "")
+            if aweme_id and got and got != str(aweme_id):
+                continue                            # 攔到別支 → 丟棄
+            return self._build_official(url, detail)
+        print("[douyin] 真瀏覽器攔 API：3 個目標都沒攔到 detail")
+        return None
 
     # ── SSR HTML 解析（抖音把資料直接刻在頁面裡）──────
     def _parse_ssr(self, url: str, html: str) -> VideoInfo:
@@ -309,7 +377,7 @@ class DouyinResolver(YtDlpResolver):
         )
         for size, w, hh, src in pat_br.findall(h):
             hh = int(hh)
-            key = (hh, int(br.get("bit_rate") or 0))
+            key = (hh, int(size))
             if key in seen_h:
                 continue
             seen_h.add(key)
@@ -363,6 +431,7 @@ class DouyinResolver(YtDlpResolver):
             return None
         detail = await _shared.fetch_detail(aweme_id)
         if not detail:
+            print("[douyin] 官方 API（a_bogus）沒回資料（多為 403 風控）")
             return None
         return self._build_official(url, detail)
 
@@ -503,9 +572,11 @@ class DouyinResolver(YtDlpResolver):
         try:
             async with HttpClient() as http:
                 data = await http.get_json(_API, params={"url": url, "hd": 1})
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            print(f"[douyin] tikwm 呼叫失敗：{exc}")
             return None
         if not isinstance(data, dict) or data.get("code") != 0:
+            print(f"[douyin] tikwm 沒回資料（code={(data or {}).get('code') if isinstance(data, dict) else '?'}）")
             return None
         return self._build_tikwm(url, data.get("data") or {})
 

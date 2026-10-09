@@ -49,11 +49,18 @@ async def get_browser() -> Any:
 
         if _playwright is None:
             _playwright = await async_playwright().start()
-        _browser = await _playwright.chromium.launch(
-            headless=True,
-            channel="chromium",          # ⚠️ 新版無頭模式；不能省
-            args=_LAUNCH_ARGS,
-        )
+        try:
+            _browser = await _playwright.chromium.launch(
+                headless=True,
+                channel="chromium",      # ⚠️ 新版無頭模式；不能省
+                args=_LAUNCH_ARGS,
+            )
+        except Exception as exc:  # noqa: BLE001
+            # ⚠️ 2026-10-10（照 v8i8）：容器內若沒有 chromium channel（例如只裝了
+            #    headless shell），launch 會直接拋錯 → 整條瀏覽器路線靜默死掉。
+            #    退回預設 headless 至少還能跑，並把原因印出來（線上 log 看得到）。
+            print(f"[browser] channel=chromium 啟動失敗，退回預設 headless：{exc}")
+            _browser = await _playwright.chromium.launch(headless=True, args=_LAUNCH_ARGS)
         return _browser
 
 

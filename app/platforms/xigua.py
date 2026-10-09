@@ -11,13 +11,13 @@
 
 順序：
   1) iesdouyin.com / ixigua.com 的 `<id>` → 抖音官方 API（`_douyin_shared`）
-  2) yt-dlp（有 cookies 時）
+  2) 官方 API 被風控擋 → **借用抖音模塊的完整路線**（含真瀏覽器攔 API，照 v8i8）
+  3) yt-dlp（有 cookies 時）
 """
 from __future__ import annotations
 
 import re
 
-from ..core.errors import PlatformError
 from ._douyin_shared import resolve_via_douyin
 from ._ytdlp import YtDlpResolver
 
@@ -82,20 +82,31 @@ class XiguaResolver(YtDlpResolver):
     async def resolve(self, url: str):
         url = await _expand_short(url)
         aweme_id = self._aweme_id(url)
+        # yt-dlp 只認得 douyin.com/video/<id>（iesdouyin 會說 Unsupported URL）
+        canonical = (f"https://www.douyin.com/video/{aweme_id}" if aweme_id else url)
         if aweme_id:
             try:
-                info = await resolve_via_douyin(f"https://www.douyin.com/video/{aweme_id}")
+                info = await resolve_via_douyin(canonical)
                 if info is not None:
                     info.platform = self.name
                     info.extra["route"] = "douyin-api"
                     return info
-            except PlatformError:
-                # 抖音 API 失敗（例如影片只在西瓜上架）→ 換 yt-dlp 試
+            except Exception:  # noqa: BLE001 — 官方 API 被風控是常態，往下試下一條
                 pass
+            # 官方 API 被擋（403 風控）→ 借用抖音模塊的完整路線
+            # ⚠️ 2026-10-10：西瓜以前只走「官方 API → yt-dlp」，兩條都會被風控擋 →
+            #    小羅看到的「西瓜說平台要求新的憑證」就是這樣來的。抖音模塊有
+            #    「真瀏覽器攔 API」這條（照 v8i8），西瓜一起用才不會一邊好一邊壞。
+            try:
+                from .douyin import DouyinResolver
+
+                info = await DouyinResolver().resolve(canonical)
+                if info is not None:
+                    info.platform = self.name
+                    info.extra["route"] = "douyin-browser"
+                    return info
             except Exception:  # noqa: BLE001
                 pass
-        # yt-dlp 只認得 douyin.com/video/<id>（iesdouyin 會說 Unsupported URL）
-        canonical = (f"https://www.douyin.com/video/{aweme_id}" if aweme_id else url)
         return await YtDlpResolver.resolve(self, canonical)
 
     @staticmethod
