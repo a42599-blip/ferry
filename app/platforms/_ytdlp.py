@@ -167,6 +167,13 @@ class YtDlpResolver(Resolver):
             return PlatformBlocked(
                 f"{self.label} 被平台阻擋（可能需 cookies）", detail=msg[:200], platform=self.name
             )
+        # ⚠️ 小羅 2026-10-10：yt-dlp 對某些平台（抖音系）要求「新鮮 cookie」＝
+        #    **我們的解析程式要更新**，不是「內容需要登入」→ 不可回「限制觀賞」（會誤導客人）。
+        if "fresh cookies" in low or "cookies are needed" in low:
+            return PlatformChanged(
+                f"{self.label} 解析程式需要更新（平台要求新的憑證）",
+                detail=msg[:200], platform=self.name,
+            )
         if any(k in low for k in ("login", "sign in", "log in", "account", "cookie", "age")):
             return PlatformBlocked(
                 f"{self.label} 需要登入或 cookies 才能解析", detail=msg[:200], platform=self.name
