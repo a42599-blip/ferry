@@ -106,7 +106,7 @@ async def _warmup(ctx) -> None:
             page = await ctx.new_page()
             await _stealth(page)
             await page.goto("https://www.douyin.com/", wait_until="commit", timeout=20000)
-            await asyncio.sleep(3)
+            await asyncio.sleep(2)
         except Exception as exc:  # noqa: BLE001 — 暖機失敗不影響後續
             print(f"[douyin] 暖機失敗（不影響後續）：{exc}")
         finally:
@@ -252,7 +252,7 @@ class DouyinResolver(YtDlpResolver):
             # ⚠️ 要等到「指定的那一支」出現，不能只等 bitRateList
             #    （抖音對載不出來的 ID 會直接顯示推薦影片，那是錯的資料）
             marker = f'"awemeId":"{aweme_id}"' if aweme_id else "bitRateList"
-            for _ in range(50):                      # 最多等 20 秒
+            for _ in range(25):                      # 最多等 10 秒（SSR 幾乎不會有資料，不該拖時間）
                 await asyncio.sleep(0.4)
                 try:
                     html = await page.content()
@@ -322,7 +322,7 @@ class DouyinResolver(YtDlpResolver):
                     await page.goto(target, wait_until="commit", timeout=15000)
                 except Exception:  # noqa: BLE001 — 沒載完也可能已攔到 API
                     pass
-                for i in range(30):                 # 每次最多等 12 秒
+                for i in range(18):                 # 每次最多等 7 秒（實測成功只要 3～9 秒）
                     if holder.get("detail"):
                         break
                     await asyncio.sleep(0.4)
