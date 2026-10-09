@@ -14,7 +14,7 @@ import json
 import re
 import time
 
-from ..core.errors import PlatformBlocked, PlatformChanged, PlatformError, PlatformTimeout
+from ..core.errors import PlatformChanged, PlatformError, PlatformTimeout
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
 from . import _douyin_shared as _shared
@@ -210,11 +210,16 @@ class DouyinResolver(YtDlpResolver):
             #       「這則內容有觀看限制」→ 客人以為是影片自己設了限制）
             _m = _ID_RE.search(url)
             scene = _scene_cache.get(_m.group(1) if _m else "", "")
-            if scene:
-                raise PlatformChanged(f"抖音：{scene}", platform=self.name) from exc
-            raise PlatformBlocked(
-                "抖音：平台暫時取不到這則內容，請稍後再試一次", platform=self.name
-            ) from exc
+            # ── 照其他模塊（脆 threads.py）的同一套寫法：偵測得到就指定那一條，
+            #    偵測不到就誠實回「平台改版了，我們正在修」（我們壞了就是我們壞了）。
+            if scene == "已刪除":
+                raise PlatformError("抖音 這則影片已刪除", platform=self.name,
+                                    code="DELETED") from exc
+            if scene == "沒有公開":
+                raise PlatformError("抖音 這則貼文未開放所有人查看（特定受眾）",
+                                    platform=self.name, code="NOT_PUBLIC") from exc
+            raise PlatformChanged("抖音 解析失敗（平台改版了，我們正在修）",
+                                  platform=self.name) from exc
         except Exception as exc:  # noqa: BLE001
             raise PlatformTimeout(f"抖音解析失敗：{exc}", platform=self.name) from exc
 

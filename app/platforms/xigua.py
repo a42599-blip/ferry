@@ -107,10 +107,10 @@ class XiguaResolver(YtDlpResolver):
                     info.extra["route"] = "douyin-browser"
                     return info
             except PlatformError as exc:
-                # 抖音模塊已經判斷出「客人該看到哪一條訊息」（已刪除／沒公開／
-                # 暫時取不到…）→ 換成西瓜的名字直接往外拋，不要吞掉變成模糊訊息。
-                raise PlatformError(str(exc).replace("抖音", "西瓜"),
-                                    platform=self.name) from exc
+                # 抖音模塊已經判斷出「客人該看到哪一條訊息」（已刪除／未開放…）
+                # → 換成西瓜的名字直接往外拋（連情況代碼一起帶），不要吞成模糊訊息。
+                raise PlatformError(str(exc).replace("抖音", "西瓜"), platform=self.name,
+                                    code=getattr(exc, "code", None)) from exc
             except Exception:  # noqa: BLE001
                 pass
         return await YtDlpResolver.resolve(self, canonical)
