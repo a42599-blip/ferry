@@ -14,7 +14,7 @@ import json
 import re
 import time
 
-from ..core.errors import PlatformChanged, PlatformError, PlatformTimeout
+from ..core.errors import PlatformBlocked, PlatformChanged, PlatformError, PlatformTimeout
 from ..core.http import HttpClient
 from ..core.models import Format, VideoInfo
 from . import _douyin_shared as _shared
@@ -90,6 +90,37 @@ async def _stealth(page) -> None:
         await _stealth_obj.apply_stealth_async(page)
     except Exception:  # noqa: BLE001
         pass
+
+
+#: 抖音頁面上「自己講出原因」的字樣
+#  ⚠️ 2026-10-10 實測：抖音拿不到影片時**只給你看首頁**，什麼都不說
+#   → 所以「沒有這些字樣」時**不可以猜**（不猜成「已刪除」，那只會誤導客人）。
+_SCENE_KEYS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("已刪除", ("作品不存在", "已被删除", "已删除", "视频不存在", "内容不存在",
+                "作品已失效", "该作品无法查看")),
+    ("沒有公開", ("仅限好友", "仅粉丝可见", "仅自己可见", "私密作品", "该作品已被设为私密")),
+    ("直播中", ("正在直播",)),
+    ("圖文", ("图文",)),
+)
+
+#: 短 TTL 場景快取（key=aweme_id）：真瀏覽器路線看到的頁面場景 → 給 resolve() 用
+_scene_cache: dict[str, str] = {}
+
+
+def _scene_from_text(text: str) -> str:
+    """從頁面文字找「抖音自己講的原因」；找不到回空字串（不猜）。"""
+    for keyword, keys in _SCENE_KEYS:
+        for k in keys:
+            if k in text:
+                return keyword
+    return ""
+
+
+def _remember_scene(aweme_id: str, scene: str) -> None:
+    if aweme_id and scene:
+        if len(_scene_cache) > 200:
+            _scene_cache.clear()
+        _scene_cache[aweme_id] = scene
 
 
 async def _warmup(ctx) -> None:
@@ -171,8 +202,20 @@ class DouyinResolver(YtDlpResolver):
         #    （小羅 2026-09-28：「同一個連結 v8i8 可以解析，你的不行」）
         try:
             return await self._resolve_via_ytdlp(url)
-        except PlatformError:
-            raise
+        except PlatformError as exc:
+            # ── 訊息對應（小羅 2026-10-10：「用我們訊息表單裡正確的那一條」）──
+            #  ① 抖音**自己講出原因** → 用那一條（頁面真的這樣寫，不是猜）
+            #  ② 抖音什麼都不說（實測：只給你看首頁）→ **不可以猜**成「已刪除／平台改版」，
+            #     誠實回「暫時取不到，請稍後再試」＝訊息表單的 busy
+            #     （⚠️ 以前一律包成「平台改版了」；被風控擋時還會被譯成
+            #       「這則內容有觀看限制」→ 客人以為是影片自己設了限制）
+            _m = _ID_RE.search(url)
+            scene = _scene_cache.get(_m.group(1) if _m else "", "")
+            if scene:
+                raise PlatformChanged(f"抖音：{scene}", platform=self.name) from exc
+            raise PlatformBlocked(
+                "抖音：平台暫時取不到這則內容，請稍後再試一次", platform=self.name
+            ) from exc
         except Exception as exc:  # noqa: BLE001
             raise PlatformTimeout(f"抖音解析失敗：{exc}", platform=self.name) from exc
 
@@ -293,13 +336,13 @@ class DouyinResolver(YtDlpResolver):
         aweme_id = await self._aweme_id(url)
         targets = (
             [f"https://www.douyin.com/video/{aweme_id}",
-             f"https://www.iesdouyin.com/share/video/{aweme_id}",
-             f"https://www.douyin.com/video/{aweme_id}"]
+             f"https://www.iesdouyin.com/share/video/{aweme_id}"]
             if aweme_id else [url]
         )
         ctx = await get_context("douyin")
         await _warmup(ctx)
 
+        found_scene = ""
         for target in targets:
             page = await ctx.new_page()
             await _stealth(page)
@@ -322,7 +365,7 @@ class DouyinResolver(YtDlpResolver):
                     await page.goto(target, wait_until="commit", timeout=15000)
                 except Exception:  # noqa: BLE001 — 沒載完也可能已攔到 API
                     pass
-                for i in range(18):                 # 每次最多等 7 秒（實測成功只要 3～9 秒）
+                for i in range(20):                 # 每個目標最多等 8 秒（實測成功只要 3～9 秒）
                     if holder.get("detail"):
                         break
                     await asyncio.sleep(0.4)
@@ -333,6 +376,15 @@ class DouyinResolver(YtDlpResolver):
                                 " if(v){ v.muted=true; v.play?.(); } }")
                         except Exception:  # noqa: BLE001
                             pass
+                # 沒攔到 → 讀頁面文字，看抖音有没有「自己說出原因」（有才用，不猜）
+                if not holder.get("detail"):
+                    try:
+                        body = (await page.inner_text("body"))[:2000]
+                        scene = _scene_from_text(body)
+                        if scene:
+                            found_scene = scene
+                    except Exception:  # noqa: BLE001
+                        pass
             finally:
                 try:
                     await page.close()
@@ -346,7 +398,9 @@ class DouyinResolver(YtDlpResolver):
             if aweme_id and got and got != str(aweme_id):
                 continue                            # 攔到別支 → 丟棄
             return self._build_official(url, detail)
-        print("[douyin] 真瀏覽器攔 API：3 個目標都沒攔到 detail")
+        _remember_scene(aweme_id or "", found_scene)
+        print(f"[douyin] 真瀏覽器攔 API：{len(targets)} 個目標都沒攔到 detail"
+              f"（頁面場景：{found_scene or '抖音沒說原因'}）")
         return None
 
     # ── SSR HTML 解析（抖音把資料直接刻在頁面裡）──────
